@@ -8,7 +8,7 @@
 
 | #   | Milestone                          | Scope                                                                                                                              | Status |
 | --- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| M0  | Product & Architecture Planning    | Product spec, domain model, architecture + ADRs, core ERD, API design, docs skeleton                                               | 🟡     |
+| M0  | Product & Architecture Planning    | Product spec, domain model, architecture + ADRs, core ERD, API design, docs skeleton                                               | ✅     |
 | M1  | Monorepo Foundation                | Turborepo + pnpm workspaces, strict TypeScript config, ESLint/Prettier, Husky + Commitlint, CI skeleton                            | 🔲     |
 | M2  | Backend Foundation                 | NestJS bootstrap, validated env config, centralized error handling, logging, Swagger, API versioning, Docker Compose (Postgres + Redis), Prisma init, health checks | 🔲     |
 | M3  | Authentication & Authorization     | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin)                   | 🔲     |

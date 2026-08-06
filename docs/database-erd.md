@@ -115,7 +115,7 @@ erDiagram
         text driver_profile_id FK "nullable until ACCEPTED"
         text vehicle_id FK "nullable until ACCEPTED"
         text fare_quote_id FK
-        enum status "REQUESTED..EXPIRED"
+        enum status "REQUESTED | ACCEPTED | ARRIVED | IN_PROGRESS | COMPLETED | CANCELLED | EXPIRED"
         enum vehicle_type "BIKE | CNG | CAR"
         decimal pickup_lat
         decimal pickup_lng

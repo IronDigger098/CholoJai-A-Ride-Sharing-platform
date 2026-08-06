@@ -42,7 +42,7 @@ seconds.
 - 24, master's student at Dhaka University; commutes daily, often after dark.
 - Uses a mid-range Android phone on a 4G connection that fluctuates.
 - **Goals:** know the fare before booking, see who is picking her up, share her
-  live trip with family.
+  live ride with family.
 - **Frustrations:** haggling with drivers, no-show pickups, not knowing if a
   driver is legitimate.
 - **Success looks like:** she opens the app, sees a fare, books, and tracks
@@ -202,8 +202,11 @@ quality that is *measurable*:
 
 Tracked here until resolved; each resolution becomes an ADR or spec update.
 
-| # | Question | Leaning |
+| # | Question | Resolution |
 | --- | --- | --- |
-| Q1 | Map provider: Leaflet + OpenStreetMap vs Google Maps vs Mapbox | Leaflet + OSM (no API key, free, original look) — decide in M0 architecture |
-| Q2 | Driver simulation: seeded bot drivers vs a second real account | Both: bot drivers for demo mode, real account for E2E |
-| Q3 | Email delivery in dev/prod | Dev: Mailpit (local SMTP); Prod: Resend or SES free tier |
+| Q1 | Map provider: Leaflet + OpenStreetMap vs Google Maps vs Mapbox | ✅ **Resolved** — Leaflet + OSM, with Nominatim/OSRM proxied behind our `/geo/*` endpoints. See `architecture.md` ADR-006. |
+| Q2 | Driver simulation: seeded bot drivers vs a second real account | ✅ **Resolved** — both. Seeded bot drivers ship in the seed script (`database-erd.md` §5) and move via the `ride-simulation` BullMQ queue (`architecture.md` §5); E2E uses a real driver account. |
+| Q3 | Email delivery in dev/prod | ✅ **Resolved** — Mailpit locally via Docker Compose, Resend free tier in production. See `architecture.md` §7. |
+
+No open questions remain for M0. New questions are appended here as they
+arise and must be resolved before the milestone that depends on them.
