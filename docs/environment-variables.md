@@ -11,6 +11,18 @@
 
 ---
 
+## Where `.env` lives
+
+**One file, at the monorepo root** — not one per app. `apps/api` loads it at
+startup via `src/config/load-dotenv.ts`, resolved from the compiled file's
+own location rather than the working directory (which varies with how the
+process was launched). Next.js reads the root `.env` natively.
+
+Loading is skipped entirely when `NODE_ENV=production`: there,
+configuration comes from the platform's secret store. Reading a file from
+disk in production would put secrets on the filesystem and could silently
+mask a missing platform variable during a deploy.
+
 ## Rules
 
 1. **Never commit `.env`.** Only `.env.example`, with placeholder values.
@@ -43,6 +55,7 @@
 | `NOMINATIM_BASE_URL`        | Geocoding upstream                    | public instance          | M6        |
 | `OSRM_BASE_URL`             | Routing upstream                      | public instance          | M6        |
 | `RATE_LIMIT_GLOBAL_PER_MIN` | Global throttle                       | `100`                    | M2        |
+| `SWAGGER_ENABLED`           | Serve API docs at /api/docs           | on unless production     | M2        |
 | `LOG_LEVEL`                 | pino level                            | `info`                   | M2        |
 
 ## `apps/web`

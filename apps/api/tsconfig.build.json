@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    /* The incremental cache MUST live inside outDir.
+       nest-cli.json sets `deleteOutDir: true`, which wipes dist/ before
+       each build. If .tsbuildinfo sits outside dist/ it survives that
+       delete, tsc then believes the output is current, and the build
+       "succeeds" while emitting nothing at all. Colocating the cache with
+       the artifacts it describes makes the two impossible to desynchronise. */
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+  },
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts", "test"]
+}

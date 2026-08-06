@@ -104,14 +104,19 @@ export const baseConfig = [
     },
   },
 
-  /* Test files relax the unsafe-* rules: mocks and fixtures legitimately
-     produce loosely typed values, and fighting that adds noise, not safety. */
+  /* Test files relax the unsafe-* rules: mocks, fixtures, and framework
+     test helpers (Nest's `getHttpServer()` and supertest's `response.body`
+     are both typed `any`) legitimately produce loosely typed values.
+     Fighting that adds noise, not safety — production code keeps the full
+     strictness. */
   {
     files: ['**/*.test.ts', '**/*.spec.ts', '**/__tests__/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
     },
   },

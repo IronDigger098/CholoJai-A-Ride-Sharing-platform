@@ -45,6 +45,13 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      # Build FIRST. Type-aware linting and typechecking of apps/* resolve
+      # types from packages/*'s emitted .d.ts files, which only exist after
+      # a build. Running lint first passes locally (stale dist/ present) and
+      # fails on a clean checkout — exactly the class of bug CI must catch.
+      - name: Build
+        run: pnpm build
+
       - name: Lint
         run: pnpm lint
 
@@ -53,9 +60,6 @@ jobs:
 
       - name: Test
         run: pnpm test
-
-      - name: Build
-        run: pnpm build
 
   commitlint:
     name: Validate commit messages

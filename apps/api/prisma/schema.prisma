@@ -1,0 +1,424 @@
+// CholoJai — database schema.
+//
+// The relational implementation of docs/database-erd.md. Read that document
+// alongside this file: it explains *why* each decision was made, and the
+// design notes referenced here (N1, N2, D2…) live there.
+//
+// Conventions enforced throughout:
+//   • Primary keys are CUIDs — non-guessable, safe in URLs, no volume leak.
+//   • Money is an Int of paisa (1 BDT = 100 paisa) — never a float.
+//   • Coordinates are Decimal(9,6) — ~11cm precision, exact storage.
+//   • Timestamps are timestamptz in UTC.
+//   • Table names are snake_case plural via @@map; models stay PascalCase.
+//   • Every foreign key is indexed. Postgres does NOT do this automatically,
+//     and forgetting it is the most common silent performance bug there is.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Enums — native Postgres enums, so invalid states are unrepresentable in
+//  the database itself and not merely in TypeScript.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  RIDER
+  DRIVER
+  ADMIN
+
+  @@map("user_role")
+}
+
+enum DriverApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("driver_application_status")
+}
+
+enum VehicleType {
+  BIKE
+  CNG
+  CAR
+
+  @@map("vehicle_type")
+}
+
+enum RideStatus {
+  REQUESTED
+  ACCEPTED
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  EXPIRED
+
+  @@map("ride_status")
+}
+
+enum CancelledBy {
+  RIDER
+  DRIVER
+  SYSTEM
+
+  @@map("cancelled_by")
+}
+
+enum PaymentMethod {
+  CASH
+  MOCK_CARD
+  MOCK_WALLET
+
+  @@map("payment_method")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+
+  @@map("payment_status")
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+
+  @@map("verification_purpose")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Identity & access
+// ─────────────────────────────────────────────────────────────────────────
+
+/// A person with an account. Identity and credentials only — role-specific
+/// data hangs off this via RoleGrant and DriverProfile (decision D1).
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  phone        String?   @unique
+  avatarUrl    String?   @map("avatar_url")
+
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+
+  /// Soft delete — the ONLY table that has one. A user must be
+  /// deactivatable while their rides remain intact for audit and FK
+  /// integrity. Rides and payments are history and are never deleted.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  roleGrants         RoleGrant[]
+  driverProfile      DriverProfile?
+  savedPlaces        SavedPlace[]
+  refreshTokens      RefreshToken[]
+  verificationTokens VerificationToken[]
+  ridesAsRider       Ride[]              @relation("RiderRides")
+  payments           Payment[]
+  reviewsAuthored    Review[]            @relation("ReviewAuthor")
+  reviewsReceived    Review[]            @relation("ReviewTarget")
+
+  @@index([deletedAt])
+  @@map("users")
+}
+
+/// Links a user to a role. A row rather than a column on User (note N1):
+/// it carries metadata, and granting or revoking is an insert or delete
+/// instead of a column rewrite.
+model RoleGrant {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  role      UserRole
+  grantedAt DateTime @default(now()) @map("granted_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Doubles as "the same role cannot be granted twice".
+  @@unique([userId, role])
+  @@index([userId])
+  @@map("role_grants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Driver side
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Driver-specific extension of a User. Exists only once a person applies
+/// to drive; a rider who never applies has none.
+model DriverProfile {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+
+  applicationStatus DriverApplicationStatus @default(PENDING) @map("application_status")
+  rejectionReason   String?                 @map("rejection_reason")
+  licenseNoMasked   String?                 @map("license_no_masked")
+  isAvailable       Boolean                 @default(false) @map("is_available")
+
+  /// Denormalised aggregate rating (note N4). Stored as rating × 100 so a
+  /// 4.87 average is the integer 487 — exact, like money. Maintained
+  /// transactionally on each review; computing AVG() over every review on
+  /// each driver-card render is a read cost paid millions of times to
+  /// avoid a write cost paid once.
+  ratingAvgX100 Int @default(0) @map("rating_avg_x100")
+  ratingCount   Int @default(0) @map("rating_count")
+
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicles Vehicle[]
+  rides    Ride[]
+
+  @@index([applicationStatus])
+  @@index([isAvailable])
+  @@map("driver_profiles")
+}
+
+/// A registered means of transport. A driver may own several but has one
+/// active at a time — enforced by a partial unique index (note N2).
+model Vehicle {
+  id              String @id @default(cuid())
+  driverProfileId String @map("driver_profile_id")
+
+  type     VehicleType
+  make     String
+  model    String
+  plateNo  String      @unique @map("plate_no")
+  isActive Boolean     @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  driverProfile DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+  rides         Ride[]
+
+  @@index([driverProfileId])
+  @@map("vehicles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  The ride aggregate
+// ─────────────────────────────────────────────────────────────────────────
+
+/// A short-lived priced offer for a route. `options` is jsonb because a
+/// quote is never aggregated over — unlike the fare snapshot on Ride,
+/// which is queried by analytics and therefore lives in typed columns.
+model FareQuote {
+  id String @id @default(cuid())
+
+  pickupLat      Decimal @map("pickup_lat") @db.Decimal(9, 6)
+  pickupLng      Decimal @map("pickup_lng") @db.Decimal(9, 6)
+  pickupAddress  String  @map("pickup_address")
+  dropoffLat     Decimal @map("dropoff_lat") @db.Decimal(9, 6)
+  dropoffLng     Decimal @map("dropoff_lng") @db.Decimal(9, 6)
+  dropoffAddress String  @map("dropoff_address")
+
+  distanceM Int @map("distance_m")
+  durationS Int @map("duration_s")
+
+  /// Priced options per vehicle type, with the full breakdown.
+  options Json
+
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  rides Ride[]
+
+  @@index([expiresAt])
+  @@map("fare_quotes")
+}
+
+/// The centre of the domain. Driver and vehicle are null until ACCEPTED.
+///
+/// The fare is SNAPSHOTTED here, not referenced (decision D2): pricing
+/// rules change, and a completed ride's receipt must never change with
+/// them. This is the deliberate denormalisation — historical financial
+/// records are copies, not references.
+model Ride {
+  id              String  @id @default(cuid())
+  riderId         String  @map("rider_id")
+  driverProfileId String? @map("driver_profile_id")
+  vehicleId       String? @map("vehicle_id")
+  fareQuoteId     String  @map("fare_quote_id")
+
+  status      RideStatus  @default(REQUESTED)
+  vehicleType VehicleType @map("vehicle_type")
+
+  pickupLat      Decimal @map("pickup_lat") @db.Decimal(9, 6)
+  pickupLng      Decimal @map("pickup_lng") @db.Decimal(9, 6)
+  pickupAddress  String  @map("pickup_address")
+  dropoffLat     Decimal @map("dropoff_lat") @db.Decimal(9, 6)
+  dropoffLng     Decimal @map("dropoff_lng") @db.Decimal(9, 6)
+  dropoffAddress String  @map("dropoff_address")
+
+  distanceM Int @map("distance_m")
+  durationS Int @map("duration_s")
+
+  /// Five typed columns rather than a json blob (note N3), so analytics
+  /// stays plain SQL and a CHECK constraint can verify the arithmetic.
+  fareBasePaisa     Int @map("fare_base_paisa")
+  fareDistancePaisa Int @map("fare_distance_paisa")
+  fareTimePaisa     Int @map("fare_time_paisa")
+  fareDiscountPaisa Int @default(0) @map("fare_discount_paisa")
+  fareTotalPaisa    Int @map("fare_total_paisa")
+
+  cancelledBy  CancelledBy? @map("cancelled_by")
+  cancelReason String?      @map("cancel_reason")
+
+  /// The audit trail IS this set of timestamps — pickup wait time and
+  /// journey duration fall out of them for free.
+  requestedAt DateTime  @default(now()) @map("requested_at") @db.Timestamptz(3)
+  acceptedAt  DateTime? @map("accepted_at") @db.Timestamptz(3)
+  arrivedAt   DateTime? @map("arrived_at") @db.Timestamptz(3)
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+
+  rider         User           @relation("RiderRides", fields: [riderId], references: [id], onDelete: Restrict)
+  driverProfile DriverProfile? @relation(fields: [driverProfileId], references: [id], onDelete: Restrict)
+  vehicle       Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  fareQuote     FareQuote      @relation(fields: [fareQuoteId], references: [id], onDelete: Restrict)
+
+  payment Payment?
+  reviews Review[]
+
+  @@index([riderId, requestedAt(sort: Desc)])
+  @@index([driverProfileId, requestedAt(sort: Desc)])
+  @@index([status])
+  @@index([requestedAt])
+  @@index([vehicleId])
+  @@index([fareQuoteId])
+  @@map("rides")
+}
+
+/// Mock settlement of a completed ride, behind a provider seam so a real
+/// processor is an extension rather than a rewrite.
+model Payment {
+  id      String @id @default(cuid())
+  rideId  String @unique @map("ride_id")
+  payerId String @map("payer_id")
+
+  method      PaymentMethod
+  status      PaymentStatus @default(PENDING)
+  amountPaisa Int           @map("amount_paisa")
+  providerRef String?       @map("provider_ref")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  ride  Ride @relation(fields: [rideId], references: [id], onDelete: Restrict)
+  payer User @relation(fields: [payerId], references: [id], onDelete: Restrict)
+
+  @@index([payerId])
+  @@index([status])
+  @@map("payments")
+}
+
+/// A post-ride rating. Exactly two are possible per ride, one per
+/// direction — enforced by @@unique([rideId, authorId]).
+///
+/// That both parties were actually ON the ride is validated in the rides
+/// service, not here: it requires reading another table, which is a
+/// cross-row business rule rather than a structural constraint (note N5).
+model Review {
+  id       String @id @default(cuid())
+  rideId   String @map("ride_id")
+  authorId String @map("author_id")
+  targetId String @map("target_id")
+
+  rating    Int
+  comment   String?
+  isFlagged Boolean @default(false) @map("is_flagged")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ride   Ride @relation(fields: [rideId], references: [id], onDelete: Restrict)
+  author User @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  target User @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Restrict)
+
+  @@unique([rideId, authorId])
+  @@index([targetId])
+  @@index([rideId])
+  @@map("reviews")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Rider conveniences
+// ─────────────────────────────────────────────────────────────────────────
+
+model SavedPlace {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+
+  label   String
+  lat     Decimal @db.Decimal(9, 6)
+  lng     Decimal @db.Decimal(9, 6)
+  address String
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_places")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Auth tokens (consumed by M3)
+// ─────────────────────────────────────────────────────────────────────────
+
+/// Refresh tokens are stored as SHA-256 hashes, never in plaintext
+/// (note N6): a database leak must not hand out working sessions.
+///
+/// familyId + replacedById implement rotation with reuse detection —
+/// presenting an already-rotated token revokes the entire family.
+model RefreshToken {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+
+  tokenHash    String    @unique @map("token_hash")
+  familyId     String    @map("family_id")
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  replacedById String?   @map("replaced_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+/// Email verification and password reset tokens — also hashed, for the
+/// same reason: a leaked reset token is an account takeover.
+model VerificationToken {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+
+  purpose    VerificationPurpose
+  tokenHash  String              @unique @map("token_hash")
+  expiresAt  DateTime            @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime?           @map("consumed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}

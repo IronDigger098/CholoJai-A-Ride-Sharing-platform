@@ -8,6 +8,10 @@
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
+    /* Keep the incremental cache inside outDir so deleting dist/ always
+       invalidates it — see apps/api/tsconfig.build.json for the failure
+       mode this prevents. */
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "types": ["node"]
   },
   "include": ["src/**/*"],
