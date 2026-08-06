@@ -11,6 +11,10 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:reset": "docker compose down -v && docker compose up -d",
     "build": "turbo run build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

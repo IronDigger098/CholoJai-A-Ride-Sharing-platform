@@ -1,0 +1,92 @@
+# CholoJai — local development infrastructure.
+#
+# One command (`docker compose up -d`) gives every developer an identical
+# Postgres, Redis, and mail catcher. This is why the product spec's success
+# metric — "git clone to running stack without reading anything else" — is
+# achievable: nobody installs or configures a database by hand, and nobody
+# debugs a difference between their Postgres 14 and someone else's 17.
+#
+# Image tags are pinned to a minor version, never `latest`. `latest` means
+# a teammate who pulls next month silently gets a different database than
+# the one your migrations were tested against.
+
+name: cholojai
+
+services:
+  postgres:
+    image: postgres:17.2-alpine
+    container_name: cholojai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cholojai
+      POSTGRES_PASSWORD: cholojai_dev_password
+      POSTGRES_DB: cholojai_dev
+      # Deterministic collation. Without this, index ordering can differ
+      # between machines with different host locales — a genuinely painful
+      # class of "works on my machine" bug in sorted queries.
+      POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
+    ports:
+      # Host port 5433, not 5432: many machines already run a local
+      # Postgres on the default port. Binding elsewhere avoids a silent
+      # collision where the app connects to the wrong database entirely.
+      - '5433:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` returning 0 means the server accepts connections.
+      # Without a healthcheck, `depends_on` only waits for the container to
+      # *start*, not for Postgres to be *ready* — so the API would race the
+      # database on every boot and fail intermittently.
+      test: ['CMD-SHELL', 'pg_isready -U cholojai -d cholojai_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: cholojai-redis
+    restart: unless-stopped
+    # `--appendonly yes` persists to disk, so queued BullMQ jobs and cached
+    # state survive a container restart. Live driver locations are
+    # deliberately ephemeral (domain-model D4) and carry their own TTLs.
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    # Local SMTP sink: the API sends verification and reset emails here
+    # instead of the internet. No real mail can escape a dev machine, and
+    # every message is readable in a web UI — far better than logging the
+    # link to the console and copy-pasting it.
+    image: axllent/mailpit:v1.21
+    container_name: cholojai-mailpit
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - '1025:1025' # SMTP — the API connects here
+      - '8025:8025' # Web UI — open http://localhost:8025 to read mail
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  # Named volumes, not bind mounts: data survives `docker compose down`
+  # but is wiped by `docker compose down -v`, which is exactly the
+  # "give me a clean database" button a developer wants.
+  postgres_data:
+    name: cholojai_postgres_data
+  redis_data:
+    name: cholojai_redis_data

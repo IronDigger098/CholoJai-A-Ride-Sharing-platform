@@ -1,6 +1,9 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "ui": "tui",
+  /* "stream", not "tui": the interactive terminal UI hangs on the
+     cache-write step in Windows PowerShell, and produces unreadable
+     output in CI logs. Streamed output is plain, portable, and greppable. */
+  "ui": "stream",
   "globalDependencies": [".env", "tsconfig.base.json"],
   "globalEnv": ["NODE_ENV"],
   "tasks": {
