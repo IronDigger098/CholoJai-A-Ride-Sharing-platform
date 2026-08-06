@@ -8,14 +8,14 @@
 
 ## Environments
 
-| | Local | Production |
-| --- | --- | --- |
-| Web | `next dev` (:3000) | Vercel |
-| API | `nest start --watch` (:4000) | Railway |
-| PostgreSQL | Docker Compose | Railway managed (daily backups) |
-| Redis | Docker Compose | Railway managed |
-| Email | Mailpit (:8025 UI) | Resend |
-| Images | Cloudinary (dev folder) | Cloudinary (prod folder) |
+|            | Local                        | Production                      |
+| ---------- | ---------------------------- | ------------------------------- |
+| Web        | `next dev` (:3000)           | Vercel                          |
+| API        | `nest start --watch` (:4000) | Railway                         |
+| PostgreSQL | Docker Compose               | Railway managed (daily backups) |
+| Redis      | Docker Compose               | Railway managed                 |
+| Email      | Mailpit (:8025 UI)           | Resend                          |
+| Images     | Cloudinary (dev folder)      | Cloudinary (prod folder)        |
 
 No staging environment in v1. PR previews on Vercel cover frontend review;
 the API is validated by integration tests in CI. If the project grows a
@@ -37,22 +37,26 @@ goes from `git clone` to a running stack without reading anything else.
 
 ## CI (GitHub Actions)
 
-On every pull request:
-
-1. Install (pnpm cache) → 2. Lint → 3. Typecheck → 4. Unit tests →
-5. Integration tests (Postgres + Redis service containers) → 6. Build both
-apps → 7. Playwright E2E on the golden journeys → 8. Lighthouse CI budget
-check on marketing routes.
+On every pull request, in order: install with a pnpm cache, check
+formatting, lint, typecheck, run unit tests, run integration tests against
+Postgres and Redis service containers, build both apps, run Playwright E2E
+over the golden journeys, and check the Lighthouse budget on marketing
+routes. A separate job validates that every commit in the PR follows
+Conventional Commits — hooks can be bypassed with `--no-verify`, CI cannot.
 
 Turborepo caching means unchanged packages skip their steps. All checks are
 required for merge.
+
+**Current state (M1):** install, format, lint, typecheck, test, build, and
+commit validation are live. Integration, E2E, and Lighthouse stages are
+added by the milestones that first need them (M2, M5, M11).
 
 ## Release process
 
 `main` is always deployable. Merging to `main` triggers:
 
 - **Web:** Vercel production deploy (automatic).
-- **API:** Railway deploy — runs `prisma migrate deploy` *before* the new
+- **API:** Railway deploy — runs `prisma migrate deploy` _before_ the new
   process takes traffic.
 
 Semantic versioning with tagged releases (`v1.2.0`) and generated release

@@ -4,8 +4,8 @@
 >
 > Conventions every CholoJai endpoint follows, plus the v1 surface sketch.
 > Contracts are Zod schemas in `packages/shared` (ADR-005); Swagger is
-> generated from them. This document is the *policy*; the generated OpenAPI
-> spec is the *reference*.
+> generated from them. This document is the _policy_; the generated OpenAPI
+> spec is the _reference_.
 
 ---
 
@@ -25,17 +25,17 @@
 
 ## 2. Conventions
 
-| Concern | Convention |
-| --- | --- |
-| Base path | `/api/v1` |
-| Casing | `camelCase` in JSON bodies; `kebab-case` in paths (`/driver-applications`) |
-| IDs | CUIDs in paths: `/rides/clx7f2k9a0001` |
-| Money | Integer paisa, field suffix `Paisa` (`fareTotalPaisa`) — never floats |
-| Timestamps | ISO 8601 UTC (`2026-08-05T14:32:00.000Z`) |
-| Collections | Always an object, never a bare array (see §3) |
-| Auth | `Authorization: Bearer <accessToken>`; only `/auth/refresh` reads the cookie |
-| Correlation | `X-Request-Id` echoed on every response and present in logs |
-| Idempotency | `Idempotency-Key` header honored on `POST /rides` and `POST /payments` |
+| Concern     | Convention                                                                   |
+| ----------- | ---------------------------------------------------------------------------- |
+| Base path   | `/api/v1`                                                                    |
+| Casing      | `camelCase` in JSON bodies; `kebab-case` in paths (`/driver-applications`)   |
+| IDs         | CUIDs in paths: `/rides/clx7f2k9a0001`                                       |
+| Money       | Integer paisa, field suffix `Paisa` (`fareTotalPaisa`) — never floats        |
+| Timestamps  | ISO 8601 UTC (`2026-08-05T14:32:00.000Z`)                                    |
+| Collections | Always an object, never a bare array (see §3)                                |
+| Auth        | `Authorization: Bearer <accessToken>`; only `/auth/refresh` reads the cookie |
+| Correlation | `X-Request-Id` echoed on every response and present in logs                  |
+| Idempotency | `Idempotency-Key` header honored on `POST /rides` and `POST /payments`       |
 
 ### Status codes we actually use
 
@@ -45,8 +45,8 @@ not permitted · `404` not found · `409` state conflict (e.g. ride already
 accepted) · `422` semantically invalid (e.g. expired quote) ·
 `429` rate limited · `500` unexpected.
 
-The `401` vs `403` distinction is deliberate: *who are you?* vs *I know who
-you are and you may not do this.* Conflating them is a common review flag.
+The `401` vs `403` distinction is deliberate: _who are you?_ vs _I know who
+you are and you may not do this._ Conflating them is a common review flag.
 
 ---
 
@@ -62,7 +62,7 @@ you are and you may not do this.* Conflating them is a common review flag.
 
 ```json
 {
-  "data": [ { "id": "clx7..." } ],
+  "data": [{ "id": "clx7..." }],
   "pageInfo": { "nextCursor": "clx7f2k9a0042", "hasNextPage": true }
 }
 ```
@@ -107,7 +107,9 @@ Validation failures add a field-level array:
   "title": "Validation failed",
   "status": 400,
   "code": "VALIDATION_FAILED",
-  "errors": [ { "path": "pickup.lat", "message": "Latitude must be between -90 and 90" } ]
+  "errors": [
+    { "path": "pickup.lat", "message": "Latitude must be between -90 and 90" }
+  ]
 }
 ```
 
@@ -123,17 +125,17 @@ Grouped by module. `🔒` requires auth; `🚗` driver role; `🛡` admin role.
 
 ### Auth — `/api/v1/auth`
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | `/register` | Create account, send verification email |
-| POST | `/login` | Issue access token + refresh cookie |
-| POST | `/refresh` | Rotate refresh token, issue access token |
-| POST | `/logout` 🔒 | Revoke current refresh family |
-| POST | `/verify-email` | Consume email verification token |
-| POST | `/resend-verification` | Re-send verification email (rate limited) |
-| POST | `/forgot-password` | Send reset link (always 204 — see note) |
-| POST | `/reset-password` | Consume reset token, set new password |
-| GET | `/me` 🔒 | Current user, roles, driver profile summary |
+| Method | Path                   | Purpose                                     |
+| ------ | ---------------------- | ------------------------------------------- |
+| POST   | `/register`            | Create account, send verification email     |
+| POST   | `/login`               | Issue access token + refresh cookie         |
+| POST   | `/refresh`             | Rotate refresh token, issue access token    |
+| POST   | `/logout` 🔒           | Revoke current refresh family               |
+| POST   | `/verify-email`        | Consume email verification token            |
+| POST   | `/resend-verification` | Re-send verification email (rate limited)   |
+| POST   | `/forgot-password`     | Send reset link (always 204 — see note)     |
+| POST   | `/reset-password`      | Consume reset token, set new password       |
+| GET    | `/me` 🔒               | Current user, roles, driver profile summary |
 
 > `/forgot-password` returns `204` whether or not the email exists.
 > Returning `404` for unknown emails turns the endpoint into a user
@@ -158,22 +160,22 @@ full breakdown and `expiresAt`.
 
 ### Rides — `/api/v1/rides`
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | `/` 🔒 | Book: consume a quote, create `REQUESTED` ride |
-| GET | `/` 🔒 | My rides (cursor paginated; role-scoped) |
-| GET | `/active` 🔒 | Current non-terminal ride, if any |
-| GET | `/:id` 🔒 | Ride detail (participants + admin only) |
-| POST | `/:id/cancel` 🔒 | Cancel with reason |
-| POST | `/:id/accept` 🔒🚗 | Driver accepts |
-| POST | `/:id/arrive` 🔒🚗 | Driver at pickup |
-| POST | `/:id/start` 🔒🚗 | Begin journey |
-| POST | `/:id/complete` 🔒🚗 | End journey |
+| Method | Path                 | Purpose                                        |
+| ------ | -------------------- | ---------------------------------------------- |
+| POST   | `/` 🔒               | Book: consume a quote, create `REQUESTED` ride |
+| GET    | `/` 🔒               | My rides (cursor paginated; role-scoped)       |
+| GET    | `/active` 🔒         | Current non-terminal ride, if any              |
+| GET    | `/:id` 🔒            | Ride detail (participants + admin only)        |
+| POST   | `/:id/cancel` 🔒     | Cancel with reason                             |
+| POST   | `/:id/accept` 🔒🚗   | Driver accepts                                 |
+| POST   | `/:id/arrive` 🔒🚗   | Driver at pickup                               |
+| POST   | `/:id/start` 🔒🚗    | Begin journey                                  |
+| POST   | `/:id/complete` 🔒🚗 | End journey                                    |
 
-> **The documented exception to "no verbs in URLs."** These are *state
-> transitions*, not resource mutations. `POST /rides/:id/accept` is honest
+> **The documented exception to "no verbs in URLs."** These are _state
+> transitions_, not resource mutations. `POST /rides/:id/accept` is honest
 > about invoking a guarded transition; `PATCH /rides/:id {"status":
-> "ACCEPTED"}` implies the client may set any status and pushes the state
+"ACCEPTED"}` implies the client may set any status and pushes the state
 > machine into the client's hands. Transition-as-sub-resource is the
 > standard pattern for state machines over REST — and each of these maps
 > exactly to one arrow in the domain model's diagram.
@@ -218,12 +220,12 @@ Full CRUD scoped to the calling driver · `PATCH /:id/activate`
 Namespace `/rt`, JWT-authenticated on handshake. Rooms: `ride:{rideId}`,
 `driver:{driverProfileId}`.
 
-| Event | Direction | Payload |
-| --- | --- | --- |
-| `ride.status_changed` | server → client | `{ rideId, status, at }` |
-| `ride.driver_location` | server → client | `{ rideId, lat, lng, headingDeg }` |
+| Event                  | Direction       | Payload                                             |
+| ---------------------- | --------------- | --------------------------------------------------- |
+| `ride.status_changed`  | server → client | `{ rideId, status, at }`                            |
+| `ride.driver_location` | server → client | `{ rideId, lat, lng, headingDeg }`                  |
 | `ride.request_offered` | server → driver | `{ rideId, pickup, dropoff, farePaisa, expiresAt }` |
-| `driver.location_ping` | driver → server | `{ lat, lng, headingDeg }` |
+| `driver.location_ping` | driver → server | `{ lat, lng, headingDeg }`                          |
 
 REST remains the source of truth; sockets are a notification channel. A
 client that misses an event and refetches must see identical state — so
@@ -234,13 +236,13 @@ dropped connections, which on a Dhaka mobile network is not hypothetical.
 
 ## 6. Rate limits (initial)
 
-| Scope | Limit |
-| --- | --- |
-| Global per IP | 100 req / min |
-| `/auth/login`, `/auth/forgot-password` | 5 req / 15 min per IP + per email |
-| `/auth/register`, `/auth/resend-verification` | 3 req / hour per IP |
-| `/geo/search` | 30 req / min per user (protects upstream Nominatim) |
-| `POST /fares/quote` | 60 req / min per user |
+| Scope                                         | Limit                                               |
+| --------------------------------------------- | --------------------------------------------------- |
+| Global per IP                                 | 100 req / min                                       |
+| `/auth/login`, `/auth/forgot-password`        | 5 req / 15 min per IP + per email                   |
+| `/auth/register`, `/auth/resend-verification` | 3 req / hour per IP                                 |
+| `/geo/search`                                 | 30 req / min per user (protects upstream Nominatim) |
+| `POST /fares/quote`                           | 60 req / min per user                               |
 
 Backed by Redis counters (ADR-004). Responses include
 `RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset`.

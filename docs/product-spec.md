@@ -2,12 +2,12 @@
 
 > **Document owner:** Asib · **Status:** Draft for review · **Last updated:** 2026-08-05
 >
-> CholoJai ("চলো যাই" — *let's go*) is a ride-sharing platform for Bangladesh's
+> CholoJai ("চলো যাই" — _let's go_) is a ride-sharing platform for Bangladesh's
 > urban market. This document defines **what** we are building and **for whom**.
 > The **how** lives in `architecture.md`; the data design lives in
 > `database-erd.md`.
 >
-> **Originality note:** CholoJai is inspired by the *publicly observable*
+> **Originality note:** CholoJai is inspired by the _publicly observable_
 > experience of ride-sharing products. All code, branding, UI, content, and
 > architecture in this repository are original work.
 
@@ -75,35 +75,35 @@ seconds.
 
 ### Must have (v1 core — the product is not credible without these)
 
-| Feature | Persona | Notes |
-| --- | --- | --- |
-| Email/password auth with verification | All | JWT + refresh rotation, forgot password |
-| Role-based access (rider / driver / admin) | All | One account, role-scoped capabilities |
-| Marketing website | Public | Landing, how-it-works, safety, fare info |
-| Ride booking workflow (demo) | Rider | Pickup/destination → fare quote → book → matched → track → complete |
-| Fare estimation | Rider | Distance + time + vehicle-type based, transparent breakdown |
-| Real-time driver tracking (simulated) | Rider | Socket.IO; simulated driver movement |
-| Driver onboarding & vehicle management | Driver | Application, document placeholders, vehicle CRUD, admin approval |
-| Ride acceptance flow | Driver | See request → accept/decline → run the ride lifecycle |
-| Rider dashboard | Rider | Ride history, active ride, profile, saved places |
-| Driver dashboard | Driver | Earnings summary, ride history, availability toggle |
-| Admin dashboard | Admin | User/driver management, driver approval queue, ride monitor |
-| Reviews & ratings | Rider ↔ Driver | Mutual post-ride rating, admin moderation |
-| Mock payment flow | Rider | Payment method selection, mock charge, receipt |
-| Responsive, accessible, dark-mode UI | All | WCAG-conscious, keyboard navigable |
+| Feature                                    | Persona        | Notes                                                               |
+| ------------------------------------------ | -------------- | ------------------------------------------------------------------- |
+| Email/password auth with verification      | All            | JWT + refresh rotation, forgot password                             |
+| Role-based access (rider / driver / admin) | All            | One account, role-scoped capabilities                               |
+| Marketing website                          | Public         | Landing, how-it-works, safety, fare info                            |
+| Ride booking workflow (demo)               | Rider          | Pickup/destination → fare quote → book → matched → track → complete |
+| Fare estimation                            | Rider          | Distance + time + vehicle-type based, transparent breakdown         |
+| Real-time driver tracking (simulated)      | Rider          | Socket.IO; simulated driver movement                                |
+| Driver onboarding & vehicle management     | Driver         | Application, document placeholders, vehicle CRUD, admin approval    |
+| Ride acceptance flow                       | Driver         | See request → accept/decline → run the ride lifecycle               |
+| Rider dashboard                            | Rider          | Ride history, active ride, profile, saved places                    |
+| Driver dashboard                           | Driver         | Earnings summary, ride history, availability toggle                 |
+| Admin dashboard                            | Admin          | User/driver management, driver approval queue, ride monitor         |
+| Reviews & ratings                          | Rider ↔ Driver | Mutual post-ride rating, admin moderation                           |
+| Mock payment flow                          | Rider          | Payment method selection, mock charge, receipt                      |
+| Responsive, accessible, dark-mode UI       | All            | WCAG-conscious, keyboard navigable                                  |
 
 ### Should have (v1 if schedule allows, else v1.1)
 
-| Feature | Notes |
-| --- | --- |
-| Coupons & promo codes | Admin creates, rider applies at booking |
-| Referral system | Rider invites rider; both earn credit |
-| In-app notification center | Ride events, promos; email for critical events |
-| Analytics dashboard (admin) | Rides/day, revenue, active drivers, cancellation rate |
-| Blog CMS | Admin-authored posts, public blog with SEO |
-| Careers page + application form | Public listings, applications land in admin |
-| Contact system | Public form → admin inbox |
-| Search | Riders: places & history; Admin: users, rides |
+| Feature                         | Notes                                                 |
+| ------------------------------- | ----------------------------------------------------- |
+| Coupons & promo codes           | Admin creates, rider applies at booking               |
+| Referral system                 | Rider invites rider; both earn credit                 |
+| In-app notification center      | Ride events, promos; email for critical events        |
+| Analytics dashboard (admin)     | Rides/day, revenue, active drivers, cancellation rate |
+| Blog CMS                        | Admin-authored posts, public blog with SEO            |
+| Careers page + application form | Public listings, applications land in admin           |
+| Contact system                  | Public form → admin inbox                             |
+| Search                          | Riders: places & history; Admin: users, rides         |
 
 ### Could have (nice to have, only after Should is done)
 
@@ -121,7 +121,7 @@ seconds.
 - Real-world dispatch/matching at scale — matching is simulated
 - Live customer-support chat
 
-> **Why "Won't have" matters:** scoping *out* is what makes a project
+> **Why "Won't have" matters:** scoping _out_ is what makes a project
 > finishable. Each excluded item has an architectural seam (e.g., a
 > `PaymentProvider` interface) so adding it later is an extension, not a
 > rewrite.
@@ -171,23 +171,23 @@ change visible without refresh.
 
 ## 5. Non-functional requirements
 
-| Category | Requirement |
-| --- | --- |
-| Performance | Lighthouse ≥ 95 (Performance, SEO, Best Practices) on marketing pages; booking flow interactive < 3s on Fast 3G |
-| Accessibility | Lighthouse Accessibility ≥ 95; keyboard-navigable flows; WCAG 2.1 AA color contrast |
-| Security | OWASP-conscious: hashed passwords (argon2/bcrypt), JWT + refresh rotation, rate limiting, input validation on every endpoint, no secrets in code |
-| Reliability | Ride state transitions are atomic; no ride can reach an invalid state |
-| Realtime | Tracking updates ≤ 2s apart during an active ride |
-| i18n | All user-facing strings externalized from day one; locale-aware formatting |
-| Testing | Unit + integration on backend business logic; E2E on the three golden journeys (J1–J3) |
-| Observability | Structured logs with request IDs; health endpoints |
+| Category      | Requirement                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Performance   | Lighthouse ≥ 95 (Performance, SEO, Best Practices) on marketing pages; booking flow interactive < 3s on Fast 3G                                  |
+| Accessibility | Lighthouse Accessibility ≥ 95; keyboard-navigable flows; WCAG 2.1 AA color contrast                                                              |
+| Security      | OWASP-conscious: hashed passwords (argon2/bcrypt), JWT + refresh rotation, rate limiting, input validation on every endpoint, no secrets in code |
+| Reliability   | Ride state transitions are atomic; no ride can reach an invalid state                                                                            |
+| Realtime      | Tracking updates ≤ 2s apart during an active ride                                                                                                |
+| i18n          | All user-facing strings externalized from day one; locale-aware formatting                                                                       |
+| Testing       | Unit + integration on backend business logic; E2E on the three golden journeys (J1–J3)                                                           |
+| Observability | Structured logs with request IDs; health endpoints                                                                                               |
 
 ---
 
 ## 6. Success metrics (for a portfolio project)
 
 Since CholoJai is a demonstration platform, "success" means engineering
-quality that is *measurable*:
+quality that is _measurable_:
 
 - All three golden journeys pass as Playwright E2E suites in CI.
 - Lighthouse budget met (§5) and enforced in CI.
@@ -202,11 +202,11 @@ quality that is *measurable*:
 
 Tracked here until resolved; each resolution becomes an ADR or spec update.
 
-| # | Question | Resolution |
-| --- | --- | --- |
-| Q1 | Map provider: Leaflet + OpenStreetMap vs Google Maps vs Mapbox | ✅ **Resolved** — Leaflet + OSM, with Nominatim/OSRM proxied behind our `/geo/*` endpoints. See `architecture.md` ADR-006. |
-| Q2 | Driver simulation: seeded bot drivers vs a second real account | ✅ **Resolved** — both. Seeded bot drivers ship in the seed script (`database-erd.md` §5) and move via the `ride-simulation` BullMQ queue (`architecture.md` §5); E2E uses a real driver account. |
-| Q3 | Email delivery in dev/prod | ✅ **Resolved** — Mailpit locally via Docker Compose, Resend free tier in production. See `architecture.md` §7. |
+| #   | Question                                                       | Resolution                                                                                                                                                                                        |
+| --- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1  | Map provider: Leaflet + OpenStreetMap vs Google Maps vs Mapbox | ✅ **Resolved** — Leaflet + OSM, with Nominatim/OSRM proxied behind our `/geo/*` endpoints. See `architecture.md` ADR-006.                                                                        |
+| Q2  | Driver simulation: seeded bot drivers vs a second real account | ✅ **Resolved** — both. Seeded bot drivers ship in the seed script (`database-erd.md` §5) and move via the `ride-simulation` BullMQ queue (`architecture.md` §5); E2E uses a real driver account. |
+| Q3  | Email delivery in dev/prod                                     | ✅ **Resolved** — Mailpit locally via Docker Compose, Resend free tier in production. See `architecture.md` §7.                                                                                   |
 
 No open questions remain for M0. New questions are appended here as they
 arise and must be resolved before the milestone that depends on them.

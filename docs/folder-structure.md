@@ -55,7 +55,7 @@ src/
 ```
 
 **Dependency rule:** controller → service → repository, one direction only.
-Cross-module calls go through the other module's *service*, never its
+Cross-module calls go through the other module's _service_, never its
 repository — that boundary is what keeps the monolith modular (ADR-002).
 
 ## `apps/web` — Next.js
@@ -87,5 +87,5 @@ not implement. A feature folder keeps its components, data access, and state
 together, so the whole feature can be understood — or deleted — in one place.
 
 **Promotion rule:** a component starts feature-private in
-`features/x/components/`. It moves to `components/ui/` only when a *second*
+`features/x/components/`. It moves to `components/ui/` only when a _second_
 feature needs it. Abstraction follows demand; it does not anticipate it.

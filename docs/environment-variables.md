@@ -23,36 +23,36 @@
 
 ## `apps/api`
 
-| Variable | Purpose | Example / default | Milestone |
-| --- | --- | --- | --- |
-| `NODE_ENV` | Runtime mode | `development` | M2 |
-| `PORT` | API listen port | `4000` | M2 |
-| `API_BASE_URL` | Public API origin (links in emails) | `http://localhost:4000` | M2 |
-| `WEB_BASE_URL` | Public web origin (CORS, email links) | `http://localhost:3000` | M2 |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://…` | M2 |
-| `REDIS_URL` | Redis connection string | `redis://localhost:6379` | M2 |
-| `JWT_ACCESS_SECRET` | Signs access tokens | 32+ random bytes | M3 |
-| `JWT_ACCESS_TTL` | Access token lifetime | `15m` | M3 |
-| `JWT_REFRESH_SECRET` | Signs refresh tokens | 32+ random bytes | M3 |
-| `JWT_REFRESH_TTL` | Refresh token lifetime | `7d` | M3 |
-| `COOKIE_DOMAIN` | Refresh cookie scope | `localhost` | M3 |
-| `SMTP_HOST` / `SMTP_PORT` | Mail transport (Mailpit in dev) | `localhost` / `1025` | M3 |
-| `MAIL_FROM` | Sender identity | `no-reply@cholojai.app` | M3 |
-| `RESEND_API_KEY` | Production email provider | — | M12 |
-| `CLOUDINARY_URL` | Image storage | — | M7 |
-| `NOMINATIM_BASE_URL` | Geocoding upstream | public instance | M6 |
-| `OSRM_BASE_URL` | Routing upstream | public instance | M6 |
-| `RATE_LIMIT_GLOBAL_PER_MIN` | Global throttle | `100` | M2 |
-| `LOG_LEVEL` | pino level | `info` | M2 |
+| Variable                    | Purpose                               | Example / default        | Milestone |
+| --------------------------- | ------------------------------------- | ------------------------ | --------- |
+| `NODE_ENV`                  | Runtime mode                          | `development`            | M2        |
+| `PORT`                      | API listen port                       | `4000`                   | M2        |
+| `API_BASE_URL`              | Public API origin (links in emails)   | `http://localhost:4000`  | M2        |
+| `WEB_BASE_URL`              | Public web origin (CORS, email links) | `http://localhost:3000`  | M2        |
+| `DATABASE_URL`              | PostgreSQL connection string          | `postgresql://…`         | M2        |
+| `REDIS_URL`                 | Redis connection string               | `redis://localhost:6379` | M2        |
+| `JWT_ACCESS_SECRET`         | Signs access tokens                   | 32+ random bytes         | M3        |
+| `JWT_ACCESS_TTL`            | Access token lifetime                 | `15m`                    | M3        |
+| `JWT_REFRESH_SECRET`        | Signs refresh tokens                  | 32+ random bytes         | M3        |
+| `JWT_REFRESH_TTL`           | Refresh token lifetime                | `7d`                     | M3        |
+| `COOKIE_DOMAIN`             | Refresh cookie scope                  | `localhost`              | M3        |
+| `SMTP_HOST` / `SMTP_PORT`   | Mail transport (Mailpit in dev)       | `localhost` / `1025`     | M3        |
+| `MAIL_FROM`                 | Sender identity                       | `no-reply@cholojai.app`  | M3        |
+| `RESEND_API_KEY`            | Production email provider             | —                        | M12       |
+| `CLOUDINARY_URL`            | Image storage                         | —                        | M7        |
+| `NOMINATIM_BASE_URL`        | Geocoding upstream                    | public instance          | M6        |
+| `OSRM_BASE_URL`             | Routing upstream                      | public instance          | M6        |
+| `RATE_LIMIT_GLOBAL_PER_MIN` | Global throttle                       | `100`                    | M2        |
+| `LOG_LEVEL`                 | pino level                            | `info`                   | M2        |
 
 ## `apps/web`
 
-| Variable | Purpose | Example / default | Milestone |
-| --- | --- | --- | --- |
-| `NEXT_PUBLIC_API_BASE_URL` | Browser → API origin | `http://localhost:4000/api/v1` | M2 |
-| `NEXT_PUBLIC_WS_URL` | Socket.IO endpoint | `http://localhost:4000/rt` | M6 |
-| `NEXT_PUBLIC_SITE_URL` | Canonical URL (SEO, sitemap) | `http://localhost:3000` | M4 |
-| `NEXT_PUBLIC_MAP_TILE_URL` | OSM tile template | OSM default | M6 |
+| Variable                   | Purpose                      | Example / default              | Milestone |
+| -------------------------- | ---------------------------- | ------------------------------ | --------- |
+| `NEXT_PUBLIC_API_BASE_URL` | Browser → API origin         | `http://localhost:4000/api/v1` | M2        |
+| `NEXT_PUBLIC_WS_URL`       | Socket.IO endpoint           | `http://localhost:4000/rt`     | M6        |
+| `NEXT_PUBLIC_SITE_URL`     | Canonical URL (SEO, sitemap) | `http://localhost:3000`        | M4        |
+| `NEXT_PUBLIC_MAP_TILE_URL` | OSM tile template            | OSM default                    | M6        |
 
 ## Secrets management
 

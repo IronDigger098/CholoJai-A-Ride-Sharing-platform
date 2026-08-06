@@ -1,0 +1,24 @@
+{
+  /* The *development* project: every source file, tests included.
+     Editors, ESLint's type-aware rules, and Jest all resolve against this,
+     so a test file is type-checked exactly like production code.
+     Emitting is the separate concern of tsconfig.build.json. */
+  "extends": "@cholojai/tsconfig/library.json",
+  "compilerOptions": {
+    /* CommonJS output, deliberately.
+       NestJS is CommonJS; Next.js bundles either. Shipping a single CJS
+       build avoids dual-package hazard (two copies of the same module in
+       one process) for zero practical loss. Revisit when NestJS ships
+       first-class ESM support. */
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": "./src",
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["jest", "node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

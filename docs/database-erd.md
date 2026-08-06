@@ -13,16 +13,16 @@
 
 ## 1. Conventions
 
-| Concern | Convention | Why |
-| --- | --- | --- |
-| Primary keys | `TEXT` CUIDs (`cuid2`), generated app-side | Non-guessable (no `/rides/42` enumeration), safe to expose in URLs, no cross-table collision. Auto-increment integers leak volume and invite IDOR probing. |
-| Table names | `snake_case` plural via Prisma `@@map` (`users`, `driver_profiles`) | SQL convention; Prisma models stay PascalCase singular. |
-| Money | `INTEGER` in **paisa** (1 BDT = 100 paisa) | Floats cannot represent decimal currency exactly (`0.1 + 0.2 ≠ 0.3`). Integer minor units is the industry standard (Stripe stores cents). |
-| Coordinates | `DECIMAL(9,6)` lat / lng pairs | ~11 cm precision; exact storage. PostGIS is overkill for v1 (ADR note below). |
-| Timestamps | `TIMESTAMPTZ`, UTC, `created_at` everywhere, `updated_at` where rows mutate | Timezone bugs are eliminated at the storage layer; render in local time at the edge. |
-| Enums | PostgreSQL native enums via Prisma | Invalid states unrepresentable *in the database*, not just in TypeScript. |
-| Deletion | Soft delete **only** on `users` (`deleted_at`); hard delete elsewhere | Rides/payments are history — never deleted. Users must be deactivatable while their rides remain (FK integrity + audit). |
-| FKs & indexes | Every FK indexed; `ON DELETE RESTRICT` default | Postgres does not auto-index FK columns — forgetting this is the most common silent performance bug. RESTRICT by default: deleting a user must not cascade-destroy ride history. |
+| Concern       | Convention                                                                  | Why                                                                                                                                                                              |
+| ------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Primary keys  | `TEXT` CUIDs (`cuid2`), generated app-side                                  | Non-guessable (no `/rides/42` enumeration), safe to expose in URLs, no cross-table collision. Auto-increment integers leak volume and invite IDOR probing.                       |
+| Table names   | `snake_case` plural via Prisma `@@map` (`users`, `driver_profiles`)         | SQL convention; Prisma models stay PascalCase singular.                                                                                                                          |
+| Money         | `INTEGER` in **paisa** (1 BDT = 100 paisa)                                  | Floats cannot represent decimal currency exactly (`0.1 + 0.2 ≠ 0.3`). Integer minor units is the industry standard (Stripe stores cents).                                        |
+| Coordinates   | `DECIMAL(9,6)` lat / lng pairs                                              | ~11 cm precision; exact storage. PostGIS is overkill for v1 (ADR note below).                                                                                                    |
+| Timestamps    | `TIMESTAMPTZ`, UTC, `created_at` everywhere, `updated_at` where rows mutate | Timezone bugs are eliminated at the storage layer; render in local time at the edge.                                                                                             |
+| Enums         | PostgreSQL native enums via Prisma                                          | Invalid states unrepresentable _in the database_, not just in TypeScript.                                                                                                        |
+| Deletion      | Soft delete **only** on `users` (`deleted_at`); hard delete elsewhere       | Rides/payments are history — never deleted. Users must be deactivatable while their rides remain (FK integrity + audit).                                                         |
+| FKs & indexes | Every FK indexed; `ON DELETE RESTRICT` default                              | Postgres does not auto-index FK columns — forgetting this is the most common silent performance bug. RESTRICT by default: deleting a user must not cascade-destroy ride history. |
 
 ---
 
@@ -248,7 +248,7 @@ erDiagram
 ### N1 — `role_grants` as a table, not a column
 
 An enum array or a `role` column on `users` would work today, but a grant
-*row* carries metadata (granted_at, and later granted_by) and makes
+_row_ carries metadata (granted_at, and later granted_by) and makes
 adding/revoking a role an insert/delete instead of a column rewrite. Query
 "is user X a driver?" hits `(user_id, role)` — covered by a composite unique
 index (which doubles as "can't grant the same role twice").
@@ -285,7 +285,7 @@ columns (`fare_base/_distance/_time/_discount/_total_paisa`) instead of a
 `jsonb` blob because analytics ("average discount this month") stays plain
 SQL, and `CHECK (fare_total_paisa = fare_base_paisa + fare_distance_paisa +
 fare_time_paisa - fare_discount_paisa)` lets the database verify our
-arithmetic forever. `fare_quotes.options` *is* jsonb, by contrast — quotes
+arithmetic forever. `fare_quotes.options` _is_ jsonb, by contrast — quotes
 are short-lived offers, never aggregated.
 
 ### N4 — `rating_avg_x100` integer, not float
@@ -298,7 +298,7 @@ transactionally with each review insert.
 
 `UNIQUE (ride_id, author_id)` enforces "one review per direction" (domain
 invariant 5). `author_id` and `target_id` both reference `users` — the
-rides service validates that both were actually *on* the ride; the DB can't
+rides service validates that both were actually _on_ the ride; the DB can't
 cheaply express that, and this is a documented example of an invariant that
 lives in the service layer, not the schema.
 
@@ -324,17 +324,17 @@ presenting an already-rotated token revokes the whole family (ADR-008).
 
 ## 4. Index plan (beyond PKs and unique constraints)
 
-| Index | Serves |
-| --- | --- |
-| `rides (rider_id, requested_at DESC)` | rider ride-history page |
-| `rides (driver_profile_id, requested_at DESC)` | driver history/earnings |
-| `rides (status)` | matching + admin live monitor |
-| `rides (requested_at)` | analytics date ranges |
-| `notifications (user_id, read_at)` | unread badge + inbox |
-| `reviews (target_id)` | driver rating recalculation |
-| `coupon_redemptions (coupon_id)`, `(user_id)` | usage-limit checks |
-| `refresh_tokens (user_id)`, `(family_id)` | session listing, family revocation |
-| every FK column | joins + RESTRICT checks (see Conventions) |
+| Index                                          | Serves                                    |
+| ---------------------------------------------- | ----------------------------------------- |
+| `rides (rider_id, requested_at DESC)`          | rider ride-history page                   |
+| `rides (driver_profile_id, requested_at DESC)` | driver history/earnings                   |
+| `rides (status)`                               | matching + admin live monitor             |
+| `rides (requested_at)`                         | analytics date ranges                     |
+| `notifications (user_id, read_at)`             | unread badge + inbox                      |
+| `reviews (target_id)`                          | driver rating recalculation               |
+| `coupon_redemptions (coupon_id)`, `(user_id)`  | usage-limit checks                        |
+| `refresh_tokens (user_id)`, `(family_id)`      | session listing, family revocation        |
+| every FK column                                | joins + RESTRICT checks (see Conventions) |
 
 Rule going forward: **no index without a query that needs it** — each future
 index lands in the migration that ships the query it serves. Unused indexes

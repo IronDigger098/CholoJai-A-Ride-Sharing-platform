@@ -14,23 +14,23 @@
 
 Terms we use — and the near-synonyms we explicitly do **not** use:
 
-| Term | Definition | We do NOT say |
-| --- | --- | --- |
-| **User** | A person with an account. Identity + authentication only. | account, member |
-| **Role** | A capability set granted to a user: `RIDER`, `DRIVER`, `ADMIN`. One user may hold several. | user type |
-| **Rider** | A user acting under the `RIDER` role. Not a separate entity — a role in context. | passenger, customer |
-| **Driver** | A user with an approved **driver profile**, acting under the `DRIVER` role. | partner, captain |
-| **Driver profile** | Driver-specific extension of a user: application status, availability, aggregate rating. | driver account |
-| **Vehicle** | A registered means of transport owned by a driver: `BIKE`, `CNG`, or `CAR`. | car (as generic term) |
-| **Ride** | The central aggregate: one rider's journey from pickup to destination, with its full lifecycle. | trip, booking, order |
-| **Fare quote** | A priced offer (per vehicle type) for a proposed route, valid briefly before booking. | estimate (in code) |
-| **Fare** | The agreed amount, **snapshotted onto the ride** at booking time. | price, cost |
-| **Payment** | The (mock) settlement of a completed ride's fare. | transaction |
-| **Review** | A post-ride rating (1–5) + optional comment. Mutual: rider→driver and driver→rider. | feedback |
-| **Coupon** | An admin-created discount code a rider applies at booking. | promo, voucher |
-| **Referral** | An invitation from one user to another that grants both a credit. | invite |
-| **Saved place** | A rider's named location (Home, Campus…). | favorite |
-| **Notification** | An in-app (and sometimes email) message about a domain event. | alert |
+| Term               | Definition                                                                                      | We do NOT say         |
+| ------------------ | ----------------------------------------------------------------------------------------------- | --------------------- |
+| **User**           | A person with an account. Identity + authentication only.                                       | account, member       |
+| **Role**           | A capability set granted to a user: `RIDER`, `DRIVER`, `ADMIN`. One user may hold several.      | user type             |
+| **Rider**          | A user acting under the `RIDER` role. Not a separate entity — a role in context.                | passenger, customer   |
+| **Driver**         | A user with an approved **driver profile**, acting under the `DRIVER` role.                     | partner, captain      |
+| **Driver profile** | Driver-specific extension of a user: application status, availability, aggregate rating.        | driver account        |
+| **Vehicle**        | A registered means of transport owned by a driver: `BIKE`, `CNG`, or `CAR`.                     | car (as generic term) |
+| **Ride**           | The central aggregate: one rider's journey from pickup to destination, with its full lifecycle. | trip, booking, order  |
+| **Fare quote**     | A priced offer (per vehicle type) for a proposed route, valid briefly before booking.           | estimate (in code)    |
+| **Fare**           | The agreed amount, **snapshotted onto the ride** at booking time.                               | price, cost           |
+| **Payment**        | The (mock) settlement of a completed ride's fare.                                               | transaction           |
+| **Review**         | A post-ride rating (1–5) + optional comment. Mutual: rider→driver and driver→rider.             | feedback              |
+| **Coupon**         | An admin-created discount code a rider applies at booking.                                      | promo, voucher        |
+| **Referral**       | An invitation from one user to another that grants both a credit.                               | invite                |
+| **Saved place**    | A rider's named location (Home, Campus…).                                                       | favorite              |
+| **Notification**   | An in-app (and sometimes email) message about a domain event.                                   | alert                 |
 
 Naming rule for code and schema: these exact terms, in these exact meanings.
 `Ride`, not `Trip`. `fareQuote`, not `estimate`.
@@ -39,10 +39,10 @@ Naming rule for code and schema: these exact terms, in these exact meanings.
 
 ## 2. Core decisions
 
-### D1 — One account, multiple roles *(ratified 2026-08-05)*
+### D1 — One account, multiple roles _(ratified 2026-08-05)_
 
 A single `User` holds identity and credentials. Roles are granted
-independently; a rider can *become* a driver by submitting a driver
+independently; a rider can _become_ a driver by submitting a driver
 application, without a second account.
 
 - **Why:** no duplicated auth/profile logic; matches reality (drivers also
@@ -61,7 +61,7 @@ are copied onto the ride.
   we only stored a reference to the pricing rule, editing tomorrow's rates
   would silently rewrite yesterday's receipts.
 - **This is deliberate denormalization** — the classic exception to "always
-  normalize": *historical financial records are snapshots, not references.*
+  normalize": _historical financial records are snapshots, not references._
 
 ### D3 — Cancellation is one state with metadata, not many states
 
@@ -69,8 +69,8 @@ are copied onto the ride.
 (RIDER | DRIVER | SYSTEM) and a reason code — rather than
 `CANCELLED_BY_RIDER`, `CANCELLED_BY_DRIVER`, … as separate states.
 
-- **Why:** the *machine* behaves identically for all cancellations (ride
-  over, driver freed); only the *reporting* differs. States encode behavior;
+- **Why:** the _machine_ behaves identically for all cancellations (ride
+  over, driver freed); only the _reporting_ differs. States encode behavior;
   metadata encodes detail. Fewer states = fewer transitions to guard.
 
 ### D4 — Live location is ephemeral, not a table
@@ -79,8 +79,8 @@ Driver GPS pings during a ride flow through Socket.IO and are cached in
 Redis (last-known position). They are **not** written to PostgreSQL.
 
 - **Why:** thousands of inserts per ride with near-zero read value after the
-  ride ends. The database stores *domain facts* (pickup, dropoff, distance);
-  Redis handles *transient state*. If we later want route replay, we add an
+  ride ends. The database stores _domain facts_ (pickup, dropoff, distance);
+  Redis handles _transient state_. If we later want route replay, we add an
   explicit, sampled `ride_route_points` table — as a decision, not a default.
 
 ---
@@ -103,15 +103,15 @@ stateDiagram-v2
     EXPIRED --> [*]
 ```
 
-| State | Meaning | Terminal? |
-| --- | --- | --- |
-| `REQUESTED` | Rider confirmed; system is matching a driver | no |
-| `ACCEPTED` | Driver assigned and en route to pickup | no |
-| `ARRIVED` | Driver at pickup point, waiting | no |
-| `IN_PROGRESS` | Rider on board, journey underway | no |
-| `COMPLETED` | Journey finished; fare payable; reviews unlocked | yes |
-| `CANCELLED` | Ended early by rider, driver, or system (see D3) | yes |
-| `EXPIRED` | Matching timed out with no driver | yes |
+| State         | Meaning                                          | Terminal? |
+| ------------- | ------------------------------------------------ | --------- |
+| `REQUESTED`   | Rider confirmed; system is matching a driver     | no        |
+| `ACCEPTED`    | Driver assigned and en route to pickup           | no        |
+| `ARRIVED`     | Driver at pickup point, waiting                  | no        |
+| `IN_PROGRESS` | Rider on board, journey underway                 | no        |
+| `COMPLETED`   | Journey finished; fare payable; reviews unlocked | yes       |
+| `CANCELLED`   | Ended early by rider, driver, or system (see D3) | yes       |
+| `EXPIRED`     | Matching timed out with no driver                | yes       |
 
 **Invariants** (must be enforced in code, in one place):
 
@@ -132,7 +132,7 @@ stateDiagram-v2
 ### Identity & access
 
 - **User** — email, hashed password, name, phone, avatar, verification state.
-  *Has many* roles (via grant), *has one optional* DriverProfile, *has many*
+  _Has many_ roles (via grant), _has one optional_ DriverProfile, _has many_
   saved places, notifications, rides (as rider), reviews (authored and
   received).
 - **RoleGrant** — links a user to a role (`RIDER` granted at signup; `DRIVER`
@@ -185,8 +185,8 @@ begins.
 
 ## 5. Aggregate boundaries (why they matter)
 
-The **Ride** is an *aggregate root*: Payment and Reviews are only ever
-created *through* a ride, and the state-machine invariants (§3) are enforced
+The **Ride** is an _aggregate root_: Payment and Reviews are only ever
+created _through_ a ride, and the state-machine invariants (§3) are enforced
 at this boundary — one service owns every transition. Nothing else in the
 codebase may set `ride.status` directly.
 

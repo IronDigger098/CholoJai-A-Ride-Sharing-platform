@@ -1,0 +1,4 @@
+# Fast feedback: lint and format only the files being committed.
+# Full typecheck and tests run in CI — a pre-commit hook that takes a
+# minute is a hook developers disable.
+pnpm exec lint-staged

@@ -10,14 +10,14 @@
 
 `main` is always deployable and protected. All work happens on branches:
 
-| Prefix | Use |
-| --- | --- |
-| `feat/` | New capability — `feat/ride-booking-flow` |
-| `fix/` | Bug fix — `fix/fare-rounding-error` |
-| `refactor/` | Behaviour-preserving change |
-| `docs/` | Documentation only |
-| `chore/` | Tooling, deps, config |
-| `test/` | Tests only |
+| Prefix      | Use                                       |
+| ----------- | ----------------------------------------- |
+| `feat/`     | New capability — `feat/ride-booking-flow` |
+| `fix/`      | Bug fix — `fix/fare-rounding-error`       |
+| `refactor/` | Behaviour-preserving change               |
+| `docs/`     | Documentation only                        |
+| `chore/`    | Tooling, deps, config                     |
+| `test/`     | Tests only                                |
 
 One branch = one milestone slice or one bug. Long-lived branches rot; if a
 branch outlives a few days, it was scoped too large.
@@ -68,12 +68,12 @@ Squash-merge to `main` so history reads as one commit per logical change.
 
 ## Testing expectations
 
-| Change | Required |
-| --- | --- |
-| Business logic (service) | Unit tests, including failure paths |
-| New/changed endpoint | Integration test: happy path + each error case |
-| Golden journey (J1–J3) affected | Playwright E2E updated |
-| Bug fix | A test that fails before the fix |
+| Change                          | Required                                       |
+| ------------------------------- | ---------------------------------------------- |
+| Business logic (service)        | Unit tests, including failure paths            |
+| New/changed endpoint            | Integration test: happy path + each error case |
+| Golden journey (J1–J3) affected | Playwright E2E updated                         |
+| Bug fix                         | A test that fails before the fix               |
 
 ## Definition of done
 

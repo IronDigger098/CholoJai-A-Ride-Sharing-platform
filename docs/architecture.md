@@ -134,14 +134,14 @@ src/
 └── styles/
 ```
 
-State management is split by *kind of state* — using one tool for all three
+State management is split by _kind of state_ — using one tool for all three
 is the classic junior mistake:
 
-| Kind of state | Tool | Example |
-| --- | --- | --- |
-| Server state (owned by the API) | React Query | rides, profile, quotes |
-| Client UI state (ephemeral, cross-component) | Zustand | booking wizard step, sidebar open |
-| Form state | React Hook Form + Zod | every form |
+| Kind of state                                | Tool                  | Example                           |
+| -------------------------------------------- | --------------------- | --------------------------------- |
+| Server state (owned by the API)              | React Query           | rides, profile, quotes            |
+| Client UI state (ephemeral, cross-component) | Zustand               | booking wizard step, sidebar open |
+| Form state                                   | React Hook Form + Zod | every form                        |
 
 Server Components render everything that doesn't need interactivity
 (marketing pages, blog, static dashboard chrome); Client Components are
@@ -192,7 +192,7 @@ reserved for the interactive islands (map, booking flow, live tracking).
   for WebSockets and long-lived queues).
 - **Consequences:** One deploy, simple local dev, easy transactions. The
   module-boundary rules keep extraction possible if scale ever demands it.
-  This is the architecture Uber and Amazon *started* with — services came
+  This is the architecture Uber and Amazon _started_ with — services came
   when team size forced them.
 
 ### ADR-003 — PostgreSQL + Prisma — **Accepted**
@@ -236,7 +236,7 @@ reserved for the interactive islands (map, booking flow, live tracking).
   cannot disagree. Cost: `nestjs-zod` is an extra integration layer — small
   and worth it.
 
-### ADR-006 — Maps: Leaflet + OpenStreetMap, OSRM for routing — **Accepted** *(resolves product-spec Q1)*
+### ADR-006 — Maps: Leaflet + OpenStreetMap, OSRM for routing — **Accepted** _(resolves product-spec Q1)_
 
 - **Context:** Booking needs an interactive map, geocoding, and route
   distance/duration for fare quotes — with zero budget and original look.
@@ -263,7 +263,7 @@ reserved for the interactive islands (map, booking flow, live tracking).
 - **Consequences:** Cache-friendly, documented, portfolio-visible API.
   Conventions detailed in `api-design.md`.
 
-### ADR-008 — Auth: JWT access token + rotating refresh token — **Accepted** *(details in M3)*
+### ADR-008 — Auth: JWT access token + rotating refresh token — **Accepted** _(details in M3)_
 
 - **Context:** SPA-style dashboards need stateless auth; long sessions need
   revocability.
@@ -279,13 +279,13 @@ reserved for the interactive islands (map, booking flow, live tracking).
 
 ## 7. Environments
 
-| | Local | Production |
-| --- | --- | --- |
-| Web | `next dev` | Vercel |
-| API | `nest start --watch` | Railway |
-| Postgres / Redis | Docker Compose | Railway managed |
-| Email | Mailpit (Compose) | Resend free tier |
-| Images | Cloudinary free tier | Cloudinary → S3 seam |
+|                  | Local                | Production           |
+| ---------------- | -------------------- | -------------------- |
+| Web              | `next dev`           | Vercel               |
+| API              | `nest start --watch` | Railway              |
+| Postgres / Redis | Docker Compose       | Railway managed      |
+| Email            | Mailpit (Compose)    | Resend free tier     |
+| Images           | Cloudinary free tier | Cloudinary → S3 seam |
 
 One command (`pnpm dev` after `docker compose up -d`) runs the full stack
 locally. CI (GitHub Actions) runs lint, typecheck, tests, and build on every

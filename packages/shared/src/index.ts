@@ -1,0 +1,12 @@
+/**
+ * @cholojai/shared — contracts shared by the web app and the API.
+ *
+ * Anything defined here is a promise both sides keep. Adding to this package
+ * means "both apps must agree on this"; if only one app needs it, it does
+ * not belong here.
+ */
+
+export * from './domain/ride-status';
+export * from './domain/roles';
+export * from './domain/vehicle';
+export * from './utils/money';
