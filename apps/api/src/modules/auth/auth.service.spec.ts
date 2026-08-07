@@ -11,6 +11,7 @@ import {
 
 import { EmailAlreadyRegisteredError } from './auth.errors';
 import { AuthService, toUserSummary } from './auth.service';
+import { type EmailVerificationService } from './email-verification.service';
 
 /**
  * An in-memory repository standing in for Postgres.
@@ -62,6 +63,20 @@ class InMemoryUserRepository implements UserRepository {
   }
 }
 
+/**
+ * Records verification sends without touching a token store or a mailer.
+ * `sendVerificationEmail` is the only method registration calls.
+ */
+class RecordingVerificationService {
+  public readonly sentTo: string[] = [];
+  public shouldFail = false;
+
+  public async sendVerificationEmail(user: UserRecord): Promise<void> {
+    if (this.shouldFail) throw new Error('SMTP unavailable');
+    this.sentTo.push(user.email);
+  }
+}
+
 describe('AuthService', () => {
   jest.setTimeout(30_000); // argon2 is intentionally slow
 
@@ -75,11 +90,25 @@ describe('AuthService', () => {
     service: AuthService;
     users: InMemoryUserRepository;
     hasher: PasswordHasherService;
+    verification: RecordingVerificationService;
   } {
     const users = new InMemoryUserRepository();
     const hasher = new PasswordHasherService();
+    const verification = new RecordingVerificationService();
+
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
-    return { service: new AuthService(users, hasher), users, hasher };
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+    return {
+      service: new AuthService(
+        users,
+        hasher,
+        verification as unknown as EmailVerificationService,
+      ),
+      users,
+      hasher,
+      verification,
+    };
   }
 
   afterEach(() => {
@@ -194,6 +223,28 @@ describe('AuthService', () => {
       const { service } = makeService();
       const result = await service.register(validRegistration);
       expect(result.user.phone).toBeNull();
+    });
+
+    it('sends a verification email to the new address', async () => {
+      const { service, verification } = makeService();
+
+      await service.register(validRegistration);
+
+      expect(verification.sentTo).toEqual(['nabila@example.com']);
+    });
+
+    it('still creates the account when the verification email fails', async () => {
+      // The account exists and the password is stored. Failing the whole
+      // request would leave the user unable to retry — their email is now
+      // taken — for a problem entirely on our side. They can request a new
+      // link instead.
+      const { service, users, verification } = makeService();
+      verification.shouldFail = true;
+
+      const result = await service.register(validRegistration);
+
+      expect(result.user.email).toBe('nabila@example.com');
+      expect(users.rows).toHaveLength(1);
     });
 
     it('produces a different hash for two users with the same password', async () => {

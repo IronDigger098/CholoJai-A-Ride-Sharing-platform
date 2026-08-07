@@ -3,6 +3,7 @@ import {
   type RegisterResponse,
   UserRole,
   type UserSummary,
+  type VerifyEmailResponse,
 } from '@cholojai/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
@@ -14,6 +15,7 @@ import {
 } from '../users/user-repository.port';
 
 import { EmailAlreadyRegisteredError } from './auth.errors';
+import { EmailVerificationService } from './email-verification.service';
 
 /**
  * Authentication business logic.
@@ -30,6 +32,7 @@ export class AuthService {
   public constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     private readonly passwordHasher: PasswordHasherService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   /**
@@ -70,10 +73,35 @@ export class AuthService {
        them to a log platform. Identify the actor by id. */
     this.logger.log(`Registered user ${user.id}`);
 
+    /* Send the verification email, but do NOT let a mail failure fail the
+       registration. The account exists and the password is stored; making
+       the whole request fail would leave the user unable to retry (their
+       email is now taken) for a problem entirely on our side. They can
+       request a new link from /auth/resend-verification. */
+    try {
+      await this.emailVerification.sendVerificationEmail(user);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Registered user ${user.id} but the verification email failed to send`,
+        error,
+      );
+    }
+
     return {
       user: toUserSummary(user),
       emailVerificationRequired: true,
     };
+  }
+
+  /** Consume a verification token. Delegates to the verification flow. */
+  public async verifyEmail(token: string): Promise<VerifyEmailResponse> {
+    const user = await this.emailVerification.verify(token);
+    return { user: toUserSummary(user) };
+  }
+
+  /** Request a fresh verification link. Silent about whether it applied. */
+  public async resendVerification(email: string): Promise<void> {
+    await this.emailVerification.resend(email);
   }
 }
 

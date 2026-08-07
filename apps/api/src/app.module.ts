@@ -1,6 +1,7 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 
 import { LoggingModule } from './common/logging/logging.module';
+import { MailModule } from './common/mail/mail.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { ConfigModule } from './config/config.module';
 import { type Env } from './config/env.schema';
@@ -26,6 +27,7 @@ export class AppModule {
         ConfigModule.forRoot(env),
         LoggingModule.forRoot(env),
         PrismaModule,
+        MailModule,
         HealthModule,
         AuthModule,
       ],

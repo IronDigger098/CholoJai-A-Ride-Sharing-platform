@@ -114,3 +114,43 @@ export const registerResponseSchema = z.object({
 });
 
 export type RegisterResponse = z.infer<typeof registerResponseSchema>;
+
+/* ────────────────────────────────────────────────────────────────────────
+   POST /auth/verify-email
+   ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The token arrives in the request body, not the URL.
+ *
+ * A token in a query string leaks: it lands in browser history, in server
+ * access logs, and in the `Referer` header sent to any third-party asset
+ * the confirmation page loads. The email link points at a *web page*, which
+ * reads the token from its own query string and POSTs it here — so the
+ * secret spends its life in one hop rather than in every log along the way.
+ */
+export const verifyEmailRequestSchema = z.object({
+  token: z
+    .string()
+    .min(20, 'Verification token is malformed')
+    .max(200, 'Verification token is malformed'),
+});
+
+export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
+
+export const verifyEmailResponseSchema = z.object({
+  user: userSummarySchema,
+});
+
+export type VerifyEmailResponse = z.infer<typeof verifyEmailResponseSchema>;
+
+/* ────────────────────────────────────────────────────────────────────────
+   POST /auth/resend-verification
+   ──────────────────────────────────────────────────────────────────────── */
+
+export const resendVerificationRequestSchema = z.object({
+  email: emailSchema,
+});
+
+export type ResendVerificationRequest = z.infer<
+  typeof resendVerificationRequestSchema
+>;

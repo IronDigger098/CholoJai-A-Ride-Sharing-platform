@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
 
 import { PasswordHasherService } from '../../common/security/password-hasher.service';
+import { TokenService } from '../../common/security/token.service';
 import { UsersModule } from '../users/users.module';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { EmailVerificationService } from './email-verification.service';
+import { PrismaVerificationTokenRepository } from './prisma-verification-token.repository';
+import { VERIFICATION_TOKEN_REPOSITORY } from './verification-token-repository.port';
 
 /**
  * Authentication.
@@ -17,7 +21,16 @@ import { AuthService } from './auth.service';
 @Module({
   imports: [UsersModule],
   controllers: [AuthController],
-  providers: [AuthService, PasswordHasherService],
+  providers: [
+    AuthService,
+    EmailVerificationService,
+    PasswordHasherService,
+    TokenService,
+    {
+      provide: VERIFICATION_TOKEN_REPOSITORY,
+      useClass: PrismaVerificationTokenRepository,
+    },
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}
