@@ -10,6 +10,7 @@ const validEnv = {
   DATABASE_URL:
     'postgresql://cholojai:pw@localhost:5433/cholojai_dev?schema=public',
   REDIS_URL: 'redis://localhost:6379',
+  JWT_ACCESS_SECRET: 'test-only-access-secret-thirty-two-chars-min',
   SMTP_HOST: 'localhost',
   SMTP_PORT: '1025',
   MAIL_FROM: 'CholoJai <no-reply@cholojai.local>',

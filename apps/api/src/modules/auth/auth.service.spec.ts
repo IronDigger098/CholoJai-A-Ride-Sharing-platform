@@ -1,17 +1,33 @@
 import { UserRole } from '@cholojai/shared';
 import { describe, expect, it, jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 
+import {
+  AccessTokenService,
+  accessTokenJwtOptions,
+} from '../../common/security/access-token.service';
 import { PasswordHasherService } from '../../common/security/password-hasher.service';
+import { TokenService } from '../../common/security/token.service';
+import { makeTestConfig } from '../../testing/env.fixture';
 import {
   type CreateUserInput,
   type UserRecord,
   type UserRepository,
 } from '../users/user-repository.port';
 
-import { EmailAlreadyRegisteredError } from './auth.errors';
+import {
+  EmailAlreadyRegisteredError,
+  InvalidCredentialsError,
+} from './auth.errors';
 import { AuthService, toUserSummary } from './auth.service';
 import { type EmailVerificationService } from './email-verification.service';
+import {
+  type CreateRefreshTokenInput,
+  type RefreshTokenRecord,
+  type RefreshTokenRepository,
+} from './refresh-token-repository.port';
+import { RefreshTokenService } from './refresh-token.service';
 
 /**
  * An in-memory repository standing in for Postgres.
@@ -54,12 +70,65 @@ class InMemoryUserRepository implements UserRepository {
     return record;
   }
 
-  public async updatePasswordHash(): Promise<void> {
-    /* not exercised by these tests */
+  public async updatePasswordHash(
+    userId: string,
+    passwordHash: string,
+  ): Promise<void> {
+    const index = this.rows.findIndex((row) => row.id === userId);
+    const existing = this.rows[index];
+    if (existing !== undefined) {
+      this.rows[index] = { ...existing, passwordHash };
+    }
   }
 
   public async markEmailVerified(): Promise<void> {
     /* not exercised by these tests */
+  }
+}
+
+/** Mutable storage for the fake; the port's record type is readonly. */
+interface StoredRefreshToken {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  familyId: string;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  replacedById: string | null;
+}
+
+class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
+  public readonly rows: StoredRefreshToken[] = [];
+  private nextId = 1;
+
+  public async create(
+    input: CreateRefreshTokenInput,
+  ): Promise<RefreshTokenRecord> {
+    const row: StoredRefreshToken = {
+      id: `rt_${this.nextId++}`,
+      userId: input.userId,
+      tokenHash: input.tokenHash,
+      familyId: input.familyId,
+      expiresAt: input.expiresAt,
+      revokedAt: null,
+      replacedById: null,
+    };
+    this.rows.push(row);
+    return row;
+  }
+
+  public async findByHash(
+    tokenHash: string,
+  ): Promise<RefreshTokenRecord | null> {
+    return this.rows.find((row) => row.tokenHash === tokenHash) ?? null;
+  }
+
+  public async revokeFamily(familyId: string): Promise<number> {
+    const targets = this.rows.filter(
+      (row) => row.familyId === familyId && row.revokedAt === null,
+    );
+    for (const row of targets) row.revokedAt = new Date();
+    return targets.length;
   }
 }
 
@@ -91,12 +160,24 @@ describe('AuthService', () => {
     users: InMemoryUserRepository;
     hasher: PasswordHasherService;
     verification: RecordingVerificationService;
+    refreshTokens: InMemoryRefreshTokenRepository;
+    accessTokens: AccessTokenService;
+    tokens: TokenService;
   } {
+    const config = makeTestConfig();
     const users = new InMemoryUserRepository();
     const hasher = new PasswordHasherService();
     const verification = new RecordingVerificationService();
+    const refreshTokens = new InMemoryRefreshTokenRepository();
+    const tokens = new TokenService();
+
+    const accessTokens = new AccessTokenService(
+      new JwtService(accessTokenJwtOptions(config)),
+      config,
+    );
 
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
 
     return {
@@ -104,10 +185,15 @@ describe('AuthService', () => {
         users,
         hasher,
         verification as unknown as EmailVerificationService,
+        accessTokens,
+        new RefreshTokenService(refreshTokens, tokens, config),
       ),
       users,
       hasher,
       verification,
+      refreshTokens,
+      accessTokens,
+      tokens,
     };
   }
 
@@ -254,6 +340,247 @@ describe('AuthService', () => {
       await service.register({ ...validRegistration, email: 'other@test.bd' });
 
       expect(users.rows[0]?.passwordHash).not.toBe(users.rows[1]?.passwordHash);
+    });
+  });
+
+  describe('login', () => {
+    const credentials = {
+      email: validRegistration.email,
+      password: validRegistration.password,
+    };
+
+    it('returns an access token, its lifetime, and the user', async () => {
+      const { service, accessTokens } = makeService();
+      await service.register(validRegistration);
+
+      const { response } = await service.login(credentials);
+
+      expect(response.tokenType).toBe('Bearer');
+      expect(response.expiresIn).toBe(15 * 60);
+      expect(response.user.email).toBe(credentials.email);
+      expect(accessTokens.verify(response.accessToken).status).toBe('valid');
+    });
+
+    it('puts the user id and roles in the token', async () => {
+      const { service, accessTokens, users } = makeService();
+      await service.register(validRegistration);
+
+      const { response } = await service.login(credentials);
+      const result = accessTokens.verify(response.accessToken);
+
+      expect(result).toMatchObject({
+        status: 'valid',
+        claims: { sub: users.rows[0]?.id, roles: [UserRole.RIDER] },
+      });
+    });
+
+    it('never returns the refresh token in the response body', async () => {
+      // It belongs in an httpOnly cookie. Putting it in the body would hand
+      // it to the very scripts the cookie exists to hide it from.
+      const { service } = makeService();
+      await service.register(validRegistration);
+
+      const { response, refreshToken } = await service.login(credentials);
+
+      expect(refreshToken).toEqual(expect.any(String));
+      expect(JSON.stringify(response)).not.toContain(refreshToken);
+      expect(response).not.toHaveProperty('refreshToken');
+    });
+
+    it('stores only a hash of the refresh token', async () => {
+      const { service, refreshTokens, tokens } = makeService();
+      await service.register(validRegistration);
+
+      const { refreshToken } = await service.login(credentials);
+
+      expect(refreshTokens.rows[0]?.tokenHash).not.toBe(refreshToken);
+      expect(refreshTokens.rows[0]?.tokenHash).toBe(tokens.hash(refreshToken));
+    });
+
+    it('gives each sign-in its own family', async () => {
+      // One family per sign-in is what lets a stolen session be revoked
+      // without signing the user out of their other devices.
+      const { service, refreshTokens } = makeService();
+      await service.register(validRegistration);
+
+      await service.login(credentials);
+      await service.login(credentials);
+
+      expect(refreshTokens.rows).toHaveLength(2);
+      expect(refreshTokens.rows[0]?.familyId).not.toBe(
+        refreshTokens.rows[1]?.familyId,
+      );
+    });
+
+    it('rejects a wrong password', async () => {
+      const { service } = makeService();
+      await service.register(validRegistration);
+
+      await expect(
+        service.login({ ...credentials, password: 'wrong-but-long-enough' }),
+      ).rejects.toThrow(InvalidCredentialsError);
+    });
+
+    it('rejects an unknown address with the SAME error', async () => {
+      // Two different messages here would let anyone with a wordlist
+      // discover which addresses hold accounts.
+      const { service } = makeService();
+      await service.register(validRegistration);
+
+      const messages: string[] = [];
+      for (const attempt of [
+        { ...credentials, password: 'wrong-but-long-enough' },
+        { email: 'stranger@nowhere.test', password: credentials.password },
+      ]) {
+        await service.login(attempt).catch((error: unknown) => {
+          messages.push((error as Error).message);
+        });
+      }
+
+      expect(messages).toHaveLength(2);
+      expect(new Set(messages).size).toBe(1);
+    });
+
+    it('maps a failed sign-in to 401 with a stable code', async () => {
+      const { service } = makeService();
+
+      try {
+        await service.login(credentials);
+        throw new Error('expected a rejection');
+      } catch (error) {
+        expect(error).toBeInstanceOf(InvalidCredentialsError);
+        const failure = error as InvalidCredentialsError;
+        expect(failure.status).toBe(401);
+        expect(failure.code).toBe('INVALID_CREDENTIALS');
+      }
+    });
+
+    it('hashes a decoy when no account exists, to equalise timing', async () => {
+      /* Asserted behaviourally rather than by measuring a stopwatch, which
+         would be flaky on shared CI hardware. What must never regress is
+         that the no-user path still performs an argon2 verification —
+         without it, a fast 401 means "no account" and a slow one means
+         "wrong password", and the identical error message above becomes
+         theatre. */
+      const { service, hasher } = makeService();
+      const decoy = jest.spyOn(hasher, 'verifyAgainstDecoy');
+
+      await service
+        .login({ email: 'stranger@nowhere.test', password: 'anything-at-all' })
+        .catch(() => undefined);
+
+      expect(decoy).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets an unverified account sign in', async () => {
+      /* Deliberate. Refusing would return a different error for a real
+         account than for a fake one — enumeration through the front door —
+         and would strand anyone whose verification mail bounced. */
+      const { service } = makeService();
+      await service.register(validRegistration);
+
+      const { response } = await service.login(credentials);
+
+      expect(response.user.emailVerified).toBe(false);
+    });
+
+    it('upgrades a hash stored with weaker parameters', async () => {
+      // Successful login is the only moment the plaintext is legitimately
+      // in memory, so it is the only moment this can happen.
+      const { service, users, hasher } = makeService();
+      await service.register(validRegistration);
+
+      const legacyHash = users.rows[0]?.passwordHash ?? '';
+      jest.spyOn(hasher, 'needsRehash').mockReturnValue(true);
+
+      await service.login(credentials);
+
+      expect(users.rows[0]?.passwordHash).not.toBe(legacyHash);
+      await expect(
+        hasher.verify(users.rows[0]?.passwordHash ?? '', credentials.password),
+      ).resolves.toBe(true);
+    });
+
+    it('still signs in when the hash upgrade fails', async () => {
+      // The user typed the right password. A storage hiccup on an
+      // optimisation must not become a failed sign-in.
+      const { service, users, hasher } = makeService();
+      await service.register(validRegistration);
+
+      jest.spyOn(hasher, 'needsRehash').mockReturnValue(true);
+      jest
+        .spyOn(users, 'updatePasswordHash')
+        .mockRejectedValue(new Error('database unavailable'));
+
+      await expect(service.login(credentials)).resolves.toBeDefined();
+    });
+  });
+
+  describe('logout', () => {
+    const credentials = {
+      email: validRegistration.email,
+      password: validRegistration.password,
+    };
+
+    it('revokes the token it was given', async () => {
+      const { service, refreshTokens } = makeService();
+      await service.register(validRegistration);
+      const { refreshToken } = await service.login(credentials);
+
+      await service.logout(refreshToken);
+
+      expect(refreshTokens.rows[0]?.revokedAt).not.toBeNull();
+    });
+
+    it('leaves other sessions alone', async () => {
+      // Signing out of a laptop must not sign the user out of their phone.
+      const { service, refreshTokens } = makeService();
+      await service.register(validRegistration);
+      const laptop = await service.login(credentials);
+      await service.login(credentials);
+
+      await service.logout(laptop.refreshToken);
+
+      expect(refreshTokens.rows[0]?.revokedAt).not.toBeNull();
+      expect(refreshTokens.rows[1]?.revokedAt).toBeNull();
+    });
+
+    it('accepts a missing or unknown token without complaint', async () => {
+      // The caller is signed out either way, and an error would tell
+      // someone probing with stolen cookies which of them were real.
+      const { service } = makeService();
+
+      await expect(service.logout(null)).resolves.toBeUndefined();
+      await expect(service.logout('not-a-real-token')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getProfile', () => {
+    it('reads the user fresh rather than from token claims', async () => {
+      const { service, users } = makeService();
+      await service.register(validRegistration);
+      const id = users.rows[0]?.id ?? '';
+
+      // A role granted after the token was issued must still show up here.
+      const existing = users.rows[0];
+      if (existing !== undefined) {
+        users.rows[0] = {
+          ...existing,
+          roles: [UserRole.RIDER, UserRole.DRIVER],
+        };
+      }
+
+      const { user } = await service.getProfile(id);
+
+      expect(user.roles).toEqual([UserRole.RIDER, UserRole.DRIVER]);
+    });
+
+    it('404s for a token whose account no longer exists', async () => {
+      const { service } = makeService();
+
+      await expect(service.getProfile('user_gone')).rejects.toMatchObject({
+        status: 404,
+      });
     });
   });
 

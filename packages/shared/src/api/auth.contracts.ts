@@ -154,3 +154,66 @@ export const resendVerificationRequestSchema = z.object({
 export type ResendVerificationRequest = z.infer<
   typeof resendVerificationRequestSchema
 >;
+
+/* ────────────────────────────────────────────────────────────────────────
+   POST /auth/login
+   ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Sign-in credentials.
+ *
+ * Note what is NOT reused here: `passwordSchema`. Applying the 12-character
+ * minimum to a login form would reject a correct password the moment the
+ * policy tightened, telling an existing user that their own password is
+ * invalid. Policy belongs on the endpoints that *set* a password; the
+ * endpoint that checks one needs only enough validation to bound the work
+ * it will do — hence the length ceiling, which is a denial-of-service
+ * guard on argon2, not a rule about passwords.
+ */
+export const loginRequestSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, 'Enter your password').max(128),
+});
+
+export type LoginRequest = z.infer<typeof loginRequestSchema>;
+
+/**
+ * What a successful sign-in returns.
+ *
+ * The refresh token is conspicuously absent. It travels only in an
+ * httpOnly cookie that the browser attaches automatically, so JavaScript
+ * never holds it and an XSS payload has nothing to read. Putting it in this
+ * body would hand it straight back to the code we are defending against.
+ *
+ * The access token, by contrast, IS in the body: the client keeps it in
+ * memory and sends it as `Authorization: Bearer …`. That asymmetry is the
+ * whole design — the credential reachable by script lives fifteen minutes,
+ * and the one that lives a week is unreachable by script.
+ */
+export const loginResponseSchema = z.object({
+  accessToken: z.string(),
+  tokenType: z.literal('Bearer'),
+  /** Seconds until `accessToken` expires — lets the client refresh early. */
+  expiresIn: z.number().int().positive(),
+  user: userSummarySchema,
+});
+
+export type LoginResponse = z.infer<typeof loginResponseSchema>;
+
+/* ────────────────────────────────────────────────────────────────────────
+   GET /auth/me
+   ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The signed-in user's own profile.
+ *
+ * Read from the database rather than reconstructed from the access token's
+ * claims. A token's `roles` can be up to one access-token lifetime stale;
+ * this endpoint is how a client gets the truth after something changes —
+ * a driver application being approved, for instance.
+ */
+export const meResponseSchema = z.object({
+  user: userSummarySchema,
+});
+
+export type MeResponse = z.infer<typeof meResponseSchema>;

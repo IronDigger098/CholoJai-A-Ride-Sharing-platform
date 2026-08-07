@@ -1,22 +1,45 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { type Request, type Response } from 'express';
 
 import { AuthService } from './auth.service';
+import { type AuthenticatedUser } from './authenticated-request';
+import { CurrentUser } from './current-user.decorator';
+import {
+  LoginRequestDto,
+  LoginResponseDto,
+  MeResponseDto,
+} from './dto/login.dto';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import {
   ResendVerificationRequestDto,
   VerifyEmailRequestDto,
   VerifyEmailResponseDto,
 } from './dto/verify-email.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RefreshCookieService } from './refresh-cookie.service';
 
 /** Shorthand for the shared error schema in Swagger responses. */
 const PROBLEM_DETAILS = {
@@ -35,7 +58,10 @@ const PROBLEM_DETAILS = {
 @ApiTags('Auth')
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
-  public constructor(private readonly authService: AuthService) {}
+  public constructor(
+    private readonly authService: AuthService,
+    private readonly refreshCookie: RefreshCookieService,
+  ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -114,5 +140,116 @@ export class AuthController {
     @Body() body: ResendVerificationRequestDto,
   ): Promise<void> {
     await this.authService.resendVerification(body.email);
+  }
+
+  /**
+   * `@Res({ passthrough: true })` is important.
+   *
+   * Injecting the response object without it hands routing entirely to us:
+   * Nest stops serialising the returned value and the request hangs unless
+   * we call `res.json()` ourselves. `passthrough` means "let me set a
+   * header, you still send the body" — so the return value below is still
+   * validated and serialised the same way as every other endpoint's.
+   */
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Sign in',
+    description:
+      'Exchanges an email and password for a session.\n\n' +
+      'Two credentials come back by two different routes. The **access ' +
+      'token** is in the response body: keep it in memory and send it as ' +
+      '`Authorization: Bearer <token>`. The **refresh token** is set as an ' +
+      'httpOnly cookie and is never exposed to JavaScript — the browser ' +
+      'attaches it automatically to `/api/v1/auth` requests.\n\n' +
+      'Do not store the access token in `localStorage`. Any script running ' +
+      'on the page can read it there, which is exactly what the httpOnly ' +
+      'cookie exists to prevent for the longer-lived half.\n\n' +
+      'An unverified account can sign in. Endpoints that require a ' +
+      'verified address enforce it individually; check `user.emailVerified` ' +
+      'to decide whether to prompt.',
+  })
+  @ApiOkResponse({ description: 'Signed in.', type: LoginResponseDto })
+  @ApiBadRequestResponse({
+    description: 'The request body is malformed.',
+    ...PROBLEM_DETAILS,
+  })
+  @ApiUnauthorizedResponse({
+    description:
+      'The email address or password is incorrect. One response covers ' +
+      'both, so this endpoint cannot be used to discover which addresses ' +
+      'have accounts.',
+    ...PROBLEM_DETAILS,
+  })
+  public async login(
+    @Body() body: LoginRequestDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<LoginResponseDto> {
+    const { response: payload, refreshToken } =
+      await this.authService.login(body);
+
+    this.refreshCookie.set(response, refreshToken);
+
+    return payload;
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Sign out',
+    description:
+      'Revokes the refresh token in the cookie — and every token descended ' +
+      'from the same sign-in — then clears the cookie.\n\n' +
+      'Requires no access token, deliberately: the sign-out button must ' +
+      'keep working after the access token has expired, which it does every ' +
+      'fifteen minutes.\n\n' +
+      'Always 204, whether or not the cookie was present or still valid. ' +
+      'The caller is signed out either way.\n\n' +
+      'The access token is not revoked and stays valid until it expires. ' +
+      'That is the accepted cost of stateless tokens: revoking one would ' +
+      'mean a database lookup on every authenticated request, which is the ' +
+      'entire thing a JWT is chosen to avoid.',
+  })
+  @ApiNoContentResponse({ description: 'Signed out.' })
+  public async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.authService.logout(this.refreshCookie.read(request));
+
+    /* Cleared unconditionally. If revocation failed for a token we could
+       not find, the browser should still stop sending it. */
+    this.refreshCookie.clear(response);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get the signed-in user',
+    description:
+      'Returns the current profile, read from the database rather than ' +
+      'decoded from the access token.\n\n' +
+      'That distinction matters: a token carries the roles the user had ' +
+      'when it was issued, up to fifteen minutes ago. After a driver ' +
+      'application is approved, this endpoint is how the client learns the ' +
+      'new role before the next refresh.',
+  })
+  @ApiOkResponse({ description: 'The current user.', type: MeResponseDto })
+  @ApiUnauthorizedResponse({
+    description:
+      'No access token, or one that is invalid or expired. `code` ' +
+      'distinguishes `ACCESS_TOKEN_EXPIRED` — refresh and retry — from ' +
+      '`INVALID_ACCESS_TOKEN`, which means sign in again.',
+    ...PROBLEM_DETAILS,
+  })
+  @ApiNotFoundResponse({
+    description: 'The account has been deleted since the token was issued.',
+    ...PROBLEM_DETAILS,
+  })
+  public async me(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<MeResponseDto> {
+    return this.authService.getProfile(user.id);
   }
 }

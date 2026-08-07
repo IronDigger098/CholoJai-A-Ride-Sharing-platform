@@ -2,6 +2,7 @@ import 'reflect-metadata';
 
 import { Logger, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger as PinoLogger } from 'nestjs-pino';
 
@@ -37,6 +38,12 @@ async function bootstrap(env: Env): Promise<void> {
      disabled here because this process serves JSON and Swagger UI, not
      documents — the web app sets its own policy. */
   app.use(helmet({ contentSecurityPolicy: false }));
+
+  /* Parse the Cookie header into `request.cookies`. Unsigned, deliberately:
+     signing would authenticate that *we* set the cookie, which the refresh
+     token already proves by being an unguessable value we can look up.
+     A second signature would add a second secret to manage for no gain. */
+  app.use(cookieParser());
 
   /* One filter converts every thrown value into an RFC 9457 problem
      details body. Registered here rather than as an APP_FILTER provider so

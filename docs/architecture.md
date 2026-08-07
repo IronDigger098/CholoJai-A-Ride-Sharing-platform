@@ -277,6 +277,35 @@ reserved for the interactive islands (map, booking flow, live tracking).
 
 ---
 
+### ADR-009 — Refresh tokens are opaque, not JWTs — **Accepted** _(M3.4)_
+
+- **Context:** ADR-008 fixed the two-token shape but left the refresh
+  token's own format open. The obvious choice is symmetry: the access
+  token is a JWT, so make the refresh token one too.
+- **Decision:** The refresh token is 256 bits from the OS CSPRNG, stored
+  as a SHA-256 hash in `refresh_tokens` and looked up by that hash. It
+  carries no signature and needs no signing key, so the application has
+  exactly one JWT secret. Only the access token is a JWT.
+- **Rationale:** A JWT's single advantage is validation without a database
+  read, and a refresh token cannot take it. Revocation on sign-out, on
+  password change, and on detected reuse all require consulting a store on
+  every use. Once that read is unavoidable, the signature does no work —
+  it adds a second key to rotate, a second set of clock-skew rules, and a
+  larger cookie, in exchange for nothing. The database row _is_ the
+  token's validity. Auth0, Okta, and the OAuth 2.0 Security BCP land in
+  the same place for the same reason.
+- **Alternatives:** Signed JWT refresh tokens (rejected — ceremony with no
+  benefit, and a second secret is a second thing to leak); JWT carrying
+  `familyId` so a pruned row can still be traced (rejected — rows are not
+  pruned inside the token's lifetime, so the case does not arise).
+- **Consequences:** One secret instead of two. An unauthenticated caller
+  can force one indexed lookup per garbage string; rate limiting (M3.6) is
+  the answer, since verifying a signature also costs CPU and would not
+  have prevented it. `JWT_REFRESH_SECRET` was removed from the
+  environment before it ever shipped.
+
+---
+
 ## 7. Environments
 
 |                  | Local                | Production           |

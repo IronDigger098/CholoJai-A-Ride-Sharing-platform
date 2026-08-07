@@ -130,7 +130,7 @@ Grouped by module. `🔒` requires auth; `🚗` driver role; `🛡` admin role.
 | POST   | `/register`            | Create account, send verification email     |
 | POST   | `/login`               | Issue access token + refresh cookie         |
 | POST   | `/refresh`             | Rotate refresh token, issue access token    |
-| POST   | `/logout` 🔒           | Revoke current refresh family               |
+| POST   | `/logout`              | Revoke current refresh family               |
 | POST   | `/verify-email`        | Consume email verification token            |
 | POST   | `/resend-verification` | Re-send verification email (rate limited)   |
 | POST   | `/forgot-password`     | Send reset link (always 204 — see note)     |
@@ -140,6 +140,42 @@ Grouped by module. `🔒` requires auth; `🚗` driver role; `🛡` admin role.
 > `/forgot-password` returns `204` whether or not the email exists.
 > Returning `404` for unknown emails turns the endpoint into a user
 > enumeration oracle.
+
+#### How the two tokens travel
+
+`/login` returns two credentials by two different routes, and the asymmetry
+is the entire security design.
+
+The **access token** is a signed JWT in the response body. The client holds
+it in memory and sends it as `Authorization: Bearer …`. It is readable by
+any script on the page, which is exactly why it lives fifteen minutes and
+carries nothing but a user id and roles. It is not revocable — that is the
+price of not consulting the database on every request.
+
+The **refresh token** is an opaque random string in an httpOnly,
+`SameSite=Strict` cookie scoped to `/api/v1/auth`. JavaScript cannot read
+it, so an XSS payload cannot steal it; the browser cannot be tricked into
+sending it cross-site, so the CSRF surface that cookie authentication
+normally opens stays closed. It lives seven days and _is_ revocable,
+because it is a row in `refresh_tokens`.
+
+Neither token should ever be written to `localStorage`.
+
+`/logout` requires no access token, deliberately. The sign-out button must
+keep working after the access token has expired — which it does every
+fifteen minutes — and the cookie is sufficient proof of which session to
+end. It always returns `204`; telling a caller that their cookie was
+unrecognised would help someone probing with stolen ones.
+
+`/login` returns one `401` for a wrong password and for an address with no
+account. The two paths also spend the same time, by hashing a decoy
+password when no user is found — an identical message in front of a
+measurable timing difference is decoration, not a defence.
+
+Failures on protected endpoints distinguish `ACCESS_TOKEN_EXPIRED` from
+`INVALID_ACCESS_TOKEN` in `code`. The client refreshes on the first and
+sends the user to sign in on the second; collapsing them means the app
+logs people out every quarter of an hour.
 
 ### Users — `/api/v1/users`
 

@@ -9,5 +9,16 @@
        the artifacts it describes makes the two impossible to desynchronise. */
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts", "test"]
+  /* `src/testing` holds fixtures shared between spec files. Excluded here
+     so they are type-checked and usable by tests but never emitted into the
+     production bundle — test-only code that ships is test-only code that
+     can be imported by mistake. */
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "test",
+    "src/testing"
+  ]
 }

@@ -1,4 +1,7 @@
 import {
+  type LoginRequest,
+  type LoginResponse,
+  type MeResponse,
   type RegisterRequest,
   type RegisterResponse,
   UserRole,
@@ -7,6 +10,8 @@ import {
 } from '@cholojai/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
+import { ResourceNotFoundError } from '../../common/errors/domain-error';
+import { AccessTokenService } from '../../common/security/access-token.service';
 import { PasswordHasherService } from '../../common/security/password-hasher.service';
 import {
   USER_REPOSITORY,
@@ -14,8 +19,25 @@ import {
   type UserRepository,
 } from '../users/user-repository.port';
 
-import { EmailAlreadyRegisteredError } from './auth.errors';
+import {
+  EmailAlreadyRegisteredError,
+  InvalidCredentialsError,
+} from './auth.errors';
 import { EmailVerificationService } from './email-verification.service';
+import { RefreshTokenService } from './refresh-token.service';
+
+/**
+ * What a successful sign-in produces.
+ *
+ * The refresh token comes back *beside* the response body rather than
+ * inside it, because it does not belong in the body — the controller puts
+ * it in an httpOnly cookie. Returning it as a separate field is how this
+ * service hands over a secret without knowing what a cookie is.
+ */
+export interface LoginResult {
+  readonly response: LoginResponse;
+  readonly refreshToken: string;
+}
 
 /**
  * Authentication business logic.
@@ -33,6 +55,8 @@ export class AuthService {
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     private readonly passwordHasher: PasswordHasherService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly accessTokens: AccessTokenService,
+    private readonly refreshTokens: RefreshTokenService,
   ) {}
 
   /**
@@ -91,6 +115,126 @@ export class AuthService {
       user: toUserSummary(user),
       emailVerificationRequired: true,
     };
+  }
+
+  /**
+   * Exchange credentials for a session.
+   *
+   * Three things happen here that are easy to get wrong, in order:
+   *
+   * **1. Every failure costs the same.** A missing account and a wrong
+   * password both raise `InvalidCredentialsError`, and both spend the same
+   * ~50ms of argon2 — see `verifyAgainstDecoy`. Matching the message
+   * without matching the timing leaves the enumeration hole wide open.
+   *
+   * **2. An unverified address may still sign in.** Deliberate. Refusing
+   * would give a *different* error for a real account than for a fake one,
+   * which is user enumeration reintroduced through the front door; it also
+   * traps someone whose verification mail bounced with no way to reach the
+   * resend button. Verification is enforced where it matters — booking a
+   * ride, becoming a driver — not at the door. The response carries
+   * `emailVerified` so the client can prompt.
+   *
+   * **3. The stored hash is upgraded in passing.** Successful login is the
+   * only moment the plaintext is legitimately in memory, so it is the only
+   * moment a hash produced with older, cheaper parameters can be replaced.
+   */
+  public async login(input: LoginRequest): Promise<LoginResult> {
+    const user = await this.users.findByEmail(input.email);
+
+    if (user === null) {
+      await this.passwordHasher.verifyAgainstDecoy(input.password);
+      this.logger.warn('Failed sign-in: no account for the given address');
+      throw new InvalidCredentialsError();
+    }
+
+    const passwordMatches = await this.passwordHasher.verify(
+      user.passwordHash,
+      input.password,
+    );
+
+    if (!passwordMatches) {
+      this.logger.warn(`Failed sign-in for user ${user.id}: wrong password`);
+      throw new InvalidCredentialsError();
+    }
+
+    await this.upgradePasswordHashIfStale(user, input.password);
+
+    const accessToken = this.accessTokens.sign({
+      sub: user.id,
+      roles: [...user.roles],
+    });
+    const refresh = await this.refreshTokens.issueForNewSession(user.id);
+
+    this.logger.log(`Signed in user ${user.id}`);
+
+    return {
+      response: {
+        accessToken,
+        tokenType: 'Bearer',
+        expiresIn: this.accessTokens.ttlSeconds,
+        user: toUserSummary(user),
+      },
+      refreshToken: refresh.plaintext,
+    };
+  }
+
+  /**
+   * End a session.
+   *
+   * Takes the refresh token rather than the caller's identity, because
+   * signing out is about *this device*, not the account — and because the
+   * cookie is available on a request that may well carry an access token
+   * that expired ten minutes ago. Requiring a valid access token to sign
+   * out would mean the sign-out button stops working before the session does.
+   */
+  public async logout(refreshToken: string | null): Promise<void> {
+    if (refreshToken === null) {
+      // No cookie: nothing to revoke, and the client is clearing its own
+      // state regardless. Silence is the correct response.
+      return;
+    }
+
+    await this.refreshTokens.revokeSession(refreshToken);
+  }
+
+  /** The signed-in user's current profile, read fresh rather than from claims. */
+  public async getProfile(userId: string): Promise<MeResponse> {
+    const user = await this.users.findById(userId);
+
+    if (user === null) {
+      /* A valid, unexpired token for an account that no longer exists —
+         deleted or deactivated since the token was issued. 404 rather than
+         401: the credential is genuine, the subject is gone. */
+      throw new ResourceNotFoundError('user', userId);
+    }
+
+    return { user: toUserSummary(user) };
+  }
+
+  /**
+   * Re-hash a password that was stored with weaker parameters.
+   *
+   * A failure here must not fail the login. The user typed the right
+   * password; their existing hash still verifies; the only loss is that
+   * the upgrade retries next time they sign in.
+   */
+  private async upgradePasswordHashIfStale(
+    user: UserRecord,
+    plaintext: string,
+  ): Promise<void> {
+    if (!this.passwordHasher.needsRehash(user.passwordHash)) return;
+
+    try {
+      const upgraded = await this.passwordHasher.hash(plaintext);
+      await this.users.updatePasswordHash(user.id, upgraded);
+      this.logger.log(`Upgraded password hash parameters for user ${user.id}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Failed to upgrade the password hash for user ${user.id}`,
+        error,
+      );
+    }
   }
 
   /** Consume a verification token. Delegates to the verification flow. */

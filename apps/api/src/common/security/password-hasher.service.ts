@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
+
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { hash, type Options, verify } from '@node-rs/argon2';
 
 /**
@@ -41,8 +43,28 @@ const ARGON2_OPTIONS: Options = {
  * returned to exactly one file.
  */
 @Injectable()
-export class PasswordHasherService {
+export class PasswordHasherService implements OnModuleInit {
   private readonly logger = new Logger(PasswordHasherService.name);
+
+  /**
+   * A hash of a random string nobody knows, used to burn time deliberately.
+   *
+   * Cached as the *promise*, not the value, so concurrent callers during
+   * startup share one computation instead of each paying 50ms.
+   */
+  private decoy: Promise<string> | undefined;
+
+  /**
+   * Warm the decoy at boot.
+   *
+   * Computing it lazily on the first failed login would make that one
+   * request ~50ms slower than its neighbours — a timing signal on exactly
+   * the code path built to eliminate one. Nest awaits this hook before the
+   * application accepts traffic.
+   */
+  public async onModuleInit(): Promise<void> {
+    await this.decoyHash();
+  }
 
   /**
    * Hash a password for storage.
@@ -78,6 +100,45 @@ export class PasswordHasherService {
       );
       return false;
     }
+  }
+
+  /**
+   * Spend the same time verifying as a real check would, and fail.
+   *
+   * This exists because of a timing side channel that is easy to miss. The
+   * natural way to write login is:
+   *
+   * ```ts
+   * const user = await users.findByEmail(email);
+   * if (user === null) throw new InvalidCredentialsError();   // ~1ms
+   * if (!(await verify(user.passwordHash, password))) throw …; // ~50ms
+   * ```
+   *
+   * Both paths return the same 401 with the same body — and are trivially
+   * distinguishable with a stopwatch, because argon2 is deliberately slow
+   * and skipping it is deliberately fast. An attacker with a list of
+   * addresses learns which ones have accounts by timing the responses,
+   * defeating the generic error message entirely.
+   *
+   * Hashing against a decoy makes the two paths cost the same. It is not
+   * perfectly constant-time — nothing over a network is — but it removes
+   * the order-of-magnitude difference that makes the attack practical.
+   *
+   * Always returns `false`; the return type says so, so no call site can
+   * misread it as a check that might pass.
+   */
+  public async verifyAgainstDecoy(plaintext: string): Promise<false> {
+    await this.verify(await this.decoyHash(), plaintext);
+    return false;
+  }
+
+  private decoyHash(): Promise<string> {
+    /* A fresh random secret per process. A hardcoded constant would work
+       just as well for timing, but this way there is no string in the
+       repository that looks like a password hash and invites someone to
+       wonder whether it is one. */
+    this.decoy ??= this.hash(randomBytes(32).toString('base64url'));
+    return this.decoy;
   }
 
   /**

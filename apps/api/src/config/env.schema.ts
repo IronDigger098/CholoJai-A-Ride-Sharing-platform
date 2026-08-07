@@ -66,6 +66,48 @@ export const envSchema = z
         message: 'must be a Redis connection string',
       }),
 
+    // ─── Authentication ─────────────────────────────────────────────────
+    /**
+     * The HMAC key that signs access tokens.
+     *
+     * There is deliberately only one signing secret, because only one
+     * token type is signed. Refresh tokens are opaque random strings
+     * validated against the database, so they have no signature and need
+     * no key — see `RefreshTokenService` for why.
+     *
+     * 32 characters minimum: an HS256 secret shorter than its own digest
+     * is brute-forceable offline once an attacker holds a single token,
+     * and forging a token then costs nothing.
+     */
+    JWT_ACCESS_SECRET: z
+      .string()
+      .min(
+        32,
+        'must be at least 32 characters — generate one, do not invent it',
+      ),
+
+    /**
+     * Access tokens are short-lived because they cannot be revoked.
+     *
+     * A JWT is valid until it expires; there is no list to remove it from
+     * without adding a database lookup to every request, which would
+     * discard the reason for using a JWT at all. Fifteen minutes bounds
+     * the damage from a stolen token while keeping refreshes infrequent.
+     */
+    JWT_ACCESS_TTL_MINUTES: z.coerce.number().int().positive().default(15),
+
+    /** Refresh tokens ARE revocable — they live in the database. */
+    REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
+
+    /**
+     * Cookie scope for the refresh token.
+     *
+     * `localhost` in development. In production this is the API's own
+     * domain — never a parent domain shared with other services, which
+     * would hand the cookie to every subdomain.
+     */
+    COOKIE_DOMAIN: z.string().min(1).default('localhost'),
+
     // ─── Mail ───────────────────────────────────────────────────────────
     SMTP_HOST: z.string().min(1),
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535),
@@ -115,6 +157,23 @@ export const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['WEB_BASE_URL'],
         message: 'must use https in production',
+      });
+    }
+
+    /* The example file ships an obvious placeholder so a fresh clone runs.
+       Shipping it to production would mean anyone who has read this public
+       repository can forge an access token for any user, including an
+       admin. A length check alone would not catch that: the placeholder is
+       comfortably over 32 characters. */
+    if (
+      env.JWT_ACCESS_SECRET.includes('change-me') ||
+      env.JWT_ACCESS_SECRET.includes('example')
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JWT_ACCESS_SECRET'],
+        message:
+          'is still the placeholder from .env.example — generate a real secret',
       });
     }
 

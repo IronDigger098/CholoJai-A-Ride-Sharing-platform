@@ -1,5 +1,6 @@
 import {
   ConflictError,
+  UnauthenticatedError,
   UnprocessableError,
 } from '../../common/errors/domain-error';
 
@@ -74,5 +75,65 @@ export class EmailAlreadyVerifiedError extends ConflictError {
 
   public constructor() {
     super('This email address is already verified. You can sign in.');
+  }
+}
+
+/**
+ * The email/password pair did not authenticate.
+ *
+ * One error for both halves, always. "No account with that email" and
+ * "wrong password" are two different sentences that together let anyone
+ * with a wordlist discover which of a million addresses hold accounts —
+ * and an address that has an account here is, by itself, information about
+ * a person: where they live, that they travel, that they drive for a living.
+ *
+ * The equivalent leak through *timing* is handled in `AuthService.login`,
+ * which hashes a decoy password when no user is found. A vague message in
+ * front of a stopwatch-shaped hole would be theatre.
+ *
+ * Unlike registration, hiding the distinction costs the legitimate user
+ * almost nothing: their next action — check the address, try the password
+ * again, reset it — is the same either way.
+ */
+export class InvalidCredentialsError extends UnauthenticatedError {
+  public readonly code = 'INVALID_CREDENTIALS';
+  public readonly title = 'Sign-in failed';
+
+  public constructor() {
+    super('The email address or password is incorrect.');
+  }
+}
+
+/**
+ * The access token is missing, malformed, or does not verify.
+ *
+ * Distinct from {@link AccessTokenExpiredError} because the client's
+ * correct reaction differs: this one means sign in again.
+ */
+export class InvalidAccessTokenError extends UnauthenticatedError {
+  public readonly code = 'INVALID_ACCESS_TOKEN';
+  public readonly title = 'Not signed in';
+
+  public constructor() {
+    super('Your session is not valid. Please sign in again.');
+  }
+}
+
+/**
+ * The access token was ours and correctly signed, but has expired.
+ *
+ * Its own code so the client can tell "refresh silently" from "send the
+ * user back to the sign-in screen". Without the distinction every expiry —
+ * one every fifteen minutes, per user — looks like a session failure and
+ * the app logs people out constantly.
+ *
+ * This reveals nothing: whoever sends the token already holds it.
+ */
+export class AccessTokenExpiredError extends UnauthenticatedError {
+  public readonly code = 'ACCESS_TOKEN_EXPIRED';
+  public readonly title = 'Session expired';
+
+  public constructor() {
+    super('Your session has expired. Refresh it or sign in again.');
   }
 }

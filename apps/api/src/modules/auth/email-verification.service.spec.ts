@@ -4,8 +4,7 @@ import { Logger } from '@nestjs/common';
 
 import { type EmailMessage, type Mailer } from '../../common/mail/mailer.port';
 import { TokenService } from '../../common/security/token.service';
-import { AppConfigService } from '../../config/app-config.service';
-import { parseEnv } from '../../config/env.schema';
+import { makeTestConfig } from '../../testing/env.fixture';
 import {
   type CreateUserInput,
   type UserRecord,
@@ -141,21 +140,6 @@ const unverifiedUser: UserRecord = {
   roles: [UserRole.RIDER],
 };
 
-function makeConfig(): AppConfigService {
-  return new AppConfigService(
-    parseEnv({
-      NODE_ENV: 'test',
-      API_BASE_URL: 'http://localhost:4000',
-      WEB_BASE_URL: 'http://localhost:3000',
-      DATABASE_URL: 'postgresql://u:p@localhost:5433/db',
-      REDIS_URL: 'redis://localhost:6379',
-      SMTP_HOST: 'localhost',
-      SMTP_PORT: '1025',
-      MAIL_FROM: 'CholoJai <no-reply@cholojai.local>',
-    }),
-  );
-}
-
 function makeService(users: UserRecord[] = [unverifiedUser]): {
   service: EmailVerificationService;
   userRepo: InMemoryUserRepository;
@@ -176,7 +160,7 @@ function makeService(users: UserRecord[] = [unverifiedUser]): {
       tokenRepo,
       mailer,
       tokens,
-      makeConfig(),
+      makeTestConfig(),
     ),
     userRepo,
     tokenRepo,
