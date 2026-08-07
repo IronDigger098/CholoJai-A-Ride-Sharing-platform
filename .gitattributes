@@ -1,0 +1,36 @@
+# Line endings, settled once, in the repository rather than in each
+# developer's git config.
+#
+# Windows checks out CRLF by default, Linux and macOS use LF, and our
+# Prettier config demands LF. Left to individual `core.autocrlf` settings,
+# one contributor eventually commits CRLF, `pnpm format:check` fails in CI
+# on Ubuntu, and nobody can reproduce it locally. Declaring it here means
+# the repository decides, not the machine.
+
+# Normalise every text file to LF inside the repository. Git still checks
+# out whatever the platform prefers; only the committed bytes are fixed.
+* text=auto eol=lf
+
+# Shell scripts and git hooks MUST be LF even on Windows — a CRLF line
+# ending in a shebang makes the interpreter fail with a cryptic
+# "bad interpreter: no such file or directory".
+*.sh        text eol=lf
+.husky/*    text eol=lf
+
+# Windows-only scripts keep CRLF; some interpreters require it.
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# Binary files: never touch, never diff as text.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.woff      binary
+*.woff2     binary
+*.pdf       binary
+
+# Generated files — collapse them in pull request diffs so a lockfile
+# change does not bury the code being reviewed.
+pnpm-lock.yaml  linguist-generated=true -diff
