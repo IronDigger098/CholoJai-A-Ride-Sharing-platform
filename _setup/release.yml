@@ -1,0 +1,93 @@
+name: Release
+
+# Manual, not automatic on every merge to main. A release is a decision —
+# "these changes are ready for someone to depend on" — and automating it
+# away means shipping half-finished work the moment a PR lands.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Semantic version bump'
+        required: true
+        type: choice
+        options: [patch, minor, major]
+        default: minor
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Tag and publish release notes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history: the changelog is generated from the commits since
+          # the previous tag, so a shallow clone would produce nothing.
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Compute the next version
+        id: version
+        run: |
+          previous=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          IFS='.' read -r major minor patch <<< "${previous#v}"
+
+          case "${{ inputs.bump }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+
+          echo "previous=$previous"            >> "$GITHUB_OUTPUT"
+          echo "next=v$major.$minor.$patch"    >> "$GITHUB_OUTPUT"
+
+      # This is what every `feat(rides):` and `fix(db):` message has been
+      # paying into. Conventional Commits are not bureaucracy — they are a
+      # machine-readable changelog you get for free at release time.
+      - name: Generate release notes from commit history
+        id: notes
+        run: |
+          previous="${{ steps.version.outputs.previous }}"
+          if [ "$previous" = "v0.0.0" ]; then range=""; else range="$previous..HEAD"; fi
+
+          {
+            echo 'notes<<RELEASE_NOTES_EOF'
+
+            features=$(git log $range --no-merges --pretty=format:'- %s (%h)' --grep='^feat')
+            fixes=$(git log $range --no-merges --pretty=format:'- %s (%h)' --grep='^fix')
+            perf=$(git log $range --no-merges --pretty=format:'- %s (%h)' --grep='^perf')
+            docs=$(git log $range --no-merges --pretty=format:'- %s (%h)' --grep='^docs')
+
+            [ -n "$features" ] && printf '## Features\n\n%s\n\n' "$features"
+            [ -n "$fixes"    ] && printf '## Fixes\n\n%s\n\n'    "$fixes"
+            [ -n "$perf"     ] && printf '## Performance\n\n%s\n\n' "$perf"
+            [ -n "$docs"     ] && printf '## Documentation\n\n%s\n\n' "$docs"
+
+            printf '**Full changelog:** %s...%s\n' \
+              "$previous" "${{ steps.version.outputs.next }}"
+
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Tag the release
+        run: |
+          git tag -a "${{ steps.version.outputs.next }}" \
+            -m "Release ${{ steps.version.outputs.next }}"
+          git push origin "${{ steps.version.outputs.next }}"
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.next }}" \
+            --title "${{ steps.version.outputs.next }}" \
+            --notes "${{ steps.notes.outputs.notes }}"

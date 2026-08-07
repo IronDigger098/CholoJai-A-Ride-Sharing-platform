@@ -1,0 +1,55 @@
+name: Feature
+description: A capability the product should have
+title: '[Feature]: '
+labels: ['feature']
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem before the solution. A feature framed as a
+        problem invites better solutions than one framed as an implementation.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: Who is blocked, and by what? Reference a persona from docs/product-spec.md where it fits.
+      placeholder: |
+        Nabila cannot see how much a ride will cost before committing to it,
+        so she has no way to compare options.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What success looks like
+      description: Observable behaviour, not implementation. How would you know this is done?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: MoSCoW priority
+      description: Must match docs/product-spec.md §3. If it is not in the spec, say why it should be.
+      options:
+        - Must have
+        - Should have
+        - Could have
+        - Not yet scoped
+    validations:
+      required: true
+
+  - type: input
+    id: milestone
+    attributes:
+      label: Target milestone
+      placeholder: 'M5 — Ride Booking Core'
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Design notes
+      description: Constraints, alternatives already considered, or documents this would change.

@@ -3,10 +3,10 @@
 > **চলো যাই** — _let's go._ A production-grade ride-sharing platform for
 > Bangladesh's urban market: upfront fares, verified drivers, live tracking.
 
-[![CI](https://img.shields.io/badge/CI-pending-lightgrey)](#)
+[![CI](https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Status:** 🚧 In development — Milestone 0 (Planning) complete.
+**Status:** 🚧 In development — Milestones 0–2 complete (planning, monorepo foundation, backend foundation).
 See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
 
 > **Originality:** CholoJai is inspired by the publicly observable experience
