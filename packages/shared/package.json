@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "build": "tsc --build tsconfig.build.json",
-    "clean": "rm -rf dist .turbo *.tsbuildinfo",
+    "clean": "node ../../scripts/clean.mjs dist .turbo *.tsbuildinfo",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest",
     "test:coverage": "jest --coverage",

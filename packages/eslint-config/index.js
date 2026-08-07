@@ -140,6 +140,14 @@ export const baseConfig = [
 export const javascriptFilesConfig = {
   files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
   ...tseslint.configs.disableTypeChecked,
+  rules: {
+    ...tseslint.configs.disableTypeChecked.rules,
+    /* `disableTypeChecked` only clears rules that need type information.
+       This one is syntactic, so it survives — and then demands an
+       annotation that JavaScript has no syntax to express. Documenting
+       these signatures is JSDoc's job, not the type checker's. */
+    '@typescript-eslint/explicit-function-return-type': 'off',
+  },
 };
 
 export default baseConfig;
