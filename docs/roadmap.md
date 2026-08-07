@@ -6,21 +6,21 @@
 > produces something shippable and reviewable. We do not begin a milestone
 > until the previous one is complete and approved.
 
-| #   | Milestone                       | Scope                                                                                                                                                               | Status |
-| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| M0  | Product & Architecture Planning | Product spec, domain model, architecture + ADRs, core ERD, API design, docs skeleton                                                                                | ✅     |
-| M1  | Monorepo Foundation             | Turborepo + pnpm workspaces, strict TypeScript config, ESLint/Prettier, Husky + Commitlint, CI skeleton                                                             | ✅     |
-| M2  | Backend Foundation              | NestJS bootstrap, validated env config, centralized error handling, logging, Swagger, API versioning, Docker Compose (Postgres + Redis), Prisma init, health checks | 🟡     |
-| M3  | Authentication & Authorization  | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin)                                                    | 🔲     |
-| M4  | Design System & Marketing Site  | Tailwind + shadcn theming, dark mode, typography scale, landing page, SEO foundation                                                                                | 🔲     |
-| M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine                                                                                              | 🔲     |
-| M6  | Maps & Real-time Tracking       | Maps integration, Socket.IO driver-location simulation                                                                                                              | 🔲     |
-| M7  | Driver Side                     | Driver dashboard, vehicle management, ride acceptance flow                                                                                                          | 🔲     |
-| M8  | Admin & Analytics               | Admin dashboard, user/driver management, analytics                                                                                                                  | 🔲     |
-| M9  | Content & Growth                | Blog CMS, careers, contact, notifications, reviews, coupons, referrals                                                                                              | 🔲     |
-| M10 | Payments & Polish               | Mock payment integration, settings, search, i18n-ready architecture                                                                                                 | 🔲     |
-| M11 | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                    | 🔲     |
-| M12 | Production Deployment           | Vercel + Railway, GitHub Actions pipelines, release process                                                                                                         | 🔲     |
+| #   | Milestone                       | Scope                                                                                                                                                                                 | Status |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| M0  | Product & Architecture Planning | Product spec, domain model, architecture + ADRs, core ERD, API design, docs skeleton                                                                                                  | ✅     |
+| M1  | Monorepo Foundation             | Turborepo + pnpm workspaces, strict TypeScript config, ESLint/Prettier, Husky + Commitlint, CI skeleton                                                                               | ✅     |
+| M2  | Backend Foundation              | NestJS bootstrap, validated env config, centralized error handling, logging, Swagger, API versioning, Docker Compose, Prisma schema + migrations, health probes, GitHub governance    | ✅     |
+| M3  | Authentication & Authorization  | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin), **Redis + rate limiting**, **CI integration-test job**, seed script | 🔲     |
+| M4  | Design System & Marketing Site  | Tailwind + shadcn theming, dark mode, typography scale, landing page, SEO foundation                                                                                                  | 🔲     |
+| M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine                                                                                                                | 🔲     |
+| M6  | Maps & Real-time Tracking       | Maps integration, Socket.IO driver-location simulation                                                                                                                                | 🔲     |
+| M7  | Driver Side                     | Driver dashboard, vehicle management, ride acceptance flow                                                                                                                            | 🔲     |
+| M8  | Admin & Analytics               | Admin dashboard, user/driver management, analytics                                                                                                                                    | 🔲     |
+| M9  | Content & Growth                | Blog CMS, careers, contact, notifications, reviews, coupons, referrals                                                                                                                | 🔲     |
+| M10 | Payments & Polish               | Mock payment integration, settings, search, i18n-ready architecture                                                                                                                   | 🔲     |
+| M11 | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                                      | 🔲     |
+| M12 | Production Deployment           | Vercel + Railway, GitHub Actions pipelines, release process                                                                                                                           | 🔲     |
 
 ## Sequencing rationale
 
@@ -38,3 +38,13 @@ at the end.
 make every later milestone fast: consistent tooling, one-command local
 environment, and a CI pipeline that catches regressions from the first
 feature commit.
+
+**Infrastructure arrives with its first consumer.** Redis and the CI
+integration-test job were originally scoped into M2 and moved to M3 —
+deliberately, not by omission. Redis lands with login rate limiting, which
+is the first thing that needs it; the integration-test job lands with the
+first endpoints worth testing against a real database. Building either
+earlier would have meant a module with no caller and a test job with
+nothing to run, which `contributing.md` explicitly forbids
+("no new abstraction without a second caller"). They are written into M3's
+scope above so they are tracked rather than remembered.
