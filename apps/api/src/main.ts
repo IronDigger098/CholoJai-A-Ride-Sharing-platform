@@ -8,6 +8,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/filters/problem-details.filter';
 import { setupSwagger, SWAGGER_PATH } from './common/swagger/setup-swagger';
+import { ZodValidationPipe } from './common/validation/zod-validation.pipe';
 import { AppConfigService } from './config/app-config.service';
 import { type Env, EnvValidationError, parseEnv } from './config/env.schema';
 import { loadDotenvForLocalDevelopment } from './config/load-dotenv';
@@ -42,6 +43,11 @@ async function bootstrap(env: Env): Promise<void> {
      it receives the environment directly — production must never leak an
      exception message to a client. */
   app.useGlobalFilters(new ProblemDetailsFilter(config.isProduction));
+
+  /* Validate every request against its shared Zod schema. Registered
+     globally so no endpoint can be added without validation by omission —
+     the safe default is opt-out, not opt-in. */
+  app.useGlobalPipes(new ZodValidationPipe());
 
   /* An explicit origin allow-list with credentials enabled. `origin: '*'`
      together with `credentials: true` is rejected by browsers anyway, and

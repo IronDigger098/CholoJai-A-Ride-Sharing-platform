@@ -4,6 +4,7 @@ import { LoggingModule } from './common/logging/logging.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { ConfigModule } from './config/config.module';
 import { type Env } from './config/env.schema';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 
 /**
@@ -26,6 +27,7 @@ export class AppModule {
         LoggingModule.forRoot(env),
         PrismaModule,
         HealthModule,
+        AuthModule,
       ],
     };
   }

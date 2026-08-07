@@ -118,6 +118,10 @@ export const baseConfig = [
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      // In-memory test doubles implement async interfaces with synchronous
+      // bodies. Marking them `async` to satisfy the contract without an
+      // await inside is correct, not an oversight.
+      '@typescript-eslint/require-await': 'off',
     },
   },
 
