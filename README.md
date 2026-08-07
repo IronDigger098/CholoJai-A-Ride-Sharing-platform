@@ -49,17 +49,31 @@ Full detail: [`docs/folder-structure.md`](docs/folder-structure.md).
 
 ```bash
 pnpm install
-cp .env.example .env
-docker compose up -d      # PostgreSQL, Redis, Mailpit
-pnpm db:migrate
-pnpm db:seed
-pnpm dev                  # web on :3000, api on :4000
+cp .env.example .env                        # Copy-Item on PowerShell
+pnpm docker:up                              # PostgreSQL, Redis, Mailpit
+pnpm --filter @cholojai/api db:migrate      # migrations + Prisma client
+pnpm dev                                    # web on :3000, api on :4000
 ```
 
-API docs at `http://localhost:4000/api/docs` once the API is running.
+Then confirm everything is wired up:
 
-_(Scaffolding lands in Milestone 1 — these commands are the contract we're
-building toward.)_
+```bash
+pnpm verify                                 # format, build, lint, typecheck, test
+```
+
+> **Run `db:migrate` before `verify` on a fresh clone.** The Prisma client
+> is generated code and is deliberately not committed, so anything
+> importing `@prisma/client` will not compile until it exists.
+> `db:migrate` generates it as a side effect;
+> `pnpm --filter @cholojai/api db:generate` does it on its own.
+
+| Service        | URL                            |
+| -------------- | ------------------------------ |
+| Web app        | http://localhost:3000          |
+| API            | http://localhost:4000/api/v1   |
+| API reference  | http://localhost:4000/api/docs |
+| Mail inbox     | http://localhost:8025          |
+| Liveness probe | http://localhost:4000/health   |
 
 ## Documentation
 

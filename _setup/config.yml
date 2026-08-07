@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Architecture decisions
-    url: https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/blob/main/docs/architecture.md
-    about: Read the ADRs before proposing a change to the stack or structure.
-  - name: Contributing guide
-    url: https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/blob/main/docs/contributing.md
-    about: Branching, commit format, and the definition of done.

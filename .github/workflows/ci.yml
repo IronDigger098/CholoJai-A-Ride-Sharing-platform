@@ -42,6 +42,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The Prisma client is generated code, not committed code — it is
+      # derived from schema.prisma and would be a large, constantly
+      # conflicting diff in version control. So a clean checkout has no
+      # client, and anything importing @prisma/client fails to compile
+      # until this runs.
+      #
+      # DATABASE_URL is a placeholder: `generate` validates that the
+      # datasource URL is present and well-formed, but never connects.
+      # No migration runs here and no real database is involved.
+      - name: Generate Prisma client
+        run: pnpm --filter @cholojai/api exec prisma generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+
       - name: Check formatting
         run: pnpm format:check
 
