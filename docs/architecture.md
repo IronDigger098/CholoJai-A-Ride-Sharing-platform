@@ -389,6 +389,35 @@ reserved for the interactive islands (map, booking flow, live tracking).
 
 ---
 
+### ADR-013 — Flat roles and one composite `@Auth()` decorator — **Accepted** _(M3.7)_
+
+- **Context:** Routes need role checks, and Nest's building blocks are a
+  guard plus a metadata decorator plus `@UseGuards` in the right order.
+- **Decision:** `RolesGuard` checks role _containment_ with no hierarchy,
+  and `@Auth(...roles)` composes `UseGuards(JwtAuthGuard, RolesGuard)`,
+  `@Roles(...)`, and the Swagger security annotations into one decorator.
+- **Rationale:** Two things. First, hierarchy is a privilege bug waiting to
+  happen — ADMIN implying DRIVER would put administrators into driver
+  matching, which nobody intends; roles are additive per decision D1, so
+  containment is also the honest model. Second, the hand-written form has a
+  silent failure mode: `@Roles(ADMIN)` without the guards records a
+  requirement that nothing enforces, and the route _reads_ as protected. An
+  API in which the mistake cannot be expressed beats a convention that says
+  not to make it.
+- **Alternatives:** A global `RolesGuard` with `@Public()` opt-out
+  (rejected for the same reason as global authentication in M3.4 —
+  forgetting to remove an exemption is silent, and this API is public at the
+  edges and protected in the middle). CASL or a policy engine (rejected —
+  no caller yet needs attribute or ownership rules; when ride ownership
+  arrives in M5 it will be a distinct check, not more roles).
+- **Consequences:** `RolesGuard` still fails closed when `request.user` is
+  absent, because "unreachable" is a claim about today's code and the cost
+  of being wrong is an open admin endpoint. Ownership — "is this _your_
+  ride" — is explicitly out of scope here; RBAC answers what a role may do,
+  not which rows it may touch.
+
+---
+
 ## 7. Environments
 
 |                  | Local                | Production           |

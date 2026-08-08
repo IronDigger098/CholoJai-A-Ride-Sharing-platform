@@ -7,11 +7,9 @@ import {
   Post,
   Req,
   Res,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
-  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiNoContentResponse,
@@ -42,8 +40,8 @@ import {
   VerifyEmailRequestDto,
   VerifyEmailResponseDto,
 } from './dto/verify-email.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
 import { RefreshCookieService } from './refresh-cookie.service';
+import { Auth } from './roles.decorator';
 
 /** Shorthand for the shared error schema in Swagger responses. */
 const PROBLEM_DETAILS = {
@@ -345,8 +343,10 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
+  /* `@Auth()` with no roles: authenticated, any role. It installs both
+     guards in the right order and the Swagger security annotations, so the
+     two-decorator form that can be half-forgotten never appears. */
+  @Auth()
   @ApiOperation({
     summary: 'Get the signed-in user',
     description:
@@ -358,13 +358,6 @@ export class AuthController {
       'new role before the next refresh.',
   })
   @ApiOkResponse({ description: 'The current user.', type: MeResponseDto })
-  @ApiUnauthorizedResponse({
-    description:
-      'No access token, or one that is invalid or expired. `code` ' +
-      'distinguishes `ACCESS_TOKEN_EXPIRED` — refresh and retry — from ' +
-      '`INVALID_ACCESS_TOKEN`, which means sign in again.',
-    ...PROBLEM_DETAILS,
-  })
   @ApiNotFoundResponse({
     description: 'The account has been deleted since the token was issued.',
     ...PROBLEM_DETAILS,

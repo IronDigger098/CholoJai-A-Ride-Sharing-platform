@@ -6,6 +6,7 @@
  * not belong here.
  */
 
+export * from './api/admin.contracts';
 export * from './api/auth.contracts';
 export * from './api/problem-details';
 export * from './domain/ride-status';

@@ -11,11 +11,8 @@ import { PasswordHasherService } from '../../common/security/password-hasher.ser
 import { TokenService } from '../../common/security/token.service';
 import { makeTestConfig } from '../../testing/env.fixture';
 import { InMemoryRefreshTokenRepository } from '../../testing/in-memory-refresh-token.repository';
-import {
-  type CreateUserInput,
-  type UserRecord,
-  type UserRepository,
-} from '../users/user-repository.port';
+import { InMemoryUserRepository } from '../../testing/in-memory-user.repository';
+import { type UserRecord } from '../users/user-repository.port';
 
 import {
   EmailAlreadyRegisteredError,
@@ -27,63 +24,6 @@ import {
 import { AuthService, toUserSummary } from './auth.service';
 import { type EmailVerificationService } from './email-verification.service';
 import { RefreshTokenService } from './refresh-token.service';
-
-/**
- * An in-memory repository standing in for Postgres.
- *
- * This is what the port abstraction buys: the whole registration flow —
- * duplicate detection, hashing, role assignment, response shaping — is
- * verified in milliseconds, with no database, no container, and no
- * network. The Prisma adapter is exercised separately by integration tests
- * (M3.9).
- */
-class InMemoryUserRepository implements UserRepository {
-  public readonly rows: UserRecord[] = [];
-  private nextId = 1;
-
-  public async findByEmail(email: string): Promise<UserRecord | null> {
-    return this.rows.find((row) => row.email === email) ?? null;
-  }
-
-  public async findById(id: string): Promise<UserRecord | null> {
-    return this.rows.find((row) => row.id === id) ?? null;
-  }
-
-  public async existsByEmail(email: string): Promise<boolean> {
-    return this.rows.some((row) => row.email === email);
-  }
-
-  public async create(input: CreateUserInput): Promise<UserRecord> {
-    const record: UserRecord = {
-      id: `user_${this.nextId++}`,
-      email: input.email,
-      passwordHash: input.passwordHash,
-      fullName: input.fullName,
-      phone: input.phone ?? null,
-      avatarUrl: null,
-      emailVerifiedAt: null,
-      createdAt: new Date('2026-08-07T00:00:00.000Z'),
-      roles: [...input.roles],
-    };
-    this.rows.push(record);
-    return record;
-  }
-
-  public async updatePasswordHash(
-    userId: string,
-    passwordHash: string,
-  ): Promise<void> {
-    const index = this.rows.findIndex((row) => row.id === userId);
-    const existing = this.rows[index];
-    if (existing !== undefined) {
-      this.rows[index] = { ...existing, passwordHash };
-    }
-  }
-
-  public async markEmailVerified(): Promise<void> {
-    /* not exercised by these tests */
-  }
-}
 
 /**
  * Records verification sends without touching a token store or a mailer.

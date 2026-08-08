@@ -98,6 +98,52 @@ export class PrismaUserRepository implements UserRepository {
       data: { emailVerifiedAt: new Date() },
     });
   }
+
+  /**
+   * Grant a role.
+   *
+   * `upsert` against the `(user_id, role)` unique index rather than a
+   * read-then-insert: two administrators acting at the same moment would
+   * both see "not granted yet", and the second insert would surface as a
+   * constraint violation — a 500 for a request that wanted something that
+   * is already true. Letting the database resolve the collision turns a
+   * race into a no-op.
+   *
+   * The existence check runs first and filters soft-deleted accounts, so a
+   * deactivated user cannot quietly be handed a role.
+   */
+  public async grantRole(
+    userId: string,
+    role: UserRole,
+  ): Promise<UserRecord | null> {
+    if ((await this.findById(userId)) === null) return null;
+
+    await this.prisma.roleGrant.upsert({
+      where: { userId_role: { userId, role } },
+      create: { userId, role },
+      update: {},
+    });
+
+    return this.findById(userId);
+  }
+
+  /**
+   * Revoke a role.
+   *
+   * `deleteMany` rather than `delete`, because deleting a row that is not
+   * there throws in Prisma — and revoking a role the user never held is a
+   * request whose intent is already satisfied.
+   */
+  public async revokeRole(
+    userId: string,
+    role: UserRole,
+  ): Promise<UserRecord | null> {
+    if ((await this.findById(userId)) === null) return null;
+
+    await this.prisma.roleGrant.deleteMany({ where: { userId, role } });
+
+    return this.findById(userId);
+  }
 }
 
 /** Shape of the Prisma row this adapter reads. */

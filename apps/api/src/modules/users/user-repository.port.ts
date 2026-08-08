@@ -73,6 +73,20 @@ export interface UserRepository {
   updatePasswordHash(userId: string, passwordHash: string): Promise<void>;
 
   markEmailVerified(userId: string): Promise<void>;
+
+  /**
+   * Grant a role, idempotently.
+   *
+   * Returns the updated user, or `null` if no active user has that id.
+   * Granting a role the user already holds is a no-op rather than an error:
+   * the caller's intent — "this user should have this role" — is satisfied
+   * either way, and an administrator clicking twice should not see a
+   * failure.
+   */
+  grantRole(userId: string, role: UserRole): Promise<UserRecord | null>;
+
+  /** Revoke a role, idempotently. Returns the updated user, or `null`. */
+  revokeRole(userId: string, role: UserRole): Promise<UserRecord | null>;
 }
 
 /**

@@ -19,6 +19,7 @@ import { PrismaVerificationTokenRepository } from './prisma-verification-token.r
 import { RefreshCookieService } from './refresh-cookie.service';
 import { REFRESH_TOKEN_REPOSITORY } from './refresh-token-repository.port';
 import { RefreshTokenService } from './refresh-token.service';
+import { RolesGuard } from './roles.guard';
 import { VERIFICATION_TOKEN_REPOSITORY } from './verification-token-repository.port';
 
 /**
@@ -51,6 +52,7 @@ import { VERIFICATION_TOKEN_REPOSITORY } from './verification-token-repository.p
     RefreshTokenService,
     RefreshCookieService,
     JwtAuthGuard,
+    RolesGuard,
     {
       provide: VERIFICATION_TOKEN_REPOSITORY,
       useClass: PrismaVerificationTokenRepository,
@@ -64,6 +66,6 @@ import { VERIFICATION_TOKEN_REPOSITORY } from './verification-token-repository.p
      feature module from M4 onward protects its own routes with them. The
      repositories and the cookie service are not: how auth stores tokens
      and where it puts them is nobody else's business. */
-  exports: [AuthService, AccessTokenService, JwtAuthGuard],
+  exports: [AuthService, AccessTokenService, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}

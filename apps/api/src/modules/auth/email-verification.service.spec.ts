@@ -5,11 +5,8 @@ import { Logger } from '@nestjs/common';
 import { type EmailMessage, type Mailer } from '../../common/mail/mailer.port';
 import { TokenService } from '../../common/security/token.service';
 import { makeTestConfig } from '../../testing/env.fixture';
-import {
-  type CreateUserInput,
-  type UserRecord,
-  type UserRepository,
-} from '../users/user-repository.port';
+import { InMemoryUserRepository } from '../../testing/in-memory-user.repository';
+import { type UserRecord } from '../users/user-repository.port';
 
 import {
   EmailAlreadyVerifiedError,
@@ -22,42 +19,6 @@ import {
   type VerificationTokenRecord,
   type VerificationTokenRepository,
 } from './verification-token-repository.port';
-
-class InMemoryUserRepository implements UserRepository {
-  public readonly rows: UserRecord[] = [];
-
-  public constructor(seed: UserRecord[] = []) {
-    this.rows.push(...seed);
-  }
-
-  public async findByEmail(email: string): Promise<UserRecord | null> {
-    return this.rows.find((row) => row.email === email) ?? null;
-  }
-
-  public async findById(id: string): Promise<UserRecord | null> {
-    return this.rows.find((row) => row.id === id) ?? null;
-  }
-
-  public async existsByEmail(email: string): Promise<boolean> {
-    return this.rows.some((row) => row.email === email);
-  }
-
-  public async create(input: CreateUserInput): Promise<UserRecord> {
-    throw new Error(`not used: ${input.email}`);
-  }
-
-  public async updatePasswordHash(): Promise<void> {
-    /* unused */
-  }
-
-  public async markEmailVerified(userId: string): Promise<void> {
-    const index = this.rows.findIndex((row) => row.id === userId);
-    const existing = this.rows[index];
-    if (existing !== undefined) {
-      this.rows[index] = { ...existing, emailVerifiedAt: new Date() };
-    }
-  }
-}
 
 /**
  * Mutable row type for the fake's own storage.

@@ -7,6 +7,7 @@ import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { RedisModule } from './common/redis/redis.module';
 import { ConfigModule } from './config/config.module';
 import { type Env } from './config/env.schema';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -37,6 +38,7 @@ export class AppModule {
         MailModule,
         HealthModule,
         AuthModule,
+        AdminModule,
       ],
     };
   }

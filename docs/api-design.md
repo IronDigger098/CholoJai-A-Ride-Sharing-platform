@@ -222,6 +222,51 @@ Failures on protected endpoints distinguish `ACCESS_TOKEN_EXPIRED` from
 sends the user to sign in on the second; collapsing them means the app
 logs people out every quarter of an hour.
 
+#### Roles and the two failure codes
+
+`401` and `403` are not interchangeable. `401` means we do not know who you
+are — obtain credentials and retry. `403` means we do, and retrying will not
+help. A client that treats them alike either loops on a permission error or
+gives up on a fixable one.
+
+Roles are a flat set, never a hierarchy. An ADMIN is **not** implicitly a
+DRIVER. Hierarchies feel tidy and are a common source of accidental
+privilege: the moment ADMIN implies DRIVER, an administrator can accept ride
+requests and appear in driver matching. If an admin needs to drive, they get
+a DRIVER grant like anyone else — decision D1, one account with additive
+roles.
+
+A `403` names neither the role required nor the roles held. That would map
+the privilege model for anyone probing, and a legitimate caller cannot act
+on it anyway.
+
+### Admin — role management
+
+| Method | Path                                 | Purpose                   |
+| ------ | ------------------------------------ | ------------------------- |
+| POST   | `/admin/users/:userId/roles` 🛡       | Grant a role, idempotent  |
+| DELETE | `/admin/users/:userId/roles/:role` 🛡 | Revoke a role, idempotent |
+
+Two refusals protect invariants rather than permissions, and both answer
+`409` because the caller has every permission required.
+
+RIDER cannot be revoked: every account is a rider, and one without it can
+sign in and do nothing.
+
+An administrator cannot revoke their **own** ADMIN role. That single rule is
+what guarantees the platform never runs out of administrators. With two
+admins, either may demote the other, and whoever remains cannot demote
+themselves — so the count falls to one and stops, from any starting number.
+The alternative, counting remaining admins on each revocation, is slower and
+racy: two concurrent revocations could each see "two remain" and both
+proceed.
+
+A demotion needs no session revocation. Access tokens carry roles and are
+stale for at most their lifetime, and `/auth/refresh` re-reads roles from
+the database — so the change lands on the next refresh. That property comes
+from M3.5 and is load-bearing here: rebuilding claims from the old token
+during refresh would make a demotion last until the user signed out.
+
 ### Users — `/api/v1/users`
 
 `PATCH /me` 🔒 (profile) · `POST /me/avatar` 🔒 · `PATCH /me/password` 🔒 ·
