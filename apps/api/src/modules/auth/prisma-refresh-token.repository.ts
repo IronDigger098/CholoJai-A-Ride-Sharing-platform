@@ -67,6 +67,16 @@ export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
     return result.count;
   }
 
+  /** Revoke every live token a user holds, in one statement. */
+  public async revokeAllForUser(userId: string): Promise<number> {
+    const result = await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    return result.count;
+  }
+
   /**
    * Rotate inside a transaction.
    *

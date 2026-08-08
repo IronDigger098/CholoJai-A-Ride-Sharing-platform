@@ -61,6 +61,16 @@ export interface RefreshTokenRepository {
   revokeFamily(familyId: string): Promise<number>;
 
   /**
+   * Revoke every live token belonging to a user, across all families.
+   *
+   * The blunt instrument, and there is exactly one caller: a completed
+   * password reset. Someone resetting because they believe they were
+   * compromised expects every other session to end, and revoking one family
+   * would leave the attacker's device signed in on another.
+   */
+  revokeAllForUser(userId: string): Promise<number>;
+
+  /**
    * Retire a token and issue its successor, atomically.
    *
    * Returns `null` when the token was already revoked — meaning a

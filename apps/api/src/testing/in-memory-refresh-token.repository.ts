@@ -85,6 +85,16 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
     return targets.length;
   }
 
+  public async revokeAllForUser(userId: string): Promise<number> {
+    const targets = this.rows.filter(
+      (row) => row.userId === userId && row.revokedAt === null,
+    );
+
+    for (const row of targets) row.revokedAt = this.now();
+
+    return targets.length;
+  }
+
   public async rotate(
     input: RotateRefreshTokenInput,
   ): Promise<RefreshTokenRecord | null> {

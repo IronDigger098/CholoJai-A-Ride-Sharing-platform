@@ -237,3 +237,32 @@ export const meResponseSchema = z.object({
 });
 
 export type MeResponse = z.infer<typeof meResponseSchema>;
+
+/* ────────────────────────────────────────────────────────────────────────
+   POST /auth/forgot-password  and  POST /auth/reset-password
+   ──────────────────────────────────────────────────────────────────────── */
+
+export const forgotPasswordRequestSchema = z.object({
+  email: emailSchema,
+});
+
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
+
+/**
+ * The reset itself.
+ *
+ * `passwordSchema` applies here and deliberately does not apply to login:
+ * this endpoint *sets* a password, so the policy is exactly what it is for.
+ * The token is bounded the same way verification tokens are — long enough
+ * to be a real 43-character value, short enough that nothing absurd reaches
+ * a database query.
+ */
+export const resetPasswordRequestSchema = z.object({
+  token: z
+    .string()
+    .min(20, 'Reset token is malformed')
+    .max(200, 'Reset token is malformed'),
+  password: passwordSchema,
+});
+
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;

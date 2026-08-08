@@ -122,6 +122,20 @@ export class RefreshTokenService {
     );
   }
 
+  /**
+   * End every session a user has.
+   *
+   * Called after a password reset. The access tokens already issued survive
+   * until they expire — nothing short of a denylist can recall a JWT — so
+   * the honest description is that this closes the long-lived door
+   * immediately and the short-lived one within the access-token lifetime.
+   */
+  public async revokeAllSessions(userId: string): Promise<number> {
+    const revoked = await this.store.revokeAllForUser(userId);
+    this.logger.warn(`Revoked all ${revoked} session token(s) for ${userId}`);
+    return revoked;
+  }
+
   /** End a session by family, for callers that already know which one. */
   public async revokeFamily(familyId: string): Promise<number> {
     return this.store.revokeFamily(familyId);

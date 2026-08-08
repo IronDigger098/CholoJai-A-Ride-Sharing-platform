@@ -34,6 +34,10 @@ import {
   MeResponseDto,
   RefreshResponseDto,
 } from './dto/login.dto';
+import {
+  ForgotPasswordRequestDto,
+  ResetPasswordRequestDto,
+} from './dto/password-reset.dto';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import {
   ResendVerificationRequestDto,
@@ -340,6 +344,88 @@ export class AuthController {
     /* Cleared unconditionally. If revocation failed for a token we could
        not find, the browser should still stop sending it. */
     this.refreshCookie.clear(response);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  /* Two rules. Per-email is the one that protects a person: each call sends
+     real mail to an address the caller chooses, so an unthrottled endpoint
+     here is a mail-bombing tool pointed at someone else — and each message
+     it sends is an account-takeover link. Per-IP caps how widely one machine
+     can spray requests while probing for accounts. */
+  @RateLimit(
+    {
+      name: 'forgot-password-email',
+      limit: 3,
+      windowSeconds: 3600,
+      by: { bodyField: 'email' },
+    },
+    { name: 'forgot-password-ip', limit: 10, windowSeconds: 3600, by: 'ip' },
+  )
+  @ApiOperation({
+    summary: 'Request a password reset link',
+    description:
+      'Always returns 204, whether or not the address has an account.\n\n' +
+      'This is the opposite trade-off from registration, which does return ' +
+      'a 409 for a duplicate address. There, telling the truth saves a user ' +
+      'from a broken flow. Here the next step is identical either way — ' +
+      'check your inbox — so honesty would buy the caller nothing and buy ' +
+      'an attacker a bulk address-checking oracle.\n\n' +
+      'The mail is sent without blocking this response, so a known address ' +
+      'and an unknown one take the same time. A generic body in front of a ' +
+      'measurable timing difference is decoration.\n\n' +
+      'Links expire after one hour — far shorter than a verification link, ' +
+      'because this one takes over an account rather than activating one — ' +
+      'and requesting a new link invalidates any previous one.',
+  })
+  @ApiNoContentResponse({ description: 'Request accepted.' })
+  @ApiBadRequestResponse({
+    description: 'The email address is malformed.',
+    ...PROBLEM_DETAILS,
+  })
+  public async forgotPassword(
+    @Body() body: ForgotPasswordRequestDto,
+  ): Promise<void> {
+    await this.authService.forgotPassword(body.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RateLimit({
+    name: 'reset-password-ip',
+    limit: 20,
+    windowSeconds: 3600,
+    by: 'ip',
+  })
+  @ApiOperation({
+    summary: 'Set a new password using a reset link',
+    description:
+      'Consumes a reset token and sets a new password. Tokens are ' +
+      'single-use and expire after one hour.\n\n' +
+      '**Every session is revoked.** People reset their password precisely ' +
+      'when they believe someone else has it, so leaving the other party ' +
+      'signed in would make the reset theatre. Access tokens already issued ' +
+      'survive until they expire — up to fifteen minutes — which is the ' +
+      'standing cost of stateless tokens.\n\n' +
+      'Redeeming the link also marks the address verified if it was not ' +
+      'already: reaching the mailbox is the same proof email verification ' +
+      'asks for, and asking twice for one fact is just friction.',
+  })
+  @ApiNoContentResponse({ description: 'Password changed.' })
+  @ApiBadRequestResponse({
+    description: 'The new password does not meet the policy.',
+    ...PROBLEM_DETAILS,
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'The token is unknown, expired, or already used. All three share one ' +
+      'response so that guessing tokens reveals nothing.',
+    ...PROBLEM_DETAILS,
+  })
+  public async resetPassword(
+    @Body() body: ResetPasswordRequestDto,
+  ): Promise<void> {
+    await this.authService.resetPassword(body.token, body.password);
   }
 
   @Get('me')

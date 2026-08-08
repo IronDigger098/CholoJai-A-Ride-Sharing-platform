@@ -14,6 +14,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { EmailVerificationService } from './email-verification.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { PasswordResetService } from './password-reset.service';
 import { PrismaRefreshTokenRepository } from './prisma-refresh-token.repository';
 import { PrismaVerificationTokenRepository } from './prisma-verification-token.repository';
 import { RefreshCookieService } from './refresh-cookie.service';
@@ -46,6 +47,7 @@ import { VERIFICATION_TOKEN_REPOSITORY } from './verification-token-repository.p
   providers: [
     AuthService,
     EmailVerificationService,
+    PasswordResetService,
     PasswordHasherService,
     TokenService,
     AccessTokenService,

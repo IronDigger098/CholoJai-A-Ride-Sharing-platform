@@ -23,6 +23,7 @@ import {
 } from './auth.errors';
 import { AuthService, toUserSummary } from './auth.service';
 import { type EmailVerificationService } from './email-verification.service';
+import { type PasswordResetService } from './password-reset.service';
 import { RefreshTokenService } from './refresh-token.service';
 
 /**
@@ -80,6 +81,12 @@ describe('AuthService', () => {
         verification as unknown as EmailVerificationService,
         accessTokens,
         new RefreshTokenService(refreshTokens, tokens, config),
+        /* Password reset has its own suite; `AuthService` only forwards to
+           it, so a stub keeps this file about the logic it actually owns. */
+        {
+          request: async () => undefined,
+          reset: async () => undefined,
+        } as unknown as PasswordResetService,
       ),
       users,
       hasher,

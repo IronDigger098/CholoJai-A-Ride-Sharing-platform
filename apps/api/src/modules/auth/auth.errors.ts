@@ -203,3 +203,26 @@ export class RefreshTokenReusedError extends UnauthenticatedError {
     );
   }
 }
+
+/**
+ * The password-reset token is unknown, expired, or already used.
+ *
+ * One code for all three, like its verification counterpart. The additional
+ * reason here is that a reset token is an account-takeover credential, so
+ * an endpoint that says "expired" rather than "no such token" tells someone
+ * feeding it guesses that they have found a live account and merely need to
+ * be quicker next time.
+ *
+ * 422 rather than 400: the request is well formed and the token is a
+ * plausible string. It simply cannot be acted upon.
+ */
+export class InvalidPasswordResetTokenError extends UnprocessableError {
+  public readonly code = 'INVALID_PASSWORD_RESET_TOKEN';
+  public readonly title = 'Reset link is not valid';
+
+  public constructor() {
+    super(
+      'This password reset link is invalid or has expired. Request a new one.',
+    );
+  }
+}

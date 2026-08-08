@@ -27,6 +27,7 @@ import {
   RefreshTokenStaleError,
 } from './auth.errors';
 import { EmailVerificationService } from './email-verification.service';
+import { PasswordResetService } from './password-reset.service';
 import { RefreshTokenService } from './refresh-token.service';
 
 /**
@@ -60,6 +61,7 @@ export class AuthService {
     private readonly emailVerification: EmailVerificationService,
     private readonly accessTokens: AccessTokenService,
     private readonly refreshTokens: RefreshTokenService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   /**
@@ -299,6 +301,16 @@ export class AuthService {
   public async verifyEmail(token: string): Promise<VerifyEmailResponse> {
     const user = await this.emailVerification.verify(token);
     return { user: toUserSummary(user) };
+  }
+
+  /** Begin a password reset. Silent about whether the address exists. */
+  public async forgotPassword(email: string): Promise<void> {
+    await this.passwordReset.request(email);
+  }
+
+  /** Complete a password reset and end every session the user had. */
+  public async resetPassword(token: string, password: string): Promise<void> {
+    await this.passwordReset.reset(token, password);
   }
 
   /** Request a fresh verification link. Silent about whether it applied. */

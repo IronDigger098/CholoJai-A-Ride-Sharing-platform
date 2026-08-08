@@ -141,6 +141,41 @@ Grouped by module. `🔒` requires auth; `🚗` driver role; `🛡` admin role.
 > Returning `404` for unknown emails turns the endpoint into a user
 > enumeration oracle.
 
+#### Password recovery
+
+The trade-off here runs the opposite way from registration, which _does_
+return `409` for an address already in use. There, telling the truth saves
+someone from a broken sign-up. Here the caller's next step — check your
+inbox — is identical either way, so honesty buys them nothing and buys an
+attacker a way to test a million addresses.
+
+The generic response is only half of it. The mail is dispatched **without
+blocking the response**, so a known address and an unknown one take the same
+time. A uniform body in front of a measurable timing difference is
+decoration, the same reasoning behind hashing a decoy password on login.
+
+Reset links live **one hour**, against twenty-four for email verification.
+A verification link activates an account that was just created; a reset link
+takes over an existing one. Anyone reaching the mailbox afterwards — a
+shared laptop, a synced tablet, a mail archive — holds an account takeover
+for exactly as long as that number allows.
+
+Completing a reset **revokes every session**, not just the current one.
+People reset a password precisely when they think somebody else has it, so
+leaving the other party's refresh token alive would make the whole exercise
+theatre. Access tokens already issued survive until they expire, up to
+fifteen minutes; that is the standing cost of stateless tokens and is not
+specific to this flow.
+
+Redeeming a reset link also marks the address verified if it was not
+already. Reaching the mailbox is the same proof email verification asks for,
+and demanding it twice for one fact is friction rather than security.
+
+Reset and verification tokens share one table and are separated by a
+`purpose` column that every lookup filters on. Without it a verification
+link — longer-lived and issued far more freely — would double as an
+account-takeover credential.
+
 #### How the two tokens travel
 
 `/login` returns two credentials by two different routes, and the asymmetry
@@ -372,7 +407,9 @@ dropped connections, which on a Dhaka mobile network is not hypothetical.
 | `POST /auth/resend-verification` | 10 / hour per IP     | M3.6   |
 | `POST /auth/refresh`             | 120 / hour per IP    | M3.6   |
 | `POST /auth/verify-email`        | 30 / hour per IP     | M3.6   |
-| `POST /auth/forgot-password`     | 5 / hour per email   | M3.8   |
+| `POST /auth/forgot-password`     | 3 / hour per email   | M3.8   |
+| `POST /auth/forgot-password`     | 10 / hour per IP     | M3.8   |
+| `POST /auth/reset-password`      | 20 / hour per IP     | M3.8   |
 | `GET /geo/search`                | 30 / min per user    | M6     |
 | `POST /fares/quote`              | 60 / min per user    | M6     |
 
