@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "postinstall": "node ../../scripts/generate-prisma-client.mjs",
     "db:generate": "dotenv -e ../../.env -- prisma generate",
     "db:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -31,6 +32,7 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
     "helmet": "^8.0.0",
+    "ioredis": "^5.11.1",
     "nestjs-pino": "^4.3.0",
     "nestjs-zod": "^5.5.0",
     "nodemailer": "^6.10.0",

@@ -148,6 +148,15 @@ export class AppConfigService {
     return this.env.RATE_LIMIT_GLOBAL_PER_MIN;
   }
 
+  public get rateLimitEnabled(): boolean {
+    return this.env.RATE_LIMIT_ENABLED;
+  }
+
+  /** Reverse-proxy hops Express should trust for `X-Forwarded-For`. */
+  public get trustedProxyHops(): number {
+    return this.env.TRUSTED_PROXY_HOPS;
+  }
+
   /**
    * Whether to serve interactive API docs.
    *

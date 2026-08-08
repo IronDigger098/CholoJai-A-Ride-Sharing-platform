@@ -13,6 +13,8 @@ import {
 } from '@nestjs/swagger';
 import { type Response } from 'express';
 
+import { SkipRateLimit } from '../../common/rate-limit/rate-limit.decorator';
+
 import { HealthResponseDto } from './dto/health-response.dto';
 import { ReadinessResponseDto } from './dto/readiness-response.dto';
 import { HealthService } from './health.service';
@@ -28,6 +30,12 @@ import { HealthService } from './health.service';
  */
 @ApiTags('Health')
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
+/* Exempt from rate limiting. A load balancer polls these every second or
+   two from a single address; counted against the global per-IP limit it
+   would exhaust the budget on its own and start receiving 429s — the probe
+   would then report the instance unhealthy and remove it from rotation,
+   causing precisely the outage it exists to detect. */
+@SkipRateLimit()
 export class HealthController {
   public constructor(private readonly healthService: HealthService) {}
 

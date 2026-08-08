@@ -149,6 +149,34 @@ export const envSchema = z
     RATE_LIMIT_GLOBAL_PER_MIN: z.coerce.number().int().positive().default(100),
 
     /**
+     * Master switch for rate limiting.
+     *
+     * Exists so a developer hammering an endpoint locally can turn it off
+     * without editing code — and so that turning it off is a visible,
+     * recorded act rather than a commented-out guard. Production refuses
+     * to start with it disabled.
+     */
+    RATE_LIMIT_ENABLED: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+
+    /**
+     * How many reverse proxies sit in front of this process.
+     *
+     * Express only trusts `X-Forwarded-For` if you tell it to, and getting
+     * this wrong breaks rate limiting in one of two ways. Too low, and
+     * every request appears to come from the load balancer's IP, so the
+     * global limit throttles the entire user base as if it were one
+     * client. Too high, and a caller can forge extra hops and present any
+     * IP they like, which makes per-IP limits meaningless.
+     *
+     * 0 for local development, where nothing is in front. Railway puts one
+     * proxy in front, so production is 1. Count the hops; do not guess.
+     */
+    TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
+
+    /**
      * Serve interactive API documentation at /api/docs.
      *
      * Unset means "on outside production, off in production" (resolved
@@ -219,6 +247,15 @@ export const envSchema = z
         path: ['JWT_ACCESS_SECRET'],
         message:
           'is still the placeholder from .env.example — generate a real secret',
+      });
+    }
+
+    if (!env.RATE_LIMIT_ENABLED) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RATE_LIMIT_ENABLED'],
+        message:
+          'cannot be false in production — /auth/login runs argon2 on every attempt',
       });
     }
 

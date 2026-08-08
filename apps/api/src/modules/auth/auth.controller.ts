@@ -24,6 +24,8 @@ import {
 } from '@nestjs/swagger';
 import { type Request, type Response } from 'express';
 
+import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
+
 import { RefreshTokenStaleError } from './auth.errors';
 import { AuthService } from './auth.service';
 import { type AuthenticatedUser } from './authenticated-request';
@@ -67,6 +69,16 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  /* Registration writes a row and sends an email, so the abuse is spam and
+     mailbox-bombing rather than credential guessing. Keyed by IP only: the
+     email address on a registration is by definition one we have never
+     seen, so a per-email counter would have exactly one hit every time. */
+  @RateLimit({
+    name: 'register-ip',
+    limit: 10,
+    windowSeconds: 3600,
+    by: 'ip',
+  })
   @ApiOperation({
     summary: 'Create an account',
     description:
@@ -96,6 +108,15 @@ export class AuthController {
 
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
+  /* Tokens are 256 bits of randomness, so guessing is not the threat —
+     volume is. This is a ceiling on brute-force noise, not a defence
+     against it. */
+  @RateLimit({
+    name: 'verify-email-ip',
+    limit: 30,
+    windowSeconds: 3600,
+    by: 'ip',
+  })
   @ApiOperation({
     summary: 'Confirm an email address',
     description:
@@ -123,6 +144,19 @@ export class AuthController {
 
   @Post('resend-verification')
   @HttpCode(HttpStatus.NO_CONTENT)
+  /* Each call sends a real email to an address the caller chooses, which
+     makes an unthrottled endpoint here a mail-bombing tool aimed at
+     someone else. The per-email rule is the one that protects the victim;
+     the per-IP rule protects our sending reputation. */
+  @RateLimit(
+    {
+      name: 'resend-email',
+      limit: 3,
+      windowSeconds: 3600,
+      by: { bodyField: 'email' },
+    },
+    { name: 'resend-ip', limit: 10, windowSeconds: 3600, by: 'ip' },
+  )
   @ApiOperation({
     summary: 'Request a new verification email',
     description:
@@ -155,6 +189,24 @@ export class AuthController {
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  /* The endpoint this whole milestone exists for. Every attempt costs ~50ms
+     of argon2, and it is the front door for credential stuffing.
+  
+     Two rules, because either alone leaves a hole. Per-email stops a
+     distributed attack on one account no matter how many addresses it comes
+     from. Per-IP stops one machine working through a wordlist across many
+     accounts — and is the looser of the two on purpose, because an office
+     or a mobile carrier can put hundreds of legitimate users behind one
+     address, and five per IP would lock out a whole building. */
+  @RateLimit(
+    {
+      name: 'login-email',
+      limit: 5,
+      windowSeconds: 900,
+      by: { bodyField: 'email' },
+    },
+    { name: 'login-ip', limit: 20, windowSeconds: 900, by: 'ip' },
+  )
   @ApiOperation({
     summary: 'Sign in',
     description:
@@ -197,6 +249,15 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  /* A legitimate client refreshes roughly four times an hour per device.
+     This leaves room for a household of devices behind one address while
+     still capping anyone feeding us guessed cookies. */
+  @RateLimit({
+    name: 'refresh-ip',
+    limit: 120,
+    windowSeconds: 3600,
+    by: 'ip',
+  })
   @ApiOperation({
     summary: 'Refresh the session',
     description:

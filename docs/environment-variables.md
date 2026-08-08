@@ -55,7 +55,9 @@ mask a missing platform variable during a deploy.
 | `CLOUDINARY_URL`                 | Image storage                         | —                        | M7        |
 | `NOMINATIM_BASE_URL`             | Geocoding upstream                    | public instance          | M6        |
 | `OSRM_BASE_URL`                  | Routing upstream                      | public instance          | M6        |
-| `RATE_LIMIT_GLOBAL_PER_MIN`      | Global throttle                       | `100`                    | M2        |
+| `RATE_LIMIT_GLOBAL_PER_MIN`      | Global per-IP throttle, per minute    | `100`                    | M3        |
+| `RATE_LIMIT_ENABLED`             | Master switch; must be true in prod   | `true`                   | M3        |
+| `TRUSTED_PROXY_HOPS`             | Reverse proxies to trust for XFF      | `0` (1 on Railway)       | M3        |
 | `SWAGGER_ENABLED`                | Serve API docs at /api/docs           | on unless production     | M2        |
 | `LOG_LEVEL`                      | pino level                            | `info`                   | M2        |
 

@@ -317,16 +317,50 @@ dropped connections, which on a Dhaka mobile network is not hypothetical.
 
 ## 6. Rate limits (initial)
 
-| Scope                                         | Limit                                               |
-| --------------------------------------------- | --------------------------------------------------- |
-| Global per IP                                 | 100 req / min                                       |
-| `/auth/login`, `/auth/forgot-password`        | 5 req / 15 min per IP + per email                   |
-| `/auth/register`, `/auth/resend-verification` | 3 req / hour per IP                                 |
-| `/geo/search`                                 | 30 req / min per user (protects upstream Nominatim) |
-| `POST /fares/quote`                           | 60 req / min per user                               |
+| Scope                            | Limit                | Status |
+| -------------------------------- | -------------------- | ------ |
+| Global, per IP                   | 100 req / min        | M3.6   |
+| `POST /auth/login`               | 5 / 15 min per email | M3.6   |
+| `POST /auth/login`               | 20 / 15 min per IP   | M3.6   |
+| `POST /auth/register`            | 10 / hour per IP     | M3.6   |
+| `POST /auth/resend-verification` | 3 / hour per email   | M3.6   |
+| `POST /auth/resend-verification` | 10 / hour per IP     | M3.6   |
+| `POST /auth/refresh`             | 120 / hour per IP    | M3.6   |
+| `POST /auth/verify-email`        | 30 / hour per IP     | M3.6   |
+| `POST /auth/forgot-password`     | 5 / hour per email   | M3.8   |
+| `GET /geo/search`                | 30 / min per user    | M6     |
+| `POST /fares/quote`              | 60 / min per user    | M6     |
 
-Backed by Redis counters (ADR-004). Responses include
-`RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset`.
+Backed by Redis counters (ADR-004), and `/health` is exempt.
+
+**Why two rules on the sensitive endpoints.** Neither key alone is enough.
+A per-IP limit misses a distributed attack on one account, and a per-email
+limit misses one machine working through a wordlist across many accounts.
+The per-IP numbers are deliberately the looser of the pair: an office, a
+university, or a mobile carrier can put hundreds of legitimate users behind
+one address, so a limit tight enough to stop a determined attacker also
+locks out a whole building.
+
+Earlier drafts of this table said 5 per 15 minutes _per IP_ on login and 3
+per hour per IP on register. Both were revised in M3.6 for exactly that
+reason — the numbers looked strict on paper and would have been a support
+queue in Dhaka.
+
+Every response carries `RateLimit-Limit`, `RateLimit-Remaining`, and
+`RateLimit-Reset` for the rule closest to rejecting — not the loosest one,
+which would tell a client "97 remaining" while login is one attempt from
+cutting it off. A 429 adds `Retry-After`.
+
+The 429 body never names the rule that was hit or how long its window is.
+That would hand an attacker the exact shape of the wall they need to stay
+under, and a legitimate client already has the headers.
+
+**When Redis is down, requests are allowed.** Rate limiting exists to make
+abuse expensive, not to decide who may act, so failing closed would turn a
+cache outage into a platform-wide sign-in outage — a better result for an
+attacker than the abuse being prevented. The degradation logs at `warn`
+with the rule name so it is alertable rather than silent. Authentication
+and authorisation fail closed; this does not.
 
 ---
 

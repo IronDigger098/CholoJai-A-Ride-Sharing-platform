@@ -22,6 +22,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # The rate limiter's sliding-window logic lives in a Lua script that
+    # runs inside Redis. A TypeScript fake could only prove that two
+    # implementations of the algorithm agree with each other, so those
+    # assertions need a real server — and a suite that silently skips
+    # itself reports green while testing nothing.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,8 +88,13 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # REDIS_TEST_URL is what un-skips the Redis-backed suites. Set here
+      # rather than defaulted in code, so a missing service container shows
+      # up as skipped tests rather than as tests that quietly pass.
       - name: Test
         run: pnpm test
+        env:
+          REDIS_TEST_URL: redis://localhost:6379
 
   commitlint:
     name: Validate commit messages

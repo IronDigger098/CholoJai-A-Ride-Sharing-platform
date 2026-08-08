@@ -355,6 +355,40 @@ reserved for the interactive islands (map, booking flow, live tracking).
 
 ---
 
+### ADR-012 — A first-party rate limiter, not `@nestjs/throttler` — **Accepted** _(M3.6)_
+
+- **Context:** Every unauthenticated endpoint needs throttling, and
+  `@nestjs/throttler` with a Redis storage adapter is the default answer in
+  this ecosystem. Choosing otherwise needs a reason.
+- **Decision:** ~250 lines of our own: a `RateLimitStore` port, a Redis
+  adapter running a sliding-window-counter Lua script, a global
+  `RateLimitGuard`, and `@RateLimit()` / `@SkipRateLimit()` decorators.
+- **Rationale:** Three things we need are awkward or absent in the library.
+  (1) Composite keys — login is limited per email _and_ per IP with
+  different windows, which means subclassing the guard and overriding
+  `getTracker` per route, i.e. writing a custom guard anyway. (2) Explicit
+  fail-open with an alertable warning; the library's storage errors
+  propagate. (3) Hashing the identifier before it becomes a Redis key, so
+  the limiter holds no personal data. Once a custom guard is required, the
+  dependency is supplying a counter we would wrap regardless.
+- **Alternatives:** `@nestjs/throttler` (rejected above; it remains the
+  right default for simpler needs, and this ADR exists so the deviation is
+  a decision rather than an oversight). A fixed-window counter (rejected —
+  a caller can spend the budget twice across a window boundary, which on a
+  login endpoint is the difference between throttling a guessing run and
+  waving it through in bursts). A sliding log of timestamps (rejected —
+  memory grows with request volume, and volume is what spikes during the
+  abuse it defends against).
+- **Consequences:** Two integers per caller regardless of traffic. The
+  weighting assumes the previous window's requests were evenly spread, so a
+  caller who front-loads is measured slightly leniently — bounded, small,
+  and the same trade Cloudflare makes. Check and increment run as one Lua
+  script, for the same reason refresh rotation is one transaction: a
+  read-then-write is not a check. The script needs a real Redis to test, so
+  those suites are gated on `REDIS_TEST_URL` and CI runs a service container.
+
+---
+
 ## 7. Environments
 
 |                  | Local                | Production           |
