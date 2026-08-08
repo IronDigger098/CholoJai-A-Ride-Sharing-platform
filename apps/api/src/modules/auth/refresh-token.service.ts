@@ -18,6 +18,29 @@ export interface IssuedRefreshToken {
 }
 
 /**
+ * What happened when a token was presented for rotation.
+ *
+ * Four outcomes, and the caller must handle each differently — which is
+ * exactly why this is a union rather than a token-or-null. Collapsing
+ * `stale` into `reused` signs honest users out; collapsing `reused` into
+ * `invalid` throws away the theft signal that the whole mechanism exists
+ * to produce.
+ */
+export type RotationOutcome =
+  | {
+      readonly status: 'rotated';
+      readonly userId: string;
+      readonly familyId: string;
+      readonly plaintext: string;
+    }
+  /** Unknown, expired, or revoked without ever having been rotated. */
+  | { readonly status: 'invalid' }
+  /** Rotated moments ago — a concurrent request won. Retry, do not panic. */
+  | { readonly status: 'stale' }
+  /** Rotated long enough ago that a copy is loose. The family is now dead. */
+  | { readonly status: 'reused'; readonly userId: string };
+
+/**
  * Issues and revokes refresh tokens.
  *
  * **Why these are opaque random strings and not JWTs.**
@@ -63,26 +86,15 @@ export class RefreshTokenService {
    * without touching the user's phone, laptop, or anything else.
    */
   public async issueForNewSession(userId: string): Promise<IssuedRefreshToken> {
-    return this.issue(userId, randomUUID());
-  }
+    const now = new Date();
 
-  /**
-   * Mint a token inside an existing family.
-   *
-   * Public because rotation (M3.5) continues a family rather than starting
-   * one — that continuity is precisely what makes reuse detectable.
-   */
-  public async issue(
-    userId: string,
-    familyId: string,
-  ): Promise<IssuedRefreshToken> {
     const { plaintext, hash } = this.tokens.generate();
 
     const record = await this.store.create({
       userId,
       tokenHash: hash,
-      familyId,
-      expiresAt: this.tokens.expiryFromNow(this.config.refreshTokenTtlMinutes),
+      familyId: randomUUID(),
+      expiresAt: this.expiryFor(now, now),
     });
 
     return { plaintext, record };
@@ -107,6 +119,140 @@ export class RefreshTokenService {
     const revoked = await this.store.revokeFamily(record.familyId);
     this.logger.log(
       `Signed out user ${record.userId}: revoked ${revoked} token(s) in family`,
+    );
+  }
+
+  /** End a session by family, for callers that already know which one. */
+  public async revokeFamily(familyId: string): Promise<number> {
+    return this.store.revokeFamily(familyId);
+  }
+
+  /**
+   * Exchange a refresh token for its successor.
+   *
+   * The security-relevant part of this whole milestone. Read the four
+   * outcomes in {@link RotationOutcome} first; this method is just the
+   * decision tree that produces them.
+   */
+  public async rotate(plaintext: string): Promise<RotationOutcome> {
+    const record = await this.store.findByHash(this.tokens.hash(plaintext));
+
+    if (record === null) return { status: 'invalid' };
+
+    if (record.revokedAt !== null) {
+      return this.classifyReplay(record, record.revokedAt);
+    }
+
+    if (record.expiresAt.getTime() <= Date.now()) return { status: 'invalid' };
+
+    const familyStart = await this.store.familyStartedAt(record.familyId);
+    if (familyStart === null) return { status: 'invalid' };
+
+    const expiresAt = this.expiryFor(new Date(), familyStart);
+
+    /* The family has outlived its absolute ceiling. Nothing to issue: any
+       successor would already be expired, so the honest answer is that
+       this session is over and the password is required. */
+    if (expiresAt.getTime() <= Date.now()) return { status: 'invalid' };
+
+    const { plaintext: successorPlaintext, hash } = this.tokens.generate();
+
+    const successor = await this.store.rotate({
+      currentId: record.id,
+      successor: {
+        userId: record.userId,
+        tokenHash: hash,
+        familyId: record.familyId,
+        expiresAt,
+      },
+    });
+
+    if (successor === null) {
+      /* Another request rotated this token between our read and our write.
+         Re-read and classify it exactly as any other replay would be — so
+         a zero-length grace window means zero-length here too, rather than
+         this path quietly being more forgiving than the configured policy. */
+      const rotated = await this.store.findByHash(this.tokens.hash(plaintext));
+
+      if (rotated?.revokedAt == null) return { status: 'invalid' };
+
+      return this.classifyReplay(rotated, rotated.revokedAt);
+    }
+
+    this.logger.log(`Rotated refresh token for user ${record.userId}`);
+
+    return {
+      status: 'rotated',
+      userId: record.userId,
+      familyId: record.familyId,
+      plaintext: successorPlaintext,
+    };
+  }
+
+  /**
+   * Decide what a revoked token being presented actually means.
+   *
+   * Three cases, and the distinction between them is the difference
+   * between a security control and a nuisance.
+   */
+  private async classifyReplay(
+    record: RefreshTokenRecord,
+    revokedAt: Date,
+  ): Promise<RotationOutcome> {
+    /* Revoked but never rotated: killed by a sign-out, or swept up in an
+       earlier family revocation. Replaying it is not evidence of anything —
+       a client retrying its last request after the user hit sign-out looks
+       exactly like this. Rejecting quietly is correct; raising the alarm
+       here would make every sign-out log a fake theft. */
+    if (record.replacedById === null) return { status: 'invalid' };
+
+    const sinceRotation = Date.now() - revokedAt.getTime();
+
+    /* Strictly less than, not `<=`. The window is half-open so that a
+       configured grace of zero actually means zero — with `<=`, a replay
+       arriving in the same millisecond as the rotation would still be
+       forgiven, and "strict mode" would quietly have a one-millisecond
+       hole in it. */
+    if (sinceRotation < this.config.refreshPolicy.rotationGraceMs) {
+      /* Rotated a moment ago. Two tabs, or a retry through a tunnel. The
+         winning response already carried the new cookie, so the client can
+         simply try again. Nothing is revoked. */
+      this.logger.log(
+        `Stale refresh token replayed ${sinceRotation}ms after rotation`,
+      );
+      return { status: 'stale' };
+    }
+
+    /* A token that was rotated, presented again long after the fact. The
+       legitimate holder moved on to the successor, so whoever sent this
+       kept a copy — and we cannot tell which party is which. Revoking the
+       family logs out both, and only the one who knows the password
+       returns. */
+    const revoked = await this.store.revokeFamily(record.familyId);
+
+    this.logger.warn(
+      `Refresh token reuse detected for user ${record.userId} ` +
+        `(${sinceRotation}ms after rotation); revoked ${revoked} token(s)`,
+    );
+
+    return { status: 'reused', userId: record.userId };
+  }
+
+  /**
+   * When a token issued now should expire.
+   *
+   * The sliding window, clamped to the family's absolute ceiling. Without
+   * the clamp, rotation would make a session immortal: refresh once a week
+   * and it never ends. `Math.min` on the two instants is the whole policy.
+   */
+  private expiryFor(now: Date, familyStartedAt: Date): Date {
+    const { slidingTtlMs, absoluteTtlMs } = this.config.refreshPolicy;
+
+    return new Date(
+      Math.min(
+        now.getTime() + slidingTtlMs,
+        familyStartedAt.getTime() + absoluteTtlMs,
+      ),
     );
   }
 }

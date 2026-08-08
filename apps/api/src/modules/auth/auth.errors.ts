@@ -137,3 +137,69 @@ export class AccessTokenExpiredError extends UnauthenticatedError {
     super('Your session has expired. Refresh it or sign in again.');
   }
 }
+
+/**
+ * The refresh cookie is missing, unknown, expired, or already dead.
+ *
+ * The end of the road: the client must send the user to sign in. One code
+ * covers all four because the remedy is identical, and because
+ * distinguishing "no such token" from "expired token" would let someone
+ * feeding us guesses learn when they had struck a real one.
+ */
+export class RefreshTokenInvalidError extends UnauthenticatedError {
+  public readonly code = 'REFRESH_TOKEN_INVALID';
+  public readonly title = 'Session ended';
+
+  public constructor() {
+    super('Your session is no longer valid. Please sign in again.');
+  }
+}
+
+/**
+ * This token was rotated moments ago by a concurrent request.
+ *
+ * Not an attack and not the user's fault: two tabs, or a mobile client
+ * retrying through a dead spot, genuinely send the same token twice. The
+ * request that arrived first already returned a new cookie, so the correct
+ * client behaviour is to retry once — which is why this needs its own code
+ * rather than looking like a dead session.
+ *
+ * Nothing is revoked. Treating this as theft would sign people out for
+ * having a bad connection, which is how a security control turns into a
+ * feature users route around.
+ */
+export class RefreshTokenStaleError extends UnauthenticatedError {
+  public readonly code = 'REFRESH_TOKEN_STALE';
+  public readonly title = 'Session refresh raced';
+
+  public constructor() {
+    super('This session was refreshed by another request. Try again.');
+  }
+}
+
+/**
+ * A rotated refresh token came back. Someone has a copy.
+ *
+ * Rotation means each token is used exactly once, so a token presented
+ * after it was already exchanged should not exist anywhere. Either an
+ * attacker is replaying one the user has since rotated past, or the user
+ * is replaying one the attacker rotated first. We cannot tell which, so
+ * the entire family is revoked and both parties are signed out. Only the
+ * one who knows the password comes back.
+ *
+ * Its own code, deliberately, so the client can say "you were signed out
+ * for your security" instead of a generic failure. That discloses nothing:
+ * whoever receives this already holds the token, and telling an attacker
+ * they were caught does not help them — the family is already dead.
+ */
+export class RefreshTokenReusedError extends UnauthenticatedError {
+  public readonly code = 'REFRESH_TOKEN_REUSED';
+  public readonly title = 'Session revoked for security';
+
+  public constructor() {
+    super(
+      'This session was ended because a sign-in credential was reused. ' +
+        'Please sign in again.',
+    );
+  }
+}

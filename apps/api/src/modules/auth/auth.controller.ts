@@ -24,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { type Request, type Response } from 'express';
 
+import { RefreshTokenStaleError } from './auth.errors';
 import { AuthService } from './auth.service';
 import { type AuthenticatedUser } from './authenticated-request';
 import { CurrentUser } from './current-user.decorator';
@@ -31,6 +32,7 @@ import {
   LoginRequestDto,
   LoginResponseDto,
   MeResponseDto,
+  RefreshResponseDto,
 } from './dto/login.dto';
 import { RegisterRequestDto, RegisterResponseDto } from './dto/register.dto';
 import {
@@ -191,6 +193,65 @@ export class AuthController {
     this.refreshCookie.set(response, refreshToken);
 
     return payload;
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Refresh the session',
+    description:
+      'Exchanges the refresh cookie for a new access token and a new ' +
+      'refresh cookie. Takes no request body and no access token — it has ' +
+      'to work precisely when the access token is dead, which is the only ' +
+      'time anyone calls it.\n\n' +
+      '**Rotation.** Each refresh token is single-use. Every call retires ' +
+      'the one presented and issues a successor in the same family.\n\n' +
+      '**Reuse detection.** A token that was already rotated should not ' +
+      'exist anywhere, so presenting one means a copy escaped. The entire ' +
+      'family is revoked and both the user and whoever holds the copy are ' +
+      'signed out; only the party who knows the password can return.\n\n' +
+      '**Handling the three failures.** `REFRESH_TOKEN_STALE` means a ' +
+      'concurrent request won the race — retry once, the new cookie is ' +
+      'already set. `REFRESH_TOKEN_REUSED` means the session was revoked ' +
+      'for security; tell the user why. `REFRESH_TOKEN_INVALID` means send ' +
+      'them to sign in.\n\n' +
+      'Sessions are also bounded absolutely: rotation slides the window ' +
+      'forward but never past thirty days from the original sign-in.',
+  })
+  @ApiOkResponse({
+    description: 'Session refreshed.',
+    type: RefreshResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description:
+      'Branch on `code`: `REFRESH_TOKEN_STALE` (retry), ' +
+      '`REFRESH_TOKEN_REUSED` (revoked for security), or ' +
+      '`REFRESH_TOKEN_INVALID` (sign in again).',
+    ...PROBLEM_DETAILS,
+  })
+  public async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<RefreshResponseDto> {
+    try {
+      const { response: payload, refreshToken } =
+        await this.authService.refresh(this.refreshCookie.read(request));
+
+      this.refreshCookie.set(response, refreshToken);
+
+      return payload;
+    } catch (error: unknown) {
+      /* Clear the dead cookie so the browser stops sending it — but NOT on
+         a stale race. There, the request that won has already set the new
+         cookie, and this response arriving second with a clear instruction
+         would delete the good credential and sign out the very user the
+         grace window exists to protect. */
+      if (!(error instanceof RefreshTokenStaleError)) {
+        this.refreshCookie.clear(response);
+      }
+
+      throw error;
+    }
   }
 
   @Post('logout')

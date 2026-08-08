@@ -10,6 +10,7 @@ import {
 import { PasswordHasherService } from '../../common/security/password-hasher.service';
 import { TokenService } from '../../common/security/token.service';
 import { makeTestConfig } from '../../testing/env.fixture';
+import { InMemoryRefreshTokenRepository } from '../../testing/in-memory-refresh-token.repository';
 import {
   type CreateUserInput,
   type UserRecord,
@@ -19,14 +20,12 @@ import {
 import {
   EmailAlreadyRegisteredError,
   InvalidCredentialsError,
+  RefreshTokenInvalidError,
+  RefreshTokenReusedError,
+  RefreshTokenStaleError,
 } from './auth.errors';
 import { AuthService, toUserSummary } from './auth.service';
 import { type EmailVerificationService } from './email-verification.service';
-import {
-  type CreateRefreshTokenInput,
-  type RefreshTokenRecord,
-  type RefreshTokenRepository,
-} from './refresh-token-repository.port';
 import { RefreshTokenService } from './refresh-token.service';
 
 /**
@@ -83,52 +82,6 @@ class InMemoryUserRepository implements UserRepository {
 
   public async markEmailVerified(): Promise<void> {
     /* not exercised by these tests */
-  }
-}
-
-/** Mutable storage for the fake; the port's record type is readonly. */
-interface StoredRefreshToken {
-  id: string;
-  userId: string;
-  tokenHash: string;
-  familyId: string;
-  expiresAt: Date;
-  revokedAt: Date | null;
-  replacedById: string | null;
-}
-
-class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
-  public readonly rows: StoredRefreshToken[] = [];
-  private nextId = 1;
-
-  public async create(
-    input: CreateRefreshTokenInput,
-  ): Promise<RefreshTokenRecord> {
-    const row: StoredRefreshToken = {
-      id: `rt_${this.nextId++}`,
-      userId: input.userId,
-      tokenHash: input.tokenHash,
-      familyId: input.familyId,
-      expiresAt: input.expiresAt,
-      revokedAt: null,
-      replacedById: null,
-    };
-    this.rows.push(row);
-    return row;
-  }
-
-  public async findByHash(
-    tokenHash: string,
-  ): Promise<RefreshTokenRecord | null> {
-    return this.rows.find((row) => row.tokenHash === tokenHash) ?? null;
-  }
-
-  public async revokeFamily(familyId: string): Promise<number> {
-    const targets = this.rows.filter(
-      (row) => row.familyId === familyId && row.revokedAt === null,
-    );
-    for (const row of targets) row.revokedAt = new Date();
-    return targets.length;
   }
 }
 
@@ -552,6 +505,121 @@ describe('AuthService', () => {
 
       await expect(service.logout(null)).resolves.toBeUndefined();
       await expect(service.logout('not-a-real-token')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('refresh', () => {
+    const credentials = {
+      email: validRegistration.email,
+      password: validRegistration.password,
+    };
+
+    it('returns a new access token and a new refresh token', async () => {
+      const { service, accessTokens } = makeService();
+      await service.register(validRegistration);
+      const session = await service.login(credentials);
+
+      const refreshed = await service.refresh(session.refreshToken);
+
+      expect(refreshed.refreshToken).not.toBe(session.refreshToken);
+      expect(accessTokens.verify(refreshed.response.accessToken).status).toBe(
+        'valid',
+      );
+    });
+
+    it('rejects the old token once it has been rotated', async () => {
+      const { service, refreshTokens, tokens } = makeService();
+      await service.register(validRegistration);
+      const session = await service.login(credentials);
+
+      await service.refresh(session.refreshToken);
+
+      /* Age the rotation past the grace window so this reads as reuse
+         rather than as one of the user's own concurrent requests. */
+      const row = refreshTokens.byHash(tokens.hash(session.refreshToken));
+      if (row?.revokedAt != null) {
+        row.revokedAt = new Date(row.revokedAt.getTime() - 60_000);
+      }
+
+      await expect(service.refresh(session.refreshToken)).rejects.toThrow(
+        RefreshTokenReusedError,
+      );
+    });
+
+    it('tells a concurrent replay to retry instead of revoking', async () => {
+      const { service } = makeService();
+      await service.register(validRegistration);
+      const session = await service.login(credentials);
+
+      await service.refresh(session.refreshToken);
+
+      await expect(service.refresh(session.refreshToken)).rejects.toThrow(
+        RefreshTokenStaleError,
+      );
+    });
+
+    it('rejects a missing cookie', async () => {
+      const { service } = makeService();
+
+      await expect(service.refresh(null)).rejects.toThrow(
+        RefreshTokenInvalidError,
+      );
+    });
+
+    it('picks up a role granted since the token was issued', async () => {
+      /* Refreshing is the moment a role change propagates. Rebuilding the
+         claims from the old token instead of from the database would mean
+         an approved driver stayed a rider forever. */
+      const { service, users, accessTokens } = makeService();
+      await service.register(validRegistration);
+      const session = await service.login(credentials);
+
+      const existing = users.rows[0];
+      if (existing !== undefined) {
+        users.rows[0] = {
+          ...existing,
+          roles: [UserRole.RIDER, UserRole.DRIVER],
+        };
+      }
+
+      const refreshed = await service.refresh(session.refreshToken);
+
+      expect(accessTokens.verify(refreshed.response.accessToken)).toMatchObject(
+        {
+          status: 'valid',
+          claims: { roles: [UserRole.RIDER, UserRole.DRIVER] },
+        },
+      );
+    });
+
+    it('kills the session when the account has been deactivated', async () => {
+      /* The repository hides soft-deleted users; it does not hide their
+         sessions. Left alone, a deactivated account could keep rotating
+         indefinitely. */
+      const { service, users, refreshTokens } = makeService();
+      await service.register(validRegistration);
+      const session = await service.login(credentials);
+
+      jest.spyOn(users, 'findById').mockResolvedValue(null);
+
+      await expect(service.refresh(session.refreshToken)).rejects.toThrow(
+        RefreshTokenInvalidError,
+      );
+      expect(refreshTokens.rows.every((row) => row.revokedAt !== null)).toBe(
+        true,
+      );
+    });
+
+    it('cannot be used after signing out', async () => {
+      const { service } = makeService();
+      await service.register(validRegistration);
+      const session = await service.login(credentials);
+
+      await service.logout(session.refreshToken);
+
+      await expect(service.refresh(session.refreshToken)).rejects.toThrow(
+        RefreshTokenInvalidError,
+      );
     });
   });
 

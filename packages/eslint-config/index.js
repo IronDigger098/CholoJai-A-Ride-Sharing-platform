@@ -108,9 +108,21 @@ export const baseConfig = [
      test helpers (Nest's `getHttpServer()` and supertest's `response.body`
      are both typed `any`) legitimately produce loosely typed values.
      Fighting that adds noise, not safety — production code keeps the full
-     strictness. */
+     strictness.
+
+     `src/testing/**` is covered too. Those files are test doubles that
+     happen to live outside a spec file so that several suites can share
+     one — a shared fake is worth more than a per-suite copy that quietly
+     drifts from the port it implements. They are excluded from the
+     production build (see apps/api/tsconfig.build.json), so relaxing the
+     rules here cannot loosen anything that ships. */
   {
-    files: ['**/*.test.ts', '**/*.spec.ts', '**/__tests__/**/*.ts'],
+    files: [
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      '**/__tests__/**/*.ts',
+      '**/src/testing/**/*.ts',
+    ],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',

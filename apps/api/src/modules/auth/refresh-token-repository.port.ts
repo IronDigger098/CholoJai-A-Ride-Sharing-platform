@@ -1,9 +1,9 @@
 /**
  * What the authentication flow needs from refresh-token persistence.
  *
- * The methods here are exactly the ones M3.4 uses. Rotation and reuse
- * detection (M3.5) will add `markReplaced` and a lookup by family — added
- * then, when there is a caller, rather than now on speculation.
+ * Every method exists because a specific use case calls it. `rotate` and
+ * `familyStartedAt` arrived with M3.5 when rotation gave them callers —
+ * not in M3.4 on speculation about what rotation might need.
  */
 
 /** A stored refresh token as the domain sees it. Never the plaintext. */
@@ -32,6 +32,12 @@ export interface CreateRefreshTokenInput {
   readonly expiresAt: Date;
 }
 
+/** A rotation: retire one token and mint its successor, together. */
+export interface RotateRefreshTokenInput {
+  readonly currentId: string;
+  readonly successor: CreateRefreshTokenInput;
+}
+
 export interface RefreshTokenRepository {
   create(input: CreateRefreshTokenInput): Promise<RefreshTokenRecord>;
 
@@ -53,6 +59,32 @@ export interface RefreshTokenRepository {
    * still a way back in.
    */
   revokeFamily(familyId: string): Promise<number>;
+
+  /**
+   * Retire a token and issue its successor, atomically.
+   *
+   * Returns `null` when the token was already revoked — meaning a
+   * concurrent request rotated it first. That return value is the entire
+   * concurrency contract: two requests carrying the same token produce
+   * exactly one successor, and the loser is told so rather than quietly
+   * minting a second live token in the same family.
+   *
+   * Implementations must perform the check and the write in one atomic
+   * step. A read followed by a write lets both callers pass the check
+   * before either commits.
+   */
+  rotate(input: RotateRefreshTokenInput): Promise<RefreshTokenRecord | null>;
+
+  /**
+   * When the oldest token in a family was created — i.e. when the user
+   * signed in.
+   *
+   * This is what bounds a session absolutely. Each successor's expiry is
+   * clamped to this instant plus the absolute TTL, so rotation slides the
+   * window forward without ever pushing it past the original sign-in's
+   * ceiling. Returns `null` for an unknown family.
+   */
+  familyStartedAt(familyId: string): Promise<Date | null>;
 }
 
 /** Injection token — an interface has no runtime value to key DI on. */

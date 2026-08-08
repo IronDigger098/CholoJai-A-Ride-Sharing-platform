@@ -22,6 +22,9 @@ import {
 import {
   EmailAlreadyRegisteredError,
   InvalidCredentialsError,
+  RefreshTokenInvalidError,
+  RefreshTokenReusedError,
+  RefreshTokenStaleError,
 } from './auth.errors';
 import { EmailVerificationService } from './email-verification.service';
 import { RefreshTokenService } from './refresh-token.service';
@@ -176,6 +179,61 @@ export class AuthService {
         user: toUserSummary(user),
       },
       refreshToken: refresh.plaintext,
+    };
+  }
+
+  /**
+   * Exchange a refresh token for a new access token and a new refresh token.
+   *
+   * Note what this does *not* take: an access token. Refreshing has to work
+   * precisely when the access token is dead, which is the only time anyone
+   * calls it.
+   *
+   * The new access token is minted from the user's roles as they are right
+   * now, read from the database. That makes this the moment a role change
+   * propagates — a driver application approved twenty minutes ago takes
+   * effect here, not at some unbounded point in the future.
+   */
+  public async refresh(refreshToken: string | null): Promise<LoginResult> {
+    if (refreshToken === null) throw new RefreshTokenInvalidError();
+
+    const outcome = await this.refreshTokens.rotate(refreshToken);
+
+    if (outcome.status === 'invalid') throw new RefreshTokenInvalidError();
+    if (outcome.status === 'stale') throw new RefreshTokenStaleError();
+
+    if (outcome.status === 'reused') {
+      this.logger.warn(
+        `Signed out user ${outcome.userId}: refresh token reuse detected`,
+      );
+      throw new RefreshTokenReusedError();
+    }
+
+    const user = await this.users.findById(outcome.userId);
+
+    if (user === null) {
+      /* The account was deactivated between the last refresh and this one.
+         The token is genuine, so leaving the family alive would let a
+         deactivated user keep rotating indefinitely — the repository hides
+         soft-deleted users, but it does not hide their sessions. Kill it. */
+      await this.refreshTokens.revokeFamily(outcome.familyId);
+      this.logger.warn(
+        `Refresh rejected for deactivated or deleted user ${outcome.userId}`,
+      );
+      throw new RefreshTokenInvalidError();
+    }
+
+    return {
+      response: {
+        accessToken: this.accessTokens.sign({
+          sub: user.id,
+          roles: [...user.roles],
+        }),
+        tokenType: 'Bearer',
+        expiresIn: this.accessTokens.ttlSeconds,
+        user: toUserSummary(user),
+      },
+      refreshToken: outcome.plaintext,
     };
   }
 

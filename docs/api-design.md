@@ -172,6 +172,51 @@ account. The two paths also spend the same time, by hashing a decoy
 password when no user is found — an identical message in front of a
 measurable timing difference is decoration, not a defence.
 
+#### Rotation and reuse detection
+
+Every call to `/auth/refresh` retires the token it was given and issues a
+successor in the same family. A refresh token is therefore single-use, and
+a token presented after it was already exchanged should not exist anywhere.
+
+That is the detection. When one turns up, either an attacker is replaying a
+token the user has since rotated past, or the user is replaying one the
+attacker rotated first — and nothing in the request distinguishes the two.
+So the whole family is revoked. Both parties are signed out, and only the
+one who knows the password comes back. A stolen refresh token buys at most
+one rotation cycle instead of a week.
+
+Revoking only the replayed row would be worse than useless: it would leave
+whoever holds the successor — quite possibly the thief — with a live
+session while telling us we had handled the incident.
+
+Three failure codes, and clients must branch on them:
+
+`REFRESH_TOKEN_STALE` is not an attack. Two tabs, or a mobile client
+retrying through a tunnel, genuinely send the same token twice, and a
+replay within ten seconds of its own rotation is treated as that. Nothing
+is revoked and the response does not clear the cookie, because the request
+that won the race already set the new one. The client retries once.
+
+`REFRESH_TOKEN_REUSED` means the family was revoked. Tell the user their
+session ended for security reasons and send them to sign in.
+
+`REFRESH_TOKEN_INVALID` covers unknown, expired, signed-out, and
+past-the-ceiling. Send them to sign in.
+
+The ten-second grace period is a deliberate blind spot — an attacker
+replaying inside it gets a 401 and raises no alarm. The alternative is
+signing honest users out whenever their connection stutters, which is a
+worse trade on the networks this app is built for. Set
+`REFRESH_ROTATION_GRACE_SECONDS=0` to run strict.
+
+Sessions are also bounded absolutely. Rotation slides each token's expiry
+forward, but never past thirty days from the original sign-in. Without that
+clamp, rotation would make sessions _less_ bounded than they were before it
+existed: refresh once a week and the session never ends.
+
+Refreshing re-reads the user, so it is also the point at which a role
+change takes effect and a deactivated account loses its session.
+
 Failures on protected endpoints distinguish `ACCESS_TOKEN_EXPIRED` from
 `INVALID_ACCESS_TOKEN` in `code`. The client refreshes on the first and
 sends the user to sign in on the second; collapsing them means the app

@@ -96,8 +96,40 @@ export const envSchema = z
      */
     JWT_ACCESS_TTL_MINUTES: z.coerce.number().int().positive().default(15),
 
-    /** Refresh tokens ARE revocable — they live in the database. */
+    /**
+     * How long an individual refresh token lives — the *sliding* window.
+     *
+     * Refresh tokens ARE revocable, because they live in the database.
+     * Rotation issues a new one on every use, so an active user's session
+     * keeps sliding forward.
+     */
     REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
+
+    /**
+     * The hard ceiling on one sign-in, regardless of activity.
+     *
+     * Without this, rotation would make sessions *less* bounded than they
+     * were before it existed: refresh once a week and the session never
+     * ends. Every successor's expiry is clamped to the family's start plus
+     * this, so after thirty days the password is required again no matter
+     * how active the account has been.
+     */
+    REFRESH_ABSOLUTE_TTL_DAYS: z.coerce.number().int().positive().default(30),
+
+    /**
+     * Grace period after a token is rotated, in seconds.
+     *
+     * A token replayed inside this window is treated as a concurrency
+     * artefact rather than theft — two browser tabs, or a mobile client
+     * retrying through a tunnel, can genuinely send the same token twice.
+     * Without a grace period those users get signed out for nothing.
+     *
+     * It is a deliberate blind spot: an attacker replaying within the
+     * window gets a 401 and raises no alarm. Ten seconds is short enough
+     * that this costs almost nothing and long enough to cover a retry.
+     * Set it to 0 to run strict, where any replay at all revokes the family.
+     */
+    REFRESH_ROTATION_GRACE_SECONDS: z.coerce.number().int().min(0).default(10),
 
     /**
      * Cookie scope for the refresh token.
@@ -142,6 +174,19 @@ export const envSchema = z
    * intact instead of short-circuiting on the first problem.
    */
   .superRefine((env, ctx) => {
+    /* Checked in every environment, not just production: a sliding window
+       longer than the absolute ceiling is not a risky configuration, it is
+       an incoherent one. The clamp would silently ignore REFRESH_TTL_DAYS
+       and every token would expire at the ceiling, which is the kind of
+       thing that gets diagnosed months later as "sessions feel wrong". */
+    if (env.REFRESH_TTL_DAYS > env.REFRESH_ABSOLUTE_TTL_DAYS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['REFRESH_TTL_DAYS'],
+        message: `must not exceed REFRESH_ABSOLUTE_TTL_DAYS (${env.REFRESH_ABSOLUTE_TTL_DAYS})`,
+      });
+    }
+
     if (env.NODE_ENV !== 'production') return;
 
     if (!env.API_BASE_URL.startsWith('https://')) {

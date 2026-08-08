@@ -306,6 +306,55 @@ reserved for the interactive islands (map, booking flow, live tracking).
 
 ---
 
+### ADR-010 — Rotation grace window over strict reuse detection — **Accepted** _(M3.5)_
+
+- **Context:** Refresh-token rotation makes any replay of an exchanged
+  token evidence of theft. But an honest client replays too: two tabs, or
+  a mobile client retrying a request that timed out in a tunnel, both send
+  the same token twice. Strict detection cannot tell those apart from an
+  attacker and signs the user out.
+- **Decision:** A replay arriving strictly within
+  `REFRESH_ROTATION_GRACE_SECONDS` (default 10) of its own rotation returns
+  `REFRESH_TOKEN_STALE` and revokes nothing; the client retries with the
+  cookie the winning request already set. Outside the window it is
+  `REFRESH_TOKEN_REUSED` and the family dies. The window is half-open so a
+  configured 0 genuinely means zero.
+- **Alternatives:** Strict, zero-tolerance detection (rejected as the
+  default — false positives would be routine on Bangladeshi mobile
+  networks, and a security control users learn to route around protects
+  nothing; still available via config). Returning the same successor to
+  the loser (impossible — we store only the hash, never the plaintext, so
+  a successor cannot be re-issued after the fact). Serialising refreshes
+  per user with a lock (adds a distributed-lock dependency to solve a
+  problem a timestamp comparison solves).
+- **Consequences:** A deliberate ten-second window in which a replay raises
+  no alarm. Bounded and small: the attacker still has to hold a live token,
+  and the next refresh outside the window detects them. Rotation is atomic
+  in one transaction — a conditional `UPDATE … WHERE revoked_at IS NULL`
+  guarantees exactly one successor per token even under concurrent requests.
+
+---
+
+### ADR-011 — Sliding refresh window inside an absolute session ceiling — **Accepted** _(M3.5)_
+
+- **Context:** If each rotation grants a fresh seven days, an account that
+  refreshes weekly is never asked for a password again. Rotation would have
+  made sessions _less_ bounded than the fixed seven-day token it replaced.
+- **Decision:** Each successor expires at
+  `min(now + REFRESH_TTL_DAYS, familyStartedAt + REFRESH_ABSOLUTE_TTL_DAYS)`.
+  Seven days of inactivity ends a session; thirty days of activity ends it
+  too. The family's start is an indexed `MIN(created_at)` lookup.
+- **Alternatives:** Pure sliding (rejected — unbounded sessions). Pure
+  absolute (rejected — logs out daily users every week for no security
+  gain). A denormalised `family_started_at` column on every row (rejected —
+  duplicated data that can drift, to save one indexed aggregate per refresh).
+- **Consequences:** One extra read per refresh. The config schema rejects
+  `REFRESH_TTL_DAYS > REFRESH_ABSOLUTE_TTL_DAYS` in every environment,
+  because that combination is not risky so much as incoherent: the clamp
+  would silently ignore the sliding value.
+
+---
+
 ## 7. Environments
 
 |                  | Local                | Production           |

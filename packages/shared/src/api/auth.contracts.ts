@@ -201,6 +201,26 @@ export const loginResponseSchema = z.object({
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
 
 /* ────────────────────────────────────────────────────────────────────────
+   POST /auth/refresh
+   ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Refreshing returns exactly what signing in returns.
+ *
+ * Aliased rather than redefined, and that is the contract: a client can
+ * feed both responses through one handler, because after a refresh the
+ * session is in the same state as after a sign-in — new access token, new
+ * refresh cookie, current user. If these ever need to diverge, the alias
+ * is where that decision becomes visible.
+ *
+ * There is no request schema. The only input is the refresh cookie, which
+ * the browser attaches by itself and JavaScript cannot read.
+ */
+export const refreshResponseSchema = loginResponseSchema;
+
+export type RefreshResponse = LoginResponse;
+
+/* ────────────────────────────────────────────────────────────────────────
    GET /auth/me
    ──────────────────────────────────────────────────────────────────────── */
 

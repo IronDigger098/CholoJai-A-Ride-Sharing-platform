@@ -35,27 +35,29 @@ mask a missing platform variable during a deploy.
 
 ## `apps/api`
 
-| Variable                    | Purpose                               | Example / default        | Milestone |
-| --------------------------- | ------------------------------------- | ------------------------ | --------- |
-| `NODE_ENV`                  | Runtime mode                          | `development`            | M2        |
-| `PORT`                      | API listen port                       | `4000`                   | M2        |
-| `API_BASE_URL`              | Public API origin (links in emails)   | `http://localhost:4000`  | M2        |
-| `WEB_BASE_URL`              | Public web origin (CORS, email links) | `http://localhost:3000`  | M2        |
-| `DATABASE_URL`              | PostgreSQL connection string          | `postgresql://…`         | M2        |
-| `REDIS_URL`                 | Redis connection string               | `redis://localhost:6379` | M2        |
-| `JWT_ACCESS_SECRET`         | Signs access tokens (HS256)           | 32+ random bytes         | M3        |
-| `JWT_ACCESS_TTL_MINUTES`    | Access token lifetime, in minutes     | `15`                     | M3        |
-| `REFRESH_TTL_DAYS`          | Refresh token lifetime, in days       | `7`                      | M3        |
-| `COOKIE_DOMAIN`             | Refresh cookie scope                  | `localhost`              | M3        |
-| `SMTP_HOST` / `SMTP_PORT`   | Mail transport (Mailpit in dev)       | `localhost` / `1025`     | M3        |
-| `MAIL_FROM`                 | Sender identity                       | `no-reply@cholojai.app`  | M3        |
-| `RESEND_API_KEY`            | Production email provider             | —                        | M12       |
-| `CLOUDINARY_URL`            | Image storage                         | —                        | M7        |
-| `NOMINATIM_BASE_URL`        | Geocoding upstream                    | public instance          | M6        |
-| `OSRM_BASE_URL`             | Routing upstream                      | public instance          | M6        |
-| `RATE_LIMIT_GLOBAL_PER_MIN` | Global throttle                       | `100`                    | M2        |
-| `SWAGGER_ENABLED`           | Serve API docs at /api/docs           | on unless production     | M2        |
-| `LOG_LEVEL`                 | pino level                            | `info`                   | M2        |
+| Variable                         | Purpose                               | Example / default        | Milestone |
+| -------------------------------- | ------------------------------------- | ------------------------ | --------- |
+| `NODE_ENV`                       | Runtime mode                          | `development`            | M2        |
+| `PORT`                           | API listen port                       | `4000`                   | M2        |
+| `API_BASE_URL`                   | Public API origin (links in emails)   | `http://localhost:4000`  | M2        |
+| `WEB_BASE_URL`                   | Public web origin (CORS, email links) | `http://localhost:3000`  | M2        |
+| `DATABASE_URL`                   | PostgreSQL connection string          | `postgresql://…`         | M2        |
+| `REDIS_URL`                      | Redis connection string               | `redis://localhost:6379` | M2        |
+| `JWT_ACCESS_SECRET`              | Signs access tokens (HS256)           | 32+ random bytes         | M3        |
+| `JWT_ACCESS_TTL_MINUTES`         | Access token lifetime, in minutes     | `15`                     | M3        |
+| `REFRESH_TTL_DAYS`               | Refresh token sliding window, days    | `7`                      | M3        |
+| `REFRESH_ABSOLUTE_TTL_DAYS`      | Hard ceiling on one sign-in, days     | `30`                     | M3        |
+| `REFRESH_ROTATION_GRACE_SECONDS` | Replay window treated as concurrency  | `10`                     | M3        |
+| `COOKIE_DOMAIN`                  | Refresh cookie scope                  | `localhost`              | M3        |
+| `SMTP_HOST` / `SMTP_PORT`        | Mail transport (Mailpit in dev)       | `localhost` / `1025`     | M3        |
+| `MAIL_FROM`                      | Sender identity                       | `no-reply@cholojai.app`  | M3        |
+| `RESEND_API_KEY`                 | Production email provider             | —                        | M12       |
+| `CLOUDINARY_URL`                 | Image storage                         | —                        | M7        |
+| `NOMINATIM_BASE_URL`             | Geocoding upstream                    | public instance          | M6        |
+| `OSRM_BASE_URL`                  | Routing upstream                      | public instance          | M6        |
+| `RATE_LIMIT_GLOBAL_PER_MIN`      | Global throttle                       | `100`                    | M2        |
+| `SWAGGER_ENABLED`                | Serve API docs at /api/docs           | on unless production     | M2        |
+| `LOG_LEVEL`                      | pino level                            | `info`                   | M2        |
 
 ## `apps/web`
 

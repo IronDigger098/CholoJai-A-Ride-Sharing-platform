@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import { type Env } from './env.schema';
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 /**
  * The only object in the application permitted to expose configuration.
  *
@@ -77,9 +79,23 @@ export class AppConfigService {
     };
   }
 
-  /** Refresh-token lifetime. There is no secret: the token is opaque. */
-  public get refreshTokenTtlMinutes(): number {
-    return this.env.REFRESH_TTL_DAYS * 24 * 60;
+  /**
+   * Refresh-token lifetime rules. There is no secret: the token is opaque.
+   *
+   * Returned in milliseconds because every consumer does date arithmetic
+   * with it. Converting once here means no call site multiplies by 86_400_000
+   * and gets a zero wrong.
+   */
+  public get refreshPolicy(): {
+    slidingTtlMs: number;
+    absoluteTtlMs: number;
+    rotationGraceMs: number;
+  } {
+    return {
+      slidingTtlMs: this.env.REFRESH_TTL_DAYS * MS_PER_DAY,
+      absoluteTtlMs: this.env.REFRESH_ABSOLUTE_TTL_DAYS * MS_PER_DAY,
+      rotationGraceMs: this.env.REFRESH_ROTATION_GRACE_SECONDS * 1000,
+    };
   }
 
   /**
@@ -112,7 +128,11 @@ export class AppConfigService {
          attach this cookie to any other request, so an XSS payload cannot
          ride it to /rides or /admin even though it cannot read the value. */
       path: '/api/v1/auth',
-      maxAge: this.refreshTokenTtlMinutes * 60 * 1000,
+      /* The sliding window, not the absolute ceiling: rotation replaces
+         this cookie on every refresh, so it only ever has to outlive one
+         token. Using the ceiling here would leave the browser sending a
+         credential that died three weeks earlier. */
+      maxAge: this.refreshPolicy.slidingTtlMs,
     };
   }
 
