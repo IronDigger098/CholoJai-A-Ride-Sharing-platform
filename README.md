@@ -52,6 +52,7 @@ pnpm install
 cp .env.example .env                        # Copy-Item on PowerShell
 pnpm docker:up                              # PostgreSQL, Redis, Mailpit
 pnpm --filter @cholojai/api db:migrate      # migrations + Prisma client
+pnpm --filter @cholojai/api db:seed         # accounts you can sign in as
 pnpm dev                                    # web on :3000, api on :4000
 ```
 
@@ -64,8 +65,28 @@ pnpm verify                                 # format, build, lint, typecheck, te
 > **Run `db:migrate` before `verify` on a fresh clone.** The Prisma client
 > is generated code and is deliberately not committed, so anything
 > importing `@prisma/client` will not compile until it exists.
-> `db:migrate` generates it as a side effect;
-> `pnpm --filter @cholojai/api db:generate` does it on its own.
+> `pnpm install` now generates it automatically via a postinstall hook, and
+> `pnpm --filter @cholojai/api db:generate` does it on demand.
+
+### Seeded accounts
+
+`db:seed` is idempotent — run it as often as you like — and refuses outright
+when `NODE_ENV=production`, because it creates accounts whose password is
+published right here.
+
+Every account uses the password **`cholojai-dev-password`**.
+
+| Email                           | Roles         | Why it exists                                                       |
+| ------------------------------- | ------------- | ------------------------------------------------------------------- |
+| `admin@cholojai.local`          | RIDER, ADMIN  | Bootstraps role management — nothing else can grant the first ADMIN |
+| `rafiq@cholojai.local`          | RIDER, DRIVER | Approved driver with an active CNG, available for matching          |
+| `nabila@cholojai.local`         | RIDER         | Ordinary verified rider; the default for booking flows              |
+| `unverified@cholojai.local`     | RIDER         | Never confirmed their address — for verification and resend flows   |
+| `pending-driver@cholojai.local` | RIDER         | Driver application awaiting review; holds no DRIVER role yet        |
+
+Addresses all sit under `.local`, an RFC 6762 reserved suffix that cannot
+resolve on the public internet, so a stray verification email can never
+reach a real mailbox. Outgoing mail lands in Mailpit either way.
 
 | Service        | URL                            |
 | -------------- | ------------------------------ |

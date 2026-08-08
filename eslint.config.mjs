@@ -43,6 +43,18 @@ export default [
     },
   },
 
+  /* Operational scripts print to stdout — that is their user interface,
+     not a stray debug statement. The `no-console` rule exists to stop
+     server code bypassing the structured logger, and a CLI has no
+     structured logger to bypass. Scoped to the seed directory so the rule
+     keeps its teeth everywhere it matters. */
+  {
+    files: ['apps/*/src/seed/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   /* Tests in shared libraries may log while debugging and need no
      ceremony around return types. */
   {

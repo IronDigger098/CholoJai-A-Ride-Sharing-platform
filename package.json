@@ -27,6 +27,7 @@
     "clean:cache": "node scripts/clean.mjs .turbo node_modules/.cache",
     "clean:deps": "node scripts/clean.mjs node_modules .turbo",
     "verify": "pnpm format:check && pnpm build && pnpm lint && pnpm typecheck && pnpm test",
+    "verify:clean": "pnpm clean && pnpm clean:cache && pnpm verify",
     "prepare": "husky"
   },
   "devDependencies": {

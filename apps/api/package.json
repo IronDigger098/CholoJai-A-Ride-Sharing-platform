@@ -11,7 +11,7 @@
     "db:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "dotenv -e ../../.env -- prisma studio",
-    "db:seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+    "db:seed": "dotenv -e ../../.env -- tsx src/seed/seed.ts",
     "db:reset": "dotenv -e ../../.env -- prisma migrate reset --force",
     "start": "node dist/main.js",
     "clean": "node ../../scripts/clean.mjs dist .turbo *.tsbuildinfo",
@@ -62,5 +62,8 @@
     "ts-jest": "^29.2.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
+  },
+  "prisma": {
+    "seed": "tsx src/seed/seed.ts"
   }
 }
