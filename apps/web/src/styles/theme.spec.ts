@@ -37,6 +37,18 @@ const PAIRINGS = [
   { foreground: 'danger', background: 'surface', minimum: 4.5 },
   { foreground: 'success', background: 'surface', minimum: 4.5 },
   { foreground: 'border-strong', background: 'surface', minimum: 3 },
+
+  /* Everything again against the raised surface. Cards are where most
+     text actually lives, and in dark mode `surface-raised` is *lighter*
+     than the page — so text on a card has less contrast, not more. An
+     earlier version of this list checked only `surface`, passed, and
+     shipped a 4.23:1 caption that an axe run in a real browser caught. */
+  { foreground: 'content-muted', background: 'surface-raised', minimum: 4.5 },
+  { foreground: 'content-subtle', background: 'surface-raised', minimum: 4.5 },
+  { foreground: 'accent', background: 'surface-raised', minimum: 4.5 },
+  { foreground: 'danger', background: 'surface-raised', minimum: 4.5 },
+  { foreground: 'success', background: 'surface-raised', minimum: 4.5 },
+  { foreground: 'border-strong', background: 'surface-raised', minimum: 3 },
   {
     foreground: 'content-disabled',
     background: 'surface-disabled',

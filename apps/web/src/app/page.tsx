@@ -1,57 +1,46 @@
-import { formatTaka, takaToPaisa } from '@cholojai/shared';
-
 import type { ReactNode } from 'react';
 
-import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { SiteFooter } from '@/components/layout/site-footer';
+import { SiteHeader } from '@/components/layout/site-header';
+import { DriverInvitation } from '@/features/marketing/components/driver-invitation';
+import { FareBreakdown } from '@/features/marketing/components/fare-breakdown';
+import { Hero } from '@/features/marketing/components/hero';
+import { HowItWorks } from '@/features/marketing/components/how-it-works';
+import { Safety } from '@/features/marketing/components/safety';
+import { StructuredData } from '@/features/marketing/components/structured-data';
 
 /**
- * A placeholder, and deliberately not a design.
+ * The landing page.
  *
- * Its job is to exercise the system end to end. Every colour is a semantic
- * token and every control is a primitive, so the page proves the layers
- * rather than merely sitting on top of them. There is not one `dark:`
- * class in this file, and it renders correctly in both schemes.
+ * A route file that composes and does not implement, per
+ * `docs/folder-structure.md`. Each section is a feature-private component;
+ * this file's whole job is their order, which is the only thing about the
+ * page that belongs to the route rather than to any one section.
  *
- * `formatTaka` stays from M4.1: the cheapest end-to-end check that the web
- * app is consuming `packages/shared`'s built output.
+ * Entirely a Server Component. The only client code on this page is the
+ * theme toggle, so that is the only JavaScript a visitor downloads to make
+ * it interactive.
  */
 export default function HomePage(): ReactNode {
-  const sampleFare = formatTaka(takaToPaisa(185));
-
   return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl items-center px-6 py-16">
-      <div className="border-border bg-surface-raised w-full rounded-xl border p-8 sm:p-10">
-        <div className="flex items-start justify-between gap-4">
-          <p className="text-accent text-sm font-medium tracking-widest uppercase">
-            চলো যাই
-          </p>
+    <>
+      <StructuredData />
 
-          <ThemeToggle />
-        </div>
+      <SiteHeader />
 
-        <h1 className="mt-3 text-4xl font-semibold text-balance">CholoJai</h1>
+      {/* `id` and `tabIndex={-1}` are the other half of the skip link: an
+          element that is not normally focusable will not take focus when a
+          fragment points at it, so the link would move the scroll position
+          and leave the keyboard where it was. */}
+      <main id="main" tabIndex={-1}>
+        <Hero />
+        <HowItWorks />
+        <FareBreakdown />
+        <Safety />
+        <DriverInvitation />
+      </main>
 
-        <p className="text-content-muted mt-4 text-lg text-pretty">
-          Upfront fares, verified drivers, and live tracking for everyday
-          journeys. A typical airport run costs about {sampleFare}.
-        </p>
-
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Button>Book a ride</Button>
-          <Button variant="accent">Become a driver</Button>
-          {/* Disabled deliberately: it is the state most easily got wrong,
-              and having it on screen keeps it honest. */}
-          <Button variant="ghost" disabled>
-            Track a ride
-          </Button>
-        </div>
-
-        <p className="text-content-subtle border-border mt-8 border-t pt-6 text-sm">
-          Scaffold only — the landing page arrives in M4.4. The theme control
-          above cycles between your system setting and an explicit choice.
-        </p>
-      </div>
-    </main>
+      <SiteFooter />
+    </>
   );
 }
