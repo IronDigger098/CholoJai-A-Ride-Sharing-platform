@@ -1,4 +1,10 @@
-import { addPaisa, formatTaka, type Paisa, paisa } from '@cholojai/shared';
+import {
+  estimateFare,
+  type FareBreakdown as Breakdown,
+  formatTaka,
+  type Paisa,
+  VehicleType,
+} from '@cholojai/shared';
 
 import type { ReactNode } from 'react';
 
@@ -7,39 +13,47 @@ import { Card } from '@/components/ui/card';
 /**
  * A worked example of a fare.
  *
- * The numbers are computed with the same money helpers the API uses, in
- * integer paisa, and totalled with `addPaisa` rather than written down.
- * That is not decoration: a marketing page whose example total does not
- * equal the sum of its own lines is the exact kind of small dishonesty
- * this product's first principle is against, and hard-coding the total is
- * how it happens.
+ * Priced by the real engine — the same `estimateFare` the API uses to
+ * quote a ride — rather than by numbers typed into this file. A marketing
+ * page that advertises pricing the product does not implement is a
+ * promise nobody is keeping, and hard-coding the figures is exactly how
+ * that happens: the rates change, and the page does not.
+ *
+ * Amounts are rendered with decimals. `formatTaka` rounds to whole taka by
+ * default, which would show a ৳8.80 line as ৳9 and a ৳184.80 total as
+ * ৳185 — each correct on its own, and capable of producing a column that
+ * visibly does not add up. On a section whose entire claim is that the
+ * lines sum to the total, the displayed figures have to sum too.
  */
 
-interface FareLine {
-  readonly label: string;
-  readonly detail: string;
-  readonly amount: Paisa;
-}
+const ROUTE = {
+  label: 'Dhanmondi to Banani',
+  vehicleType: VehicleType.CNG,
+  distanceMetres: 8400,
+  durationSeconds: 660,
+} as const;
 
-const LINES: readonly FareLine[] = [
+const FARE: Breakdown = estimateFare(ROUTE);
+
+const EXACT = { withDecimals: true } as const;
+
+const LINES: readonly { label: string; detail: string; amount: Paisa }[] = [
   {
     label: 'Base fare',
     detail: 'Covers pickup and the first kilometre',
-    amount: paisa(5000),
+    amount: FARE.base,
   },
   {
     label: 'Distance',
     detail: '8.4 km across the city',
-    amount: paisa(12_800),
+    amount: FARE.distance,
   },
   {
     label: 'Time',
     detail: '11 minutes, including two signals',
-    amount: paisa(700),
+    amount: FARE.time,
   },
 ];
-
-const TOTAL = addPaisa(...LINES.map((line) => line.amount));
 
 export function FareBreakdown(): ReactNode {
   return (
@@ -63,7 +77,9 @@ export function FareBreakdown(): ReactNode {
 
           <p className="text-content-muted mt-4 max-w-prose text-pretty">
             Money is handled in whole paisa end to end — never a floating point
-            number — so a receipt&rsquo;s lines always add up to its total.
+            number — so a receipt&rsquo;s lines always add up to its total. The
+            figures beside this paragraph are not illustrations: they come from
+            the same pricing engine that quotes a real ride.
           </p>
         </div>
 
@@ -72,7 +88,7 @@ export function FareBreakdown(): ReactNode {
             id="example-fare-heading"
             className="text-content-subtle text-xs font-semibold tracking-widest uppercase"
           >
-            Example — Dhanmondi to Banani
+            Example — {ROUTE.label}
           </h3>
 
           <dl className="mt-5 space-y-4">
@@ -87,7 +103,9 @@ export function FareBreakdown(): ReactNode {
                     {line.detail}
                   </span>
                 </dt>
-                <dd className="tabular-nums">{formatTaka(line.amount)}</dd>
+                <dd className="tabular-nums">
+                  {formatTaka(line.amount, EXACT)}
+                </dd>
               </div>
             ))}
           </dl>
@@ -95,7 +113,7 @@ export function FareBreakdown(): ReactNode {
           <div className="border-border mt-5 flex items-baseline justify-between border-t pt-5">
             <span className="font-semibold">Total</span>
             <span className="text-xl font-semibold tabular-nums">
-              {formatTaka(TOTAL)}
+              {formatTaka(FARE.total, EXACT)}
             </span>
           </div>
         </Card>
