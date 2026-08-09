@@ -416,6 +416,57 @@ reserved for the interactive islands (map, booking flow, live tracking).
   ride" — is explicitly out of scope here; RBAC answers what a role may do,
   not which rows it may touch.
 
+### ADR-014 — Tailwind v4 with a CSS-first theme, no `tailwind.config.js` — **Accepted** _(M4.1)_
+
+- **Context:** `apps/web` needs a styling layer, and a design system lands
+  on top of it in M4.2. Tailwind v4 moved configuration out of JavaScript
+  and into CSS via `@theme`, so the choice is no longer only "which
+  framework" but "where do design tokens live".
+- **Decision:** Tailwind v4 as a PostCSS plugin, with the theme declared in
+  `src/styles/globals.css` using `@theme`. No `tailwind.config.js`.
+- **Rationale:** Tokens declared in CSS _are_ the custom properties the
+  browser receives, rather than a JavaScript object compiled into custom
+  properties. That removes a class of confusion where the config says one
+  thing and the cascade does another, and it makes every token readable in
+  devtools and overridable per media query or data attribute — which is
+  precisely the mechanism dark mode needs in M4.2.
+- **Alternatives:** Tailwind v3 with a JS config (rejected — a major
+  version behind on a greenfield project, and it makes the theme a
+  build-time artifact the browser never sees). CSS Modules or vanilla-extract
+  (rejected — both are good, but shadcn/ui is Tailwind-based and this
+  product needs a component library more than it needs styling purity).
+  Runtime CSS-in-JS such as styled-components (rejected — fundamentally at
+  odds with Server Components, which are the default rendering mode here).
+- **Consequences:** shadcn/ui components must be taken at their Tailwind v4
+  revisions. There is no JavaScript object to import tokens from, so
+  anything needing a colour value in TypeScript reads the custom property
+  instead — which is the correct direction of dependency regardless.
+
+### ADR-015 — One root ESLint config with a scoped React layer — **Accepted** _(M4.1)_
+
+- **Context:** `next lint` was removed in Next.js 16, so the framework no
+  longer supplies a lint entry point, and the React rules have to attach to
+  the existing flat config somehow.
+- **Decision:** `@cholojai/eslint-config/next` exports a `nextConfig(files)`
+  factory; the root config calls it scoped to `apps/web/**/*.{ts,tsx}`.
+  There is no ESLint config file inside `apps/web`.
+- **Rationale:** Flat config does not cascade. A second config file in
+  `apps/web` would mean `eslint .` from the root silently stops applying
+  React rules to the web app — green lint, no coverage, and nothing to say
+  so. A factory keeps the file patterns with the consumer that knows them
+  and the rules with the package that owns them.
+- **Alternatives:** A ready-made array exported from the package (rejected —
+  it would either apply React rules to every NestJS file or hard-code
+  `apps/web` into a package that has no business knowing it exists).
+  Per-app config files (rejected for the silent-gap reason above).
+  `FlatCompat` shims (unnecessary — all four plugins ship native flat
+  config in current versions).
+- **Consequences:** A second React app means one more call to the factory
+  rather than a new config file. `@next/next/no-html-link-for-pages` is
+  switched off: it hunts for a Pages Router directory an App-Router-only
+  codebase does not have, and warns about its own configuration on every
+  run.
+
 ---
 
 ## 7. Environments
