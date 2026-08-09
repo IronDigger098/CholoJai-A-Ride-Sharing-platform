@@ -96,14 +96,38 @@ reach a real mailbox. Outgoing mail lands in Mailpit either way.
 | Mail inbox     | http://localhost:8025          |
 | Liveness probe | http://localhost:4000/health   |
 
+## Design system
+
+Colour is defined in two layers. A raw palette — teal, amber, a set of
+neutrals, plus red and green for status — sits on one shared lightness ramp in
+OKLCH, so a step number means the same visual weight in every hue. On top of
+it, a semantic layer names roles rather than colours: `surface`, `content`,
+`accent`, `border`, `danger`. Components only ever use the semantic names.
+
+Dark mode is a consequence of that split rather than a feature bolted onto it.
+The semantic tokens repoint and nothing else changes — there is not a single
+`dark:` class in the application, and the same markup renders correctly in
+both schemes. The scheme follows the operating system by default; setting
+`data-theme="light"` or `data-theme="dark"` on `<html>` overrides it, and
+`color-scheme` moves with it so scrollbars and form controls follow.
+
+Accessibility here is enforced, not asserted. `theme.spec.ts` reads
+`theme.css`, resolves every semantic token, and checks that each text pairing
+clears WCAG AA in both schemes, with the primary text colour held to AAA. It
+also verifies every colour sits inside the sRGB gamut, because an out-of-gamut
+OKLCH value is silently clipped by the browser to a different hue. Tokens live
+in CSS rather than JavaScript (ADR-014), so the tests read the file the
+browser actually receives and there is no second copy to drift.
+
 ## Testing
 
-There are two suites, split by what they need rather than by what they cover.
+Two suites, split by what they need rather than by what they cover.
 
-`pnpm test` runs the unit suite. It needs no database, no Redis, and no
-network, so it finishes in seconds and can run on any machine, in any hook,
-at any time. Everything that touches infrastructure does so through a port,
-and the tests supply an in-memory adapter.
+`pnpm test` runs the unit suite across every package — API, shared contracts,
+and web. It needs no database, no Redis, and no network, so it finishes in
+seconds and can run on any machine, in any hook, at any time. Everything that
+touches infrastructure does so through a port, and the tests supply an
+in-memory adapter.
 
 `pnpm test:integration` runs the suites named `*.int-spec.ts`, which exercise
 the Prisma adapters against a real PostgreSQL. They exist because the

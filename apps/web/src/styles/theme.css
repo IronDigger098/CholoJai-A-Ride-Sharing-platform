@@ -1,0 +1,274 @@
+/*
+ * CholoJai design tokens.
+ *
+ * Two layers, and the distinction is the whole point.
+ *
+ * The PALETTE is raw material: `teal-700` is a colour and says nothing
+ * about where it belongs. The SEMANTIC layer is the vocabulary components
+ * actually use: `surface`, `content`, `accent`, `border`. Components name
+ * the role, never the colour — which is what lets the entire product
+ * change appearance by repointing tokens, and what makes dark mode a
+ * remapping rather than a second set of classes on every element.
+ *
+ * Colours are OKLCH. Unlike hex or HSL, equal steps in OKLCH lightness are
+ * equally perceptible, so `teal-700` and `amber-700` genuinely look like
+ * the same weight instead of merely sharing a number. Every value below is
+ * inside the sRGB gamut and every text pairing meets WCAG AA — both
+ * verified by `theme.spec.ts`, which reads this file.
+ */
+
+/* ─── Dark mode ────────────────────────────────────────────────────────
+ *
+ * Follows the operating system by default, and `data-theme` on <html>
+ * overrides it. Tailwind's stock `dark` variant does one or the other; a
+ * product needs both, because "respect my system setting" and "but not on
+ * this site" are both reasonable things for a person to want.
+ *
+ * `:where()` keeps specificity at zero so a `dark:` utility never
+ * out-ranks a plain one by accident.
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:not([data-theme='light'], [data-theme='light'] *)) {
+      @slot;
+    }
+  }
+
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+}
+
+/* ─── Palette ──────────────────────────────────────────────────────────
+ *
+ * One shared lightness ramp across every hue, so a step number means the
+ * same thing everywhere. Chroma is per-hue and gamut-clamped: yellows can
+ * carry far more chroma than teals at the same lightness, and a value
+ * outside sRGB renders as a clipped, subtly different colour with no
+ * warning at all.
+ */
+@theme {
+  --color-teal-50: oklch(0.985 0.012 195);
+  --color-teal-100: oklch(0.962 0.024 195);
+  --color-teal-200: oklch(0.922 0.045 195);
+  --color-teal-300: oklch(0.862 0.07 195);
+  --color-teal-400: oklch(0.77 0.09 195);
+  --color-teal-500: oklch(0.65 0.1 195);
+  --color-teal-600: oklch(0.55 0.094 195);
+  --color-teal-700: oklch(0.47 0.081 195);
+  --color-teal-800: oklch(0.385 0.066 195);
+  --color-teal-900: oklch(0.3 0.053 195);
+  --color-teal-950: oklch(0.205 0.039 195);
+
+  --color-amber-50: oklch(0.985 0.011 72);
+  --color-amber-100: oklch(0.962 0.028 72);
+  --color-amber-200: oklch(0.922 0.06 72);
+  --color-amber-300: oklch(0.862 0.095 72);
+  --color-amber-400: oklch(0.77 0.13 72);
+  --color-amber-500: oklch(0.65 0.139 72);
+  --color-amber-600: oklch(0.55 0.118 72);
+  --color-amber-700: oklch(0.47 0.102 72);
+  --color-amber-800: oklch(0.385 0.084 72);
+  --color-amber-900: oklch(0.3 0.067 72);
+  --color-amber-950: oklch(0.205 0.051 72);
+
+  --color-neutral-50: oklch(0.985 0.002 240);
+  --color-neutral-100: oklch(0.962 0.003 240);
+  --color-neutral-200: oklch(0.922 0.004 240);
+  --color-neutral-300: oklch(0.862 0.005 240);
+  --color-neutral-400: oklch(0.77 0.006 240);
+  --color-neutral-500: oklch(0.65 0.007 240);
+  --color-neutral-600: oklch(0.55 0.007 240);
+  --color-neutral-700: oklch(0.47 0.007 240);
+  --color-neutral-800: oklch(0.385 0.006 240);
+  --color-neutral-900: oklch(0.3 0.006 240);
+  --color-neutral-950: oklch(0.205 0.005 240);
+
+  --color-red-50: oklch(0.985 0.007 25);
+  --color-red-100: oklch(0.962 0.018 25);
+  --color-red-200: oklch(0.922 0.039 25);
+  --color-red-300: oklch(0.862 0.074 25);
+  --color-red-400: oklch(0.77 0.13 25);
+  --color-red-500: oklch(0.65 0.16 25);
+  --color-red-600: oklch(0.55 0.17 25);
+  --color-red-700: oklch(0.47 0.155 25);
+  --color-red-800: oklch(0.385 0.13 25);
+  --color-red-900: oklch(0.3 0.1 25);
+  --color-red-950: oklch(0.205 0.07 25);
+
+  --color-green-50: oklch(0.985 0.012 150);
+  --color-green-100: oklch(0.962 0.026 150);
+  --color-green-200: oklch(0.922 0.05 150);
+  --color-green-300: oklch(0.862 0.08 150);
+  --color-green-400: oklch(0.77 0.105 150);
+  --color-green-500: oklch(0.65 0.125 150);
+  --color-green-600: oklch(0.55 0.125 150);
+  --color-green-700: oklch(0.47 0.11 150);
+  --color-green-800: oklch(0.385 0.09 150);
+  --color-green-900: oklch(0.3 0.07 150);
+  --color-green-950: oklch(0.205 0.05 150);
+}
+
+/* ─── Typography, radii ────────────────────────────────────────────────
+ *
+ * A system font stack rather than a webfont. A webfont is a network
+ * request on the critical path and a licence to check, and neither is
+ * worth spending before there is a brand decision to serve. The Bengali
+ * families are listed explicitly because the wordmark is Bengali and the
+ * default sans stack on most systems has no Bengali coverage, which
+ * silently falls back to something unrelated.
+ */
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Noto Sans Bengali', 'Nirmala UI', 'Hind Siliguri', sans-serif;
+  --font-mono:
+    ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+
+  /* Line heights loosen as text shrinks: long body copy needs the leading
+     to track back to the next line, headings do not. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5715;
+  --text-base: 1rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.55;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.5;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.35;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.25;
+  --text-3xl--letter-spacing: -0.014em;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 1.15;
+  --text-4xl--letter-spacing: -0.02em;
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 1.08;
+  --text-5xl--letter-spacing: -0.024em;
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+/* ─── Semantic tokens ──────────────────────────────────────────────────
+ *
+ * Plain custom properties, not `@theme`, because these change at runtime
+ * and `@theme` values are resolved where they are declared. The bridge to
+ * utilities is the `@theme inline` block below.
+ *
+ * Light is the default. Dark is applied by the media query, and either can
+ * be forced with `data-theme` on <html>.
+ */
+:root {
+  --surface: var(--color-neutral-50);
+  --surface-raised: oklch(1 0 0);
+  --content: var(--color-neutral-900);
+  --content-muted: var(--color-neutral-700);
+  --content-subtle: var(--color-neutral-600);
+
+  /* Brand. Doubles as link colour and as a fill; `accent-content` is
+     whatever text sits on top of it. */
+  --accent: var(--color-teal-700);
+  --accent-hover: var(--color-teal-800);
+  --accent-content: oklch(1 0 0);
+
+  /* Amber is the call to action, deliberately not a second brand colour.
+     One thing on a screen should look like the thing to press. */
+  --action: var(--color-amber-400);
+  --action-hover: var(--color-amber-300);
+  --action-content: var(--color-neutral-950);
+
+  --border: var(--color-neutral-300);
+  --border-strong: var(--color-neutral-500);
+
+  --danger: var(--color-red-700);
+  --success: var(--color-green-800);
+
+  /* Tells the browser which scrollbars, form controls, and default focus
+     rings to draw. Without it a dark page keeps light scrollbars. */
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --surface: var(--color-neutral-950);
+    --surface-raised: var(--color-neutral-900);
+    --content: var(--color-neutral-100);
+    --content-muted: var(--color-neutral-400);
+    --content-subtle: var(--color-neutral-500);
+
+    /* The accent inverts rather than darkens. A dark surface needs a light
+       accent to stay legible, which also flips what can sit on top of it. */
+    --accent: var(--color-teal-400);
+    --accent-hover: var(--color-teal-300);
+    --accent-content: var(--color-neutral-950);
+
+    --action: var(--color-amber-400);
+    --action-hover: var(--color-amber-300);
+    --action-content: var(--color-neutral-950);
+
+    --border: var(--color-neutral-800);
+    --border-strong: var(--color-neutral-600);
+
+    --danger: var(--color-red-400);
+    --success: var(--color-green-400);
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --surface: var(--color-neutral-950);
+  --surface-raised: var(--color-neutral-900);
+  --content: var(--color-neutral-100);
+  --content-muted: var(--color-neutral-400);
+  --content-subtle: var(--color-neutral-500);
+
+  --accent: var(--color-teal-400);
+  --accent-hover: var(--color-teal-300);
+  --accent-content: var(--color-neutral-950);
+
+  --action: var(--color-amber-400);
+  --action-hover: var(--color-amber-300);
+  --action-content: var(--color-neutral-950);
+
+  --border: var(--color-neutral-800);
+  --border-strong: var(--color-neutral-600);
+
+  --danger: var(--color-red-400);
+  --success: var(--color-green-400);
+
+  color-scheme: dark;
+}
+
+/* ─── Semantic utilities ───────────────────────────────────────────────
+ *
+ * `inline` is required, not stylistic. Without it Tailwind emits
+ * `background-color: var(--color-surface)` and resolves that where the
+ * theme was declared — at :root — so a nested override would never take
+ * effect. With it, the utility emits `var(--surface)` directly and
+ * resolves at the element, which is what makes runtime theming work.
+ */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-content: var(--content);
+  --color-content-muted: var(--content-muted);
+  --color-content-subtle: var(--content-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-content: var(--accent-content);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-action-content: var(--action-content);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+}

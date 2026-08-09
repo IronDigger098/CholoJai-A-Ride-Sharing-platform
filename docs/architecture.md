@@ -467,6 +467,67 @@ reserved for the interactive islands (map, booking flow, live tracking).
   codebase does not have, and warns about its own configuration on every
   run.
 
+### ADR-016 — A semantic token layer over an OKLCH palette — **Accepted** _(M4.2)_
+
+- **Context:** ADR-014 established that tokens live in CSS. This decides
+  what those tokens are, and how dark mode works.
+- **Decision:** Two layers. A raw palette (`teal-700`, `neutral-400`) in
+  OKLCH on one shared lightness ramp, and a semantic layer (`surface`,
+  `content`, `accent`, `border`) that components use exclusively. Dark
+  mode repoints the semantic layer; it does not add a second set of
+  classes. The scheme follows `prefers-color-scheme` by default and
+  `data-theme` on `<html>` overrides it.
+- **Rationale:** Three things follow from naming roles rather than
+  colours. Components stop encoding appearance, so a rebrand or a new
+  theme is a token change rather than a sweep through every file. Dark
+  mode needs no `dark:` variant on any element — the page in `page.tsx`
+  contains none and renders correctly in both schemes. And the palette can
+  be verified: because the semantic layer is a small, enumerable set of
+  pairings, `theme.spec.ts` reads the stylesheet and asserts every one of
+  them meets WCAG AA. OKLCH rather than hex or HSL because equal steps in
+  OKLCH lightness are equally perceptible, so `teal-700` and `amber-700`
+  genuinely look like the same weight instead of merely sharing a number.
+- **Alternatives:** A single flat palette used directly by components
+  (rejected — it is what forces `dark:` on every element, and it makes the
+  contrast guarantee uncheckable because there is no finite list of
+  intended pairings). Tailwind's stock palette (rejected — it is a fine
+  palette and it is also every other Tailwind site's palette, and the
+  brief requires original design). `light-dark()`, which would remove the
+  duplicated dark declarations (rejected — Baseline 2024, above the
+  Chrome 111 floor Next.js 16 supports).
+- **Consequences:** Dark values are written twice, once under the media
+  query and once under `[data-theme='dark']`, because CSS cannot share a
+  declaration block between a media query and a selector. That duplication
+  is a genuine hazard, so a test pins the two blocks to each other: change
+  one and the suite fails until you change the other. Components must
+  never reach for a palette colour directly; the raw scales exist to be
+  pointed at, not used.
+
+### ADR-017 — Jest for `apps/web`, not Vitest — **Accepted** _(M4.2)_
+
+- **Context:** `apps/web` needs a test runner. Next.js 16 publishes
+  official guides for both Jest and Vitest and recommends neither.
+- **Decision:** Jest, via `next/jest`, with `testEnvironment: 'node'`
+  until something renders.
+- **Rationale:** With no capability difference, the tiebreaker is the
+  monorepo. `@cholojai/api` and `@cholojai/shared` already run Jest, so
+  `pnpm test` stays one command with one reporter and one mental model;
+  a second runner would mean two config idioms, two mocking APIs, and two
+  sets of globals for a person to hold in their head. `next/jest` also
+  removes most of the configuration entirely — it transforms with SWC
+  using the build's own settings, reads the `@/*` aliases from tsconfig,
+  and stubs CSS and image imports.
+- **Alternatives:** Vitest (rejected — faster, better native ESM, and a
+  real cost in consistency that its speed does not repay when the suites
+  run in under a second). No runner in `apps/web`, testing only through
+  Playwright (rejected — the contrast guarantees are pure computation and
+  do not need a browser; pushing them to E2E would make them slow and
+  rarely run).
+- **Consequences:** Async Server Components are not reliably unit-testable
+  under either runner, so those are covered by Playwright in M11 as
+  Next.js itself advises. `jsdom` and Testing Library arrive in M4.3 with
+  the first component, not before it.
+
 ---
 
 ## 7. Environments
