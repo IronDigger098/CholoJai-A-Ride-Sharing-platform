@@ -58,6 +58,8 @@ mask a missing platform variable during a deploy.
 | `OSRM_BASE_URL`                  | Routing upstream                                    | public instance          | M5        |
 | `OSRM_TIMEOUT_MS`                | Give up on a route after this long                  | `3000`                   | M5        |
 | `GEO_ROUTE_CACHE_TTL_SECONDS`    | Route cache lifetime                                | `3600`                   | M5        |
+| `FARE_QUOTE_TTL_SECONDS`         | How long a quote stays bookable                     | `300`                    | M5        |
+| `FARE_MAX_DISTANCE_METRES`       | Longest journey we will price                       | `100000`                 | M5        |
 | `RATE_LIMIT_GLOBAL_PER_MIN`      | Global per-IP throttle, per minute                  | `100`                    | M3        |
 | `RATE_LIMIT_ENABLED`             | Master switch; must be true in prod                 | `true`                   | M3        |
 | `TRUSTED_PROXY_HOPS`             | Reverse proxies to trust for XFF                    | `0` (1 on Railway)       | M3        |
