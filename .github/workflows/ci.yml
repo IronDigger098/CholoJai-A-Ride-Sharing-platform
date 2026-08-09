@@ -16,6 +16,11 @@ env:
   NODE_VERSION: '24'
   PNPM_VERSION: '10.28.0'
 
+  # Next.js phones home with anonymous build metrics unless told not to.
+  # Harmless, but a CI runner is not a person who can consent, and the
+  # network call is dead weight on every build.
+  NEXT_TELEMETRY_DISABLED: '1'
+
 jobs:
   verify:
     name: Lint, typecheck, test, build

@@ -6,7 +6,7 @@
 [![CI](https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Status:** 🚧 In development — Milestones 0–3 complete (planning, monorepo foundation, backend foundation, authentication & authorization).
+**Status:** 🚧 In development — Milestones 0–3 complete (planning, monorepo foundation, backend foundation, authentication & authorization). M4 (design system & marketing site) in progress.
 See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
 
 > **Originality:** CholoJai is inspired by the publicly observable experience
@@ -24,13 +24,13 @@ production engineering standards.
 
 ## Tech stack
 
-| Layer    | Choice                                                                                                               |
-| -------- | -------------------------------------------------------------------------------------------------------------------- |
-| Frontend | Next.js 15, React 19, TypeScript, Tailwind, shadcn/ui, Framer Motion, TanStack Query, Zustand, React Hook Form + Zod |
-| Backend  | NestJS, TypeScript, Prisma, PostgreSQL, Redis, BullMQ, Socket.IO, Passport + JWT, Swagger                            |
-| Tooling  | Turborepo, pnpm, ESLint, Prettier, Husky, Commitlint                                                                 |
-| Testing  | Jest, Supertest, Playwright                                                                                          |
-| Infra    | Docker Compose (dev), GitHub Actions, Vercel (web), Railway (API)                                                    |
+| Layer    | Choice                                                                                                                           |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend | Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind v4, shadcn/ui, TanStack Query, Zustand, React Hook Form + Zod |
+| Backend  | NestJS, TypeScript, Prisma, PostgreSQL, Redis, BullMQ, Socket.IO, Passport + JWT, Swagger                                        |
+| Tooling  | Turborepo, pnpm, ESLint, Prettier, Husky, Commitlint                                                                             |
+| Testing  | Jest, Supertest, Playwright                                                                                                      |
+| Infra    | Docker Compose (dev), GitHub Actions, Vercel (web), Railway (API)                                                                |
 
 ## Repository layout
 

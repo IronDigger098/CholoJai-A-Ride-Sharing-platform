@@ -29,7 +29,7 @@ export default {
       `pnpm exec prettier --write ${args}`,
     ];
   },
-  '*.{js,jsx,mjs,cjs,json,md,yml,yaml}': (files) => [
+  '*.{js,jsx,mjs,cjs,json,md,yml,yaml,css}': (files) => [
     `pnpm exec prettier --write ${toRelativeArgs(files)}`,
   ],
 };
