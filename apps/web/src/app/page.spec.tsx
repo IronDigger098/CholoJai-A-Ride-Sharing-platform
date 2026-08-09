@@ -81,16 +81,35 @@ describe('the landing page', () => {
     expect(unlabelled).toEqual([]);
   });
 
-  it('renders a fare total equal to the sum of its lines', () => {
-    /* The example fare is computed with the shared money helpers rather
-       than written down, so this is a real check that the page cannot
-       show a total that disagrees with its own breakdown. */
-    render(<HomePage />);
+  it('displays a fare total equal to the sum of its displayed lines', () => {
+    /* Not "does the arithmetic work" — the engine's own tests cover that
+       across hundreds of inputs. This checks the *rendered* figures, which
+       round independently of each other: `formatTaka` defaults to whole
+       taka, so a ৳8.80 line shows as ৳9 and a ৳184.80 total as ৳185, and
+       a column that visibly fails to add up is exactly what this section
+       claims never happens.
 
-    /* 5000 + 12800 + 700 paisa. `formatTaka` drops a zero fraction, so
-       this is "৳185" rather than "৳185.00" — checked against the helper
-       rather than guessed. */
-    expect(screen.getByText('৳185')).toBeVisible();
+       Honest limit: for *this* route the two roundings happen to cancel
+       (৳50 + ৳126 + ৳9 = ৳185, and the total also shows ৳185), so this
+       assertion alone would not have caught the fault. It guards the page
+       against a future route where they do not cancel; the general rule
+       is pinned in `fare.test.ts`, which carries a worked counterexample. */
+    const { container } = render(<HomePage />);
+
+    const card = container.querySelector('#fares [aria-labelledby]');
+    const amounts = [...(card?.querySelectorAll('dd') ?? [])].map((cell) =>
+      Number(cell.textContent?.replace(/[^\d.]/gu, '')),
+    );
+
+    const total = Number(
+      card?.querySelector('.text-xl')?.textContent?.replace(/[^\d.]/gu, ''),
+    );
+
+    expect(amounts.length).toBeGreaterThan(0);
+    expect(amounts.reduce((sum, amount) => sum + amount, 0)).toBeCloseTo(
+      total,
+      2,
+    );
   });
 
   it('opens external links safely', () => {
