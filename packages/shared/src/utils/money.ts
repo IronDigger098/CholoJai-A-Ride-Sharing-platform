@@ -55,18 +55,6 @@ export function percentOfPaisa(amount: Paisa, percentX100: number): Paisa {
   return paisa(Math.round((amount * percentX100) / 10_000));
 }
 
-/**
- * Round up to the nearest whole taka.
- *
- * Fares are quoted in whole taka — "৳ 245", never "৳ 244.63". Rounding at
- * the *quote* boundary means the amount the rider agrees to is exactly the
- * amount stored on the ride, so the receipt can never disagree with the
- * quote by a paisa.
- */
-export function roundUpToTaka(amount: Paisa): Paisa {
-  return paisa(Math.ceil(amount / PAISA_PER_TAKA) * PAISA_PER_TAKA);
-}
-
 export interface FormatTakaOptions {
   /** Include the ৳ symbol. Default: true. */
   readonly withSymbol?: boolean;
