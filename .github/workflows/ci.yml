@@ -38,6 +38,24 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      # Until now nothing in CI had ever executed a database query or
+      # replayed a migration. Every Prisma adapter was verified only by
+      # hand, and the migration chain had never been applied to an empty
+      # database — the one situation every real deployment starts from.
+      postgres:
+        image: postgres:17.2-alpine
+        env:
+          POSTGRES_USER: cholojai
+          POSTGRES_PASSWORD: cholojai_ci_password
+          POSTGRES_DB: cholojai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,6 +90,16 @@ jobs:
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
 
+      # `migrate deploy` replays every migration in order against an empty
+      # database. That is a test in its own right: it proves the chain is
+      # complete and correctly ordered, which running the app against an
+      # incrementally-built local database never does. A missing or
+      # misordered migration fails here rather than during a deploy.
+      - name: Apply migrations
+        run: pnpm --filter @cholojai/api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://cholojai:cholojai_ci_password@localhost:5432/cholojai_test?schema=public
+
       - name: Check formatting
         run: pnpm format:check
 
@@ -95,6 +123,16 @@ jobs:
         run: pnpm test
         env:
           REDIS_TEST_URL: redis://localhost:6379
+
+      # Separate from the unit run: these truncate tables between tests and
+      # must not share a worker pool with anything else. DATABASE_TEST_URL
+      # is what un-skips them — a suite that silently skips when it cannot
+      # reach a database is the worst possible failure mode for the only
+      # tests that touch the database at all.
+      - name: Integration tests
+        run: pnpm test:integration
+        env:
+          DATABASE_TEST_URL: postgresql://cholojai:cholojai_ci_password@localhost:5432/cholojai_test?schema=public
 
   commitlint:
     name: Validate commit messages

@@ -12,11 +12,26 @@
   /* `src/testing` holds fixtures shared between spec files. Excluded here
      so they are type-checked and usable by tests but never emitted into the
      production bundle — test-only code that ships is test-only code that
-     can be imported by mistake. */
+     can be imported by mistake.
+
+     The integration specs are listed separately and deliberately. Their
+     names end in `-spec.ts`, not `.spec.ts`, so the unit pattern does not
+     match them — which is exactly what lets Jest split the two suites by
+     filename with no ignore rules to keep in sync, and exactly what let
+     them into the build, where they imported `src/testing`. Excluding a
+     file cannot save it from something in the program importing it. Every
+     pattern that names one of these suites has to name both.
+
+     Do not write a recursive glob literally in these notes. One that
+     begins with two stars and a slash contains the sequence that closes a
+     block comment, which truncates the comment mid-sentence and leaves the
+     remainder of the file as invalid JSON — whereupon TypeScript falls back
+     to the base config and applies none of this, without complaint. */
   "exclude": [
     "node_modules",
     "dist",
     "**/*.spec.ts",
+    "**/*.int-spec.ts",
     "**/*.test.ts",
     "test",
     "src/testing"

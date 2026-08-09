@@ -6,7 +6,7 @@
 [![CI](https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Status:** 🚧 In development — Milestones 0–2 complete (planning, monorepo foundation, backend foundation).
+**Status:** 🚧 In development — Milestones 0–3 complete (planning, monorepo foundation, backend foundation, authentication & authorization).
 See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
 
 > **Originality:** CholoJai is inspired by the publicly observable experience
@@ -95,6 +95,64 @@ reach a real mailbox. Outgoing mail lands in Mailpit either way.
 | API reference  | http://localhost:4000/api/docs |
 | Mail inbox     | http://localhost:8025          |
 | Liveness probe | http://localhost:4000/health   |
+
+## Testing
+
+There are two suites, split by what they need rather than by what they cover.
+
+`pnpm test` runs the unit suite. It needs no database, no Redis, and no
+network, so it finishes in seconds and can run on any machine, in any hook,
+at any time. Everything that touches infrastructure does so through a port,
+and the tests supply an in-memory adapter.
+
+`pnpm test:integration` runs the suites named `*.int-spec.ts`, which exercise
+the Prisma adapters against a real PostgreSQL. They exist because the
+in-memory fakes cannot check the guarantees that actually matter about the
+persistence layer. A fake `rotate` is atomic because JavaScript is
+single-threaded; the real one is atomic because PostgreSQL takes a row lock
+and re-evaluates `revoked_at IS NULL` after acquiring it. Those are different
+claims, and only one of them can fail in production. The same goes for the
+partial unique indexes, the `ON DELETE CASCADE` rules, and the deliberate
+asymmetry where a soft-deleted account is invisible to `findByEmail` while
+still holding its email address.
+
+Set up the test database once. Create it, then migrate it — `db:deploy`
+deliberately does not load `.env`, so it uses whatever `DATABASE_URL` you put
+in the environment for that one command:
+
+```bash
+docker compose exec postgres createdb -U cholojai cholojai_test
+
+DATABASE_URL="postgresql://cholojai:cholojai_dev_password@localhost:5433/cholojai_test?schema=public" \
+  pnpm --filter @cholojai/api db:deploy
+```
+
+```powershell
+docker compose exec postgres createdb -U cholojai cholojai_test
+
+$env:DATABASE_URL = "postgresql://cholojai:cholojai_dev_password@localhost:5433/cholojai_test?schema=public"
+pnpm --filter @cholojai/api db:deploy
+Remove-Item Env:DATABASE_URL
+```
+
+Then run them:
+
+```bash
+pnpm test:integration
+```
+
+The suites are gated on `DATABASE_TEST_URL` being set, and they refuse to
+start unless the database name contains `test` — they truncate every table
+between cases, so a crude check that cannot be satisfied by accident is the
+right shape. Without the variable they skip rather than fail, which keeps
+`pnpm verify` runnable on a laptop with nothing running; CI always sets it,
+so the coverage is never quietly lost.
+
+CI additionally runs `prisma migrate deploy` against an empty database on
+every pull request. That is a separate guarantee from the tests: it proves
+the migration chain still applies from nothing, which is the only thing that
+will happen in production and the one thing local development — where the
+database has been incrementally migrated for weeks — never checks.
 
 ## Documentation
 

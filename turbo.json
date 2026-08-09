@@ -13,6 +13,11 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
+      /* Build dependencies before starting. The API compiles against
+         packages/shared's emitted .d.ts, so a dev server started without
+         this runs against whatever dist/ happens to be on disk — which is
+         how a stale build survives four separate debugging sessions. */
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
@@ -22,6 +27,20 @@
     },
     "test": {
       "dependsOn": ["^build"],
+      /* Turbo 2 runs tasks in strict env mode: a variable the task does not
+         declare is absent from its environment, silently. That is the right
+         default — it is what makes a cache hit trustworthy — but it means an
+         undeclared REDIS_TEST_URL never reaches Jest, so the Redis-backed
+         suites skip themselves while CI reports green. Declaring it also
+         puts it in the cache key, so "ran with a real Redis" and "ran
+         without one" stop being the same cache entry. */
+      "env": ["REDIS_TEST_URL"],
+      "outputs": []
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_TEST_URL"],
+      "cache": false,
       "outputs": []
     },
     "test:coverage": {

@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "test:integration": "dotenv -e ../../.env -- jest --config jest.integration.config.js"
   },
   "dependencies": {
     "@cholojai/shared": "workspace:*",

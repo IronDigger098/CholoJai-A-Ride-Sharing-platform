@@ -11,7 +11,7 @@
 | M0  | Product & Architecture Planning | Product spec, domain model, architecture + ADRs, core ERD, API design, docs skeleton                                                                                                  | ✅     |
 | M1  | Monorepo Foundation             | Turborepo + pnpm workspaces, strict TypeScript config, ESLint/Prettier, Husky + Commitlint, CI skeleton                                                                               | ✅     |
 | M2  | Backend Foundation              | NestJS bootstrap, validated env config, centralized error handling, logging, Swagger, API versioning, Docker Compose, Prisma schema + migrations, health probes, GitHub governance    | ✅     |
-| M3  | Authentication & Authorization  | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin), **Redis + rate limiting**, **CI integration-test job**, seed script | 🔲     |
+| M3  | Authentication & Authorization  | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin), **Redis + rate limiting**, **CI integration-test job**, seed script | ✅     |
 | M4  | Design System & Marketing Site  | Tailwind + shadcn theming, dark mode, typography scale, landing page, SEO foundation                                                                                                  | 🔲     |
 | M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine                                                                                                                | 🔲     |
 | M6  | Maps & Real-time Tracking       | Maps integration, Socket.IO driver-location simulation                                                                                                                                | 🔲     |
@@ -48,3 +48,14 @@ earlier would have meant a module with no caller and a test job with
 nothing to run, which `contributing.md` explicitly forbids
 ("no new abstraction without a second caller"). They are written into M3's
 scope above so they are tracked rather than remembered.
+
+**Integration tests are a separate suite, not a slower unit suite.** The
+unit tests run against in-memory adapters and need nothing installed, so they
+stay in every commit hook and every developer's inner loop. The `*.int-spec.ts`
+suites run against a real PostgreSQL because a handful of the system's most
+important guarantees — refresh-token rotation staying atomic under genuinely
+concurrent transactions, the partial unique indexes actually firing, cascade
+deletes reaching every dependent row — are properties of the database, not of
+our code, and a fake can only pretend at them. Keeping the two separate means
+neither compromises: the fast suite stays fast, and the slow one is allowed to
+be honest about what it needs.
