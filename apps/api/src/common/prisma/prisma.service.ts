@@ -8,6 +8,32 @@ import { PrismaClient } from '@prisma/client';
 
 import { AppConfigService } from '../../config/app-config.service';
 
+/** Mirrors Prisma's own `LogLevel`, kept local to avoid a namespace import
+    for four string literals that have not changed in years. */
+type PrismaLogLevel = 'query' | 'info' | 'warn' | 'error';
+
+/**
+ * How loud the client should be, by environment.
+ *
+ * Development wants every statement: an accidental N+1 is obvious the
+ * moment you see twenty identical SELECTs. Production must not have them —
+ * high volume, and the parameters carry user data.
+ *
+ * Tests are the case that is easy to miss. They connect to a real database
+ * and run hundreds of statements, and with `query` on, each one costs a
+ * `console.log` and a stack frame in Jest's output. That was 2,198 lines of
+ * SQL for 34 assertions in CI, which does not merely waste space — it
+ * buries the failure you opened the log to find. Anyone who wants the
+ * statements back for one run can pass `--silent=false` after re-enabling
+ * them here, which is a deliberate act rather than the default.
+ */
+export function logLevelsFor(config: AppConfigService): PrismaLogLevel[] {
+  if (config.isProduction) return ['error'];
+  if (config.isTest) return ['warn', 'error'];
+
+  return ['query', 'warn', 'error'];
+}
+
 /**
  * The application's single database connection pool.
  *
@@ -37,16 +63,13 @@ export class PrismaService
       // schema check as every other setting.
       datasourceUrl: config.databaseUrl,
 
-      /* Log queries in development only. They are invaluable while
-         building — an accidental N+1 is obvious the moment you see twenty
-         identical SELECTs — and unacceptable in production, where they are
-         high volume and carry user data in their parameters.
+      /* See `logLevelsFor` for why each environment gets what it gets.
 
          These go to stdout rather than through pino. Routing them into the
          structured logger needs Prisma's event API, which is worth doing
          once query volume makes it useful; today it would be indirection
          for its own sake. */
-      log: config.isProduction ? ['error'] : ['query', 'warn', 'error'],
+      log: logLevelsFor(config),
     });
   }
 
