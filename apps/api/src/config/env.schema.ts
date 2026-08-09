@@ -181,6 +181,30 @@ export const envSchema = z
       .positive()
       .default(3600),
 
+    // ─── Fares ──────────────────────────────────────────────────────────
+    /**
+     * How long a quote stays bookable.
+     *
+     * Short enough that a price cannot be held while conditions change, long
+     * enough for a rider to read three options and choose. Five minutes; the
+     * cost of expiry is one extra routing call, which is cached anyway.
+     */
+    FARE_QUOTE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+
+    /**
+     * The longest journey this platform will price.
+     *
+     * `estimateFare` is pure arithmetic and has no opinion about geography —
+     * it will price a 400 km trip. Somebody has to hold that opinion, and a
+     * configured ceiling keeps it out of the engine, where it would be a
+     * business rule frozen into a function.
+     */
+    FARE_MAX_DISTANCE_METRES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(100_000),
+
     // ─── Rate limiting ──────────────────────────────────────────────────
     RATE_LIMIT_GLOBAL_PER_MIN: z.coerce.number().int().positive().default(100),
 

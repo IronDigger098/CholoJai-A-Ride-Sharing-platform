@@ -163,6 +163,17 @@ export class AppConfigService {
     };
   }
 
+  /** Quote lifetime and the ceiling on what we will price. */
+  public get fares(): {
+    quoteTtlSeconds: number;
+    maxDistanceMetres: number;
+  } {
+    return {
+      quoteTtlSeconds: this.env.FARE_QUOTE_TTL_SECONDS,
+      maxDistanceMetres: this.env.FARE_MAX_DISTANCE_METRES,
+    };
+  }
+
   public get rateLimitGlobalPerMinute(): number {
     return this.env.RATE_LIMIT_GLOBAL_PER_MIN;
   }
