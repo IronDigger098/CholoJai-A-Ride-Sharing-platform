@@ -79,12 +79,19 @@ src/
 │   └── layout/                 # shell, nav, footer
 ├── lib/                        # axios instance, query client, utils
 ├── hooks/                      # cross-feature hooks only
+├── testing/                    # test-only helpers, never imported by app code
 └── styles/
+    ├── globals.css             # Tailwind import + the few genuinely global rules
+    └── theme.css               # design tokens — the source of truth (ADR-014)
 ```
 
 **Why `features/` and not everything in `app/`:** route files should compose,
 not implement. A feature folder keeps its components, data access, and state
 together, so the whole feature can be understood — or deleted — in one place.
+
+**Why tokens live in CSS rather than TypeScript:** `theme.css` is what the
+browser actually receives, so there is no second copy to drift out of step.
+The theme tests read that file rather than a mirror of it — ADR-014, ADR-016.
 
 **Promotion rule:** a component starts feature-private in
 `features/x/components/`. It moves to `components/ui/` only when a _second_

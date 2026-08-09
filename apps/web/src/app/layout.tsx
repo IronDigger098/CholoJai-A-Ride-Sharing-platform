@@ -39,8 +39,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>): ReactNode {
   return (
+    /* No `data-theme` attribute: without one the tokens follow the
+       operating system, which is the right default. The toggle that sets
+       it arrives with the primitives in M4.3. */
     <html lang="en">
-      <body className="min-h-dvh bg-white text-neutral-900 antialiased">
+      <body className="bg-surface text-content min-h-dvh font-sans antialiased">
         {children}
       </body>
     </html>
