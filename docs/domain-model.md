@@ -54,7 +54,7 @@ application, without a second account.
 ### D2 — Fare is snapshotted onto the ride
 
 A fare quote references current pricing rules. At booking, the chosen quote's
-amount **and its full breakdown** (base, per-km, per-minute, surge, discount)
+amount **and its full breakdown** (base, per-km, per-minute, discount)
 are copied onto the ride.
 
 - **Why:** pricing rules change; a ride's fare must be immutable history. If

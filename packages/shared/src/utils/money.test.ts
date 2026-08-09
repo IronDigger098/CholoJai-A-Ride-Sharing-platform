@@ -6,7 +6,6 @@ import {
   paisa,
   paisaToTaka,
   percentOfPaisa,
-  roundUpToTaka,
   subtractPaisa,
   takaToPaisa,
 } from './money';
@@ -63,16 +62,6 @@ describe('money', () => {
 
     it('rejects fractional percentages', () => {
       expect(() => percentOfPaisa(paisa(100), 12.5)).toThrow(TypeError);
-    });
-  });
-
-  describe('roundUpToTaka', () => {
-    it('rounds a fare up to whole taka', () => {
-      expect(roundUpToTaka(paisa(24_463))).toBe(24_500);
-    });
-
-    it('leaves whole taka untouched', () => {
-      expect(roundUpToTaka(paisa(24_500))).toBe(24_500);
     });
   });
 
