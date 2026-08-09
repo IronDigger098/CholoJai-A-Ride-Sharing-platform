@@ -37,6 +37,11 @@ const PAIRINGS = [
   { foreground: 'danger', background: 'surface', minimum: 4.5 },
   { foreground: 'success', background: 'surface', minimum: 4.5 },
   { foreground: 'border-strong', background: 'surface', minimum: 3 },
+  {
+    foreground: 'content-disabled',
+    background: 'surface-disabled',
+    minimum: 3,
+  },
 ] as const;
 
 describe('palette', () => {

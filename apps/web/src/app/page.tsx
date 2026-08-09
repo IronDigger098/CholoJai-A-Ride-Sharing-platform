@@ -2,19 +2,16 @@ import { formatTaka, takaToPaisa } from '@cholojai/shared';
 
 import type { ReactNode } from 'react';
 
+import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+
 /**
  * A placeholder, and deliberately not a design.
  *
- * Its job is to exercise the token layer end to end: every colour here is
- * a semantic token, so the page proves the system rather than merely
- * coexisting with it. Switch the operating system between light and dark
- * and nothing in this file changes — that is the whole argument for
- * naming roles instead of colours.
- *
- * The elements are plain markup with utility classes. No Button or Card
- * component exists yet, and inventing one to render a single instance
- * would be the abstraction-without-a-caller that `contributing.md`
- * forbids. Primitives arrive in M4.3, extracted from real usage.
+ * Its job is to exercise the system end to end. Every colour is a semantic
+ * token and every control is a primitive, so the page proves the layers
+ * rather than merely sitting on top of them. There is not one `dark:`
+ * class in this file, and it renders correctly in both schemes.
  *
  * `formatTaka` stays from M4.1: the cheapest end-to-end check that the web
  * app is consuming `packages/shared`'s built output.
@@ -25,9 +22,13 @@ export default function HomePage(): ReactNode {
   return (
     <main className="mx-auto flex min-h-dvh max-w-2xl items-center px-6 py-16">
       <div className="border-border bg-surface-raised w-full rounded-xl border p-8 sm:p-10">
-        <p className="text-accent text-sm font-medium tracking-widest uppercase">
-          চলো যাই
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-accent text-sm font-medium tracking-widest uppercase">
+            চলো যাই
+          </p>
+
+          <ThemeToggle />
+        </div>
 
         <h1 className="mt-3 text-4xl font-semibold text-balance">CholoJai</h1>
 
@@ -36,16 +37,19 @@ export default function HomePage(): ReactNode {
           journeys. A typical airport run costs about {sampleFare}.
         </p>
 
-        <button
-          type="button"
-          className="bg-action text-action-content hover:bg-action-hover mt-8 rounded-md px-5 py-2.5 text-sm font-semibold transition-colors"
-        >
-          Book a ride
-        </button>
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          <Button>Book a ride</Button>
+          <Button variant="accent">Become a driver</Button>
+          {/* Disabled deliberately: it is the state most easily got wrong,
+              and having it on screen keeps it honest. */}
+          <Button variant="ghost" disabled>
+            Track a ride
+          </Button>
+        </div>
 
         <p className="text-content-subtle border-border mt-8 border-t pt-6 text-sm">
-          Scaffold only — the component library arrives in M4.3. This page
-          follows your system colour scheme.
+          Scaffold only — the landing page arrives in M4.4. The theme control
+          above cycles between your system setting and an explicit choice.
         </p>
       </div>
     </main>
