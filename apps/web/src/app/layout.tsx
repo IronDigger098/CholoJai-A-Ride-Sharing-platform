@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
 import { ThemeScript } from '@/components/theme-script';
+import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from '@/lib/site';
 
 import '@/styles/globals.css';
 
@@ -16,16 +17,48 @@ import '@/styles/globals.css';
  */
 
 export const metadata: Metadata = {
+  /* Makes every relative URL below — canonical, Open Graph image — resolve
+     against the real deployment. Without it Next warns and emits relative
+     URLs, which crawlers and social scrapers both handle badly. */
+  metadataBase: new URL(siteUrl()),
+
   /* `template` applies to every child route that sets its own title, so
      pages declare only their own name and the brand suffix is never
      forgotten or spelled three different ways. */
   title: {
-    default: 'CholoJai — rides across Bangladesh',
-    template: '%s · CholoJai',
+    default: `${SITE_NAME} — book a verified ride with an upfront fare`,
+    template: `%s · ${SITE_NAME}`,
   },
-  description:
-    'Upfront fares, verified drivers, and live tracking for everyday journeys.',
-  applicationName: 'CholoJai',
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+
+  /* Points every duplicate of a page — with a tracking parameter, on a
+     preview domain, reached through a redirect — at one address, so
+     ranking signals accumulate in one place instead of splitting. */
+  alternates: { canonical: '/' },
+
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — book a verified ride with an upfront fare`,
+    description: SITE_DESCRIPTION,
+    url: '/',
+    locale: 'en_GB',
+  },
+
+  twitter: {
+    card: 'summary_large_image',
+    title: `${SITE_NAME} — book a verified ride with an upfront fare`,
+    description: SITE_DESCRIPTION,
+  },
+
+  /* Indexing is allowed on purpose. This is a portfolio project rather
+     than a real transport service, and the temptation is to `noindex` it
+     for that reason — but being findable is most of the point, and the
+     footer states plainly what it is. The `sitemap.ts` and `robots.ts`
+     below would also contradict a `noindex` here, and quietly
+     contradictory SEO signals are worse than either choice on its own. */
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {

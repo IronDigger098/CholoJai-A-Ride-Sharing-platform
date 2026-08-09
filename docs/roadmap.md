@@ -12,7 +12,7 @@
 | M1  | Monorepo Foundation             | Turborepo + pnpm workspaces, strict TypeScript config, ESLint/Prettier, Husky + Commitlint, CI skeleton                                                                               | ✅     |
 | M2  | Backend Foundation              | NestJS bootstrap, validated env config, centralized error handling, logging, Swagger, API versioning, Docker Compose, Prisma schema + migrations, health probes, GitHub governance    | ✅     |
 | M3  | Authentication & Authorization  | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin), **Redis + rate limiting**, **CI integration-test job**, seed script | ✅     |
-| M4  | Design System & Marketing Site  | Next.js app scaffold, Tailwind v4 theming, dark mode, typography scale, primitives, landing page, SEO foundation                                                                      | 🟡     |
+| M4  | Design System & Marketing Site  | Next.js app scaffold, Tailwind v4 tokens, dark mode, type scale, primitives, landing page, SEO foundation                                                                             | ✅     |
 | M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine                                                                                                                | 🔲     |
 | M6  | Maps & Real-time Tracking       | Maps integration, Socket.IO driver-location simulation                                                                                                                                | 🔲     |
 | M7  | Driver Side                     | Driver dashboard, vehicle management, ride acceptance flow                                                                                                                            | 🔲     |
@@ -48,6 +48,15 @@ earlier would have meant a module with no caller and a test job with
 nothing to run, which `contributing.md` explicitly forbids
 ("no new abstraction without a second caller"). They are written into M3's
 scope above so they are tracked rather than remembered.
+
+**Accessibility is a build step, not a review step.** The design tokens are
+checked against WCAG contrast ratios by a unit test that reads the stylesheet,
+and the rendered page is audited with axe in both colour schemes. Those two
+catch different things, which is the argument for having both: the unit test
+found nothing wrong with a caption that axe then failed at 4.23:1, because the
+test only compared text against the page surface and never against the raised
+surface that cards actually use. A checker that runs against real rendered DOM
+sees the combinations that actually occur.
 
 **Integration tests are a separate suite, not a slower unit suite.** The
 unit tests run against in-memory adapters and need nothing installed, so they

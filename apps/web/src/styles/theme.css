@@ -205,8 +205,13 @@
     --surface: var(--color-neutral-950);
     --surface-raised: var(--color-neutral-900);
     --content: var(--color-neutral-100);
-    --content-muted: var(--color-neutral-400);
-    --content-subtle: var(--color-neutral-500);
+    /* Lighter than the page surface would need on its own. Cards sit on
+       `surface-raised`, which in dark mode is *lighter* than the page, so
+       text on a card has less contrast rather than more — the opposite of
+       the light scheme, and easy to miss by testing only against the
+       page. */
+    --content-muted: var(--color-neutral-300);
+    --content-subtle: var(--color-neutral-400);
 
     /* The accent inverts rather than darkens. A dark surface needs a light
        accent to stay legible, which also flips what can sit on top of it. */
@@ -219,7 +224,10 @@
     --action-content: var(--color-neutral-950);
 
     --border: var(--color-neutral-800);
-    --border-strong: var(--color-neutral-600);
+    /* One step lighter than the page alone would need, for the same
+       reason as the text above: an interactive boundary must clear 3:1
+       (WCAG 1.4.11) on a card as well as on the page. */
+    --border-strong: var(--color-neutral-500);
 
     --surface-disabled: var(--color-neutral-800);
     --content-disabled: var(--color-neutral-500);
@@ -235,8 +243,8 @@
   --surface: var(--color-neutral-950);
   --surface-raised: var(--color-neutral-900);
   --content: var(--color-neutral-100);
-  --content-muted: var(--color-neutral-400);
-  --content-subtle: var(--color-neutral-500);
+  --content-muted: var(--color-neutral-300);
+  --content-subtle: var(--color-neutral-400);
 
   --accent: var(--color-teal-400);
   --accent-hover: var(--color-teal-300);
@@ -247,7 +255,7 @@
   --action-content: var(--color-neutral-950);
 
   --border: var(--color-neutral-800);
-  --border-strong: var(--color-neutral-600);
+  --border-strong: var(--color-neutral-500);
 
   --surface-disabled: var(--color-neutral-800);
   --content-disabled: var(--color-neutral-500);

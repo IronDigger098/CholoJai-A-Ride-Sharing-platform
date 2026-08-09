@@ -6,7 +6,7 @@
 [![CI](https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-**Status:** 🚧 In development — Milestones 0–3 complete (planning, monorepo foundation, backend foundation, authentication & authorization). M4 (design system & marketing site) in progress.
+**Status:** 🚧 In development — Milestones 0–4 complete (planning, monorepo foundation, backend foundation, authentication & authorization, design system & marketing site).
 See [`docs/roadmap.md`](docs/roadmap.md) for the full plan.
 
 > **Originality:** CholoJai is inspired by the publicly observable experience
@@ -112,12 +112,14 @@ both schemes. The scheme follows the operating system by default; setting
 `color-scheme` moves with it so scrollbars and form controls follow.
 
 Components come from the same discipline: a primitive is built when it has
-a real caller, not in anticipation of one. Today that means `Button` and
-`ThemeToggle`; inputs and cards arrive with the form and the page that need
-them. The theme control cycles between your system setting and an explicit
-light or dark choice, persists it, and follows changes made in another tab.
-A small inline script applies a stored preference before the first paint,
-so choosing dark does not mean a white flash on every subsequent visit.
+a real caller, not in anticipation of one. Today that means `Button`, `Card`,
+`Link`, and `ThemeToggle` — `Card` and `Link` were extracted from the landing
+page once they had a second use, and no `Input` exists because no form does.
+
+The theme control cycles between your system setting and an explicit light or
+dark choice, persists it, and follows changes made in another tab. A small
+inline script applies a stored preference before the first paint, so choosing
+dark does not mean a white flash on every subsequent visit.
 
 Accessibility here is enforced, not asserted. `theme.spec.ts` reads
 `theme.css`, resolves every semantic token, and checks that each text pairing
@@ -126,6 +128,14 @@ also verifies every colour sits inside the sRGB gamut, because an out-of-gamut
 OKLCH value is silently clipped by the browser to a different hue. Tokens live
 in CSS rather than JavaScript (ADR-014), so the tests read the file the
 browser actually receives and there is no second copy to drift.
+
+That unit test is necessary and not sufficient. It checks the pairings someone
+thought to list, and the landing page found the gap: a caption on a card
+cleared AA against the page surface, which the test checked, and failed at
+4.23:1 against the raised surface, which it did not. The rendered page is
+therefore also audited with axe in both colour schemes, because a checker
+looking at real DOM sees the combinations that actually occur rather than the
+ones that were anticipated.
 
 ## Testing
 
