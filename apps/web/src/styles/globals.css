@@ -1,0 +1,13 @@
+/*
+ * The single stylesheet the application loads.
+ *
+ * One `@import` pulls in Tailwind's preflight, theme, and utilities. In v4
+ * there is no `@tailwind base/components/utilities` triple and no
+ * JavaScript config file — the theme is declared in CSS with `@theme`, and
+ * that is where CholoJai's design tokens land in M4.2.
+ *
+ * Nothing else belongs here. Component styles live with their components;
+ * a growing global stylesheet is a growing set of rules nobody can safely
+ * delete because nobody knows what still depends on them.
+ */
+@import 'tailwindcss';

@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { baseConfig, javascriptFilesConfig } from '@cholojai/eslint-config';
+import { nextConfig } from '@cholojai/eslint-config/next';
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,4 +65,10 @@ export default [
       'no-console': 'off',
     },
   },
+
+  /* The web app is the only place React runs, so the React, hooks,
+     accessibility, and Core Web Vitals rules are scoped to it rather than
+     applied repo-wide — where they would cost lint time on every NestJS
+     file to find nothing. */
+  ...nextConfig(['apps/web/**/*.{ts,tsx}']),
 ];
