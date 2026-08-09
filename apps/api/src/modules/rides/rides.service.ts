@@ -1,4 +1,10 @@
-import { type BookRideRequest, type Ride } from '@cholojai/shared';
+import {
+  type BookRideRequest,
+  CancelledBy,
+  canTransition,
+  type Ride,
+  RideStatus,
+} from '@cholojai/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import {
@@ -12,8 +18,10 @@ import {
   type RideRepository,
 } from './ride-repository.port';
 import {
+  IllegalRideTransitionError,
   QuoteExpiredError,
   QuoteNotFoundError,
+  RideNotFoundError,
   VehicleTypeNotQuotedError,
 } from './rides.errors';
 
@@ -81,6 +89,64 @@ export class RidesService {
   public async findActive(riderId: string): Promise<Ride | null> {
     const ride = await this.rides.findActiveForRider(riderId);
     return ride === null ? null : toRide(ride);
+  }
+
+  /**
+   * Cancel a ride the caller owns.
+   *
+   * Which states allow this is not decided here — `RIDE_TRANSITIONS` in
+   * `packages/shared` is the single definition of the machine, and the web
+   * app disables its own button from the same table. A rule written twice is
+   * a rule that will eventually be enforced twice differently.
+   *
+   * One consequence worth knowing: `IN_PROGRESS` has only `COMPLETED` as a
+   * successor, so a rider cannot cancel once the journey has started. That
+   * is the state machine's answer, not an oversight.
+   */
+  public async cancel(
+    riderId: string,
+    rideId: string,
+    reason?: string,
+  ): Promise<Ride> {
+    const ride = await this.rides.findById(rideId);
+
+    /* Ownership failure reads as "not found" on purpose — see
+       RideNotFoundError. A 403 would confirm that a guessed id is real.
+       The optional chain covers both cases at once: a missing ride yields
+       `undefined`, which never equals a real rider id. */
+    if (ride?.riderId !== riderId) {
+      throw new RideNotFoundError(rideId);
+    }
+
+    if (!canTransition(ride.status, RideStatus.CANCELLED)) {
+      throw new IllegalRideTransitionError(ride.status, RideStatus.CANCELLED);
+    }
+
+    const moved = await this.rides.transition({
+      rideId,
+      from: ride.status,
+      to: RideStatus.CANCELLED,
+      at: new Date(),
+      cancelledBy: CancelledBy.RIDER,
+      ...(reason === undefined ? {} : { cancelReason: reason }),
+    });
+
+    /* The check above ran against a status read a moment ago. If nothing
+       moved, the ride left that status in between — a driver accepted, or a
+       second cancel request won the race. Same answer as the first check,
+       because from the caller's point of view the same thing is true. */
+    if (!moved) {
+      throw new IllegalRideTransitionError(ride.status, RideStatus.CANCELLED);
+    }
+
+    const cancelled = await this.rides.findById(rideId);
+
+    /* Cannot be null: the transition just updated this row, and nothing
+       deletes rides. Guarded rather than asserted, because a non-null
+       assertion here would be a promise the type system cannot keep. */
+    if (cancelled === null) throw new RideNotFoundError(rideId);
+
+    return toRide(cancelled);
   }
 }
 

@@ -1,10 +1,54 @@
-import { type VehicleType } from '@cholojai/shared';
+import { type RideStatus, type VehicleType } from '@cholojai/shared';
 
 import {
   ConflictError,
   NotFoundError,
   UnprocessableError,
 } from '../../common/errors/domain-error';
+
+/**
+ * No ride with that id, or none this caller is allowed to know about.
+ *
+ * Deliberately one error for both. `domain-error.ts` describes 404 as "the
+ * resource does not exist, **or the caller may not know it does**", and a
+ * 403 here would confirm that a given ride id is real to anyone who guesses
+ * one. Nothing useful is lost: a rider who is not on a ride has no action
+ * available on it either way.
+ */
+export class RideNotFoundError extends NotFoundError {
+  public readonly code = 'RIDE_NOT_FOUND';
+  public readonly title = 'Ride not found';
+
+  public constructor(rideId: string) {
+    super(`No ride exists with id ${rideId}.`);
+  }
+}
+
+/**
+ * The state machine forbids this move.
+ *
+ * 409 rather than 400: the request is well-formed and the caller is
+ * permitted; it conflicts with the ride's current state. The message names
+ * both ends because "cannot cancel" is useless to a rider whose driver
+ * picked them up two minutes ago — "cannot cancel a ride that is already in
+ * progress" tells them what happened.
+ *
+ * Raised from two places, and both matter. Once after reading the ride,
+ * which catches the ordinary case cheaply; once after the conditional
+ * update reports it changed nothing, which catches the race the first check
+ * cannot see.
+ */
+export class IllegalRideTransitionError extends ConflictError {
+  public readonly code = 'ILLEGAL_RIDE_TRANSITION';
+  public readonly title = 'That is not possible right now';
+
+  public constructor(
+    public readonly from: RideStatus,
+    public readonly to: RideStatus,
+  ) {
+    super(`A ride that is ${from} cannot become ${to}.`);
+  }
+}
 
 /** No quote with that id was ever issued. */
 export class QuoteNotFoundError extends NotFoundError {

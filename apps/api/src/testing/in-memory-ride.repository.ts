@@ -4,6 +4,7 @@ import {
   type CreateRideInput,
   type RideRecord,
   type RideRepository,
+  type TransitionRideInput,
 } from '../modules/rides/ride-repository.port';
 import { RiderAlreadyOnRideError } from '../modules/rides/rides.errors';
 
@@ -42,6 +43,33 @@ export class InMemoryRideRepository implements RideRepository {
         (row) => row.riderId === riderId && isActiveRideStatus(row.status),
       ) ?? null
     );
+  }
+
+  public async findById(rideId: string): Promise<RideRecord | null> {
+    return this.rows.find((row) => row.id === rideId) ?? null;
+  }
+
+  /**
+   * Move a ride, if it is still in `from`.
+   *
+   * Single-threaded, so the check and the write cannot be interleaved here —
+   * which is exactly why this fake cannot prove the real guarantee. The
+   * `from` comparison is still written out rather than assumed, so a service
+   * that forgets to pass the current status fails here rather than only
+   * against PostgreSQL.
+   */
+  public async transition(input: TransitionRideInput): Promise<boolean> {
+    const index = this.rows.findIndex(
+      (row) => row.id === input.rideId && row.status === input.from,
+    );
+
+    if (index === -1) return false;
+
+    const existing = this.rows[index];
+    if (existing === undefined) return false;
+
+    this.rows[index] = { ...existing, status: input.to };
+    return true;
   }
 
   public get size(): number {

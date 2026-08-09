@@ -10,8 +10,10 @@ import { InMemoryFareQuoteRepository } from '../../testing/in-memory-fare-quote.
 import { InMemoryRideRepository } from '../../testing/in-memory-ride.repository';
 
 import {
+  IllegalRideTransitionError,
   QuoteExpiredError,
   QuoteNotFoundError,
+  RideNotFoundError,
   RiderAlreadyOnRideError,
   VehicleTypeNotQuotedError,
 } from './rides.errors';
@@ -199,5 +201,98 @@ describe('RidesService.book', () => {
     });
 
     expect(rides.size).toBe(2);
+  });
+});
+
+describe('RidesService.cancel', () => {
+  async function bookRide(): Promise<{
+    service: RidesService;
+    rides: InMemoryRideRepository;
+    rideId: string;
+  }> {
+    const { service, quotes, rides } = makeService();
+    const ride = await service.book(RIDER, {
+      quoteId: await storeQuote(quotes),
+      vehicleType: VehicleType.CNG,
+    });
+
+    return { service, rides, rideId: ride.id };
+  }
+
+  it('cancels a requested ride', async () => {
+    const { service, rideId } = await bookRide();
+
+    const cancelled = await service.cancel(RIDER, rideId);
+
+    expect(cancelled.status).toBe(RideStatus.CANCELLED);
+  });
+
+  it('frees the rider to book again', async () => {
+    /* CANCELLED is terminal, so it leaves ACTIVE_RIDE_STATUSES and the
+       one-active-ride rule stops applying. If cancelling did not actually
+       move the status, this is where it would show. */
+    const { service, rideId } = await bookRide();
+
+    await service.cancel(RIDER, rideId);
+
+    expect(await service.findActive(RIDER)).toBeNull();
+  });
+
+  it('refuses to cancel a ride that is already in progress', async () => {
+    /* RIDE_TRANSITIONS gives IN_PROGRESS exactly one successor, COMPLETED.
+       A rider cannot call off a journey they are already on — that is the
+       machine's answer, not an omission. */
+    const { service, rides, rideId } = await bookRide();
+
+    await rides.transition({
+      rideId,
+      from: RideStatus.REQUESTED,
+      to: RideStatus.ACCEPTED,
+      at: new Date(),
+    });
+    await rides.transition({
+      rideId,
+      from: RideStatus.ACCEPTED,
+      to: RideStatus.ARRIVED,
+      at: new Date(),
+    });
+    await rides.transition({
+      rideId,
+      from: RideStatus.ARRIVED,
+      to: RideStatus.IN_PROGRESS,
+      at: new Date(),
+    });
+
+    await expect(service.cancel(RIDER, rideId)).rejects.toThrow(
+      IllegalRideTransitionError,
+    );
+  });
+
+  it('refuses to cancel a ride twice', async () => {
+    const { service, rideId } = await bookRide();
+    await service.cancel(RIDER, rideId);
+
+    await expect(service.cancel(RIDER, rideId)).rejects.toThrow(
+      IllegalRideTransitionError,
+    );
+  });
+
+  it('hides another rider’s ride behind a 404', async () => {
+    /* Not 403. A 403 would confirm the id is real to anyone who guesses
+       one, and a rider who does not own the ride has no action on it
+       either way. */
+    const { service, rideId } = await bookRide();
+
+    await expect(service.cancel('user_rider_2', rideId)).rejects.toThrow(
+      RideNotFoundError,
+    );
+  });
+
+  it('reports an unknown ride as not found', async () => {
+    const { service } = await bookRide();
+
+    await expect(service.cancel(RIDER, 'ride_nope')).rejects.toThrow(
+      RideNotFoundError,
+    );
   });
 });

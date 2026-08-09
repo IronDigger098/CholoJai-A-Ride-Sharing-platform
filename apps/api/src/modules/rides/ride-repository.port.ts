@@ -1,4 +1,5 @@
 import {
+  type CancelledBy,
   type Coordinates,
   type RideStatus,
   type VehicleType,
@@ -49,6 +50,36 @@ export interface RideRepository {
   create(input: CreateRideInput): Promise<RideRecord>;
 
   findActiveForRider(riderId: string): Promise<RideRecord | null>;
+
+  findById(rideId: string): Promise<RideRecord | null>;
+
+  /**
+   * Move a ride from one status to another, if it is still in `from`.
+   *
+   * Returns `false` when nothing moved — the ride had already left `from`
+   * because someone else acted on it first.
+   *
+   * The `from` argument is the entire point. Reading the ride, checking its
+   * status, and then writing the new one is two statements with a gap
+   * between them, and in that gap a driver can accept, a rider can cancel,
+   * or a timeout can expire the ride. Putting `from` in the WHERE clause
+   * makes the check and the write one statement that PostgreSQL evaluates
+   * atomically, so two concurrent transitions produce exactly one `true`.
+   *
+   * The same trick as `VerificationTokenRepository.consume`, for the same
+   * reason.
+   */
+  transition(input: TransitionRideInput): Promise<boolean>;
+}
+
+export interface TransitionRideInput {
+  readonly rideId: string;
+  readonly from: RideStatus;
+  readonly to: RideStatus;
+  /** Written to the timestamp column belonging to `to`. */
+  readonly at: Date;
+  readonly cancelledBy?: CancelledBy;
+  readonly cancelReason?: string;
 }
 
 export const RIDE_REPOSITORY = Symbol('RIDE_REPOSITORY');
