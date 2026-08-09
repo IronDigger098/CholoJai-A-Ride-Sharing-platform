@@ -111,6 +111,14 @@ both schemes. The scheme follows the operating system by default; setting
 `data-theme="light"` or `data-theme="dark"` on `<html>` overrides it, and
 `color-scheme` moves with it so scrollbars and form controls follow.
 
+Components come from the same discipline: a primitive is built when it has
+a real caller, not in anticipation of one. Today that means `Button` and
+`ThemeToggle`; inputs and cards arrive with the form and the page that need
+them. The theme control cycles between your system setting and an explicit
+light or dark choice, persists it, and follows changes made in another tab.
+A small inline script applies a stored preference before the first paint,
+so choosing dark does not mean a white flash on every subsequent visit.
+
 Accessibility here is enforced, not asserted. `theme.spec.ts` reads
 `theme.css`, resolves every semantic token, and checks that each text pairing
 clears WCAG AA in both schemes, with the primary text colour held to AAA. It

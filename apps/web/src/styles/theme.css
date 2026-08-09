@@ -187,6 +187,11 @@
   --border: var(--color-neutral-300);
   --border-strong: var(--color-neutral-500);
 
+  /* Disabled controls. WCAG exempts them from contrast requirements,
+     which is a licence to make them illegible and not a reason to. */
+  --surface-disabled: var(--color-neutral-200);
+  --content-disabled: var(--color-neutral-600);
+
   --danger: var(--color-red-700);
   --success: var(--color-green-800);
 
@@ -216,6 +221,9 @@
     --border: var(--color-neutral-800);
     --border-strong: var(--color-neutral-600);
 
+    --surface-disabled: var(--color-neutral-800);
+    --content-disabled: var(--color-neutral-500);
+
     --danger: var(--color-red-400);
     --success: var(--color-green-400);
 
@@ -240,6 +248,9 @@
 
   --border: var(--color-neutral-800);
   --border-strong: var(--color-neutral-600);
+
+  --surface-disabled: var(--color-neutral-800);
+  --content-disabled: var(--color-neutral-500);
 
   --danger: var(--color-red-400);
   --success: var(--color-green-400);
@@ -269,6 +280,8 @@
   --color-action-content: var(--action-content);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-surface-disabled: var(--surface-disabled);
+  --color-content-disabled: var(--content-disabled);
   --color-danger: var(--danger);
   --color-success: var(--success);
 }

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
+import { ThemeScript } from '@/components/theme-script';
+
 import '@/styles/globals.css';
 
 /**
@@ -39,11 +41,22 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>): ReactNode {
   return (
-    /* No `data-theme` attribute: without one the tokens follow the
-       operating system, which is the right default. The toggle that sets
-       it arrives with the primitives in M4.3. */
-    <html lang="en">
+    /*
+     * No `data-theme` here: without one the tokens follow the operating
+     * system, which is the right default. `ThemeScript` adds the attribute
+     * before first paint when someone has chosen otherwise.
+     *
+     * `suppressHydrationWarning` is required *because* of that script. It
+     * mutates <html> before React attaches, so the DOM legitimately
+     * differs from the server's markup and React would otherwise report a
+     * mismatch. It is scoped to this one element and suppresses nothing
+     * inside it.
+     */
+    <html lang="en" suppressHydrationWarning>
       <body className="bg-surface text-content min-h-dvh font-sans antialiased">
+        {/* First child of <body> on purpose — see ThemeScript. It has to
+            run during parsing, before anything exists to paint. */}
+        <ThemeScript />
         {children}
       </body>
     </html>

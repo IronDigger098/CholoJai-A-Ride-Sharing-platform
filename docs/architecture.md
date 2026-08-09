@@ -528,6 +528,73 @@ reserved for the interactive islands (map, booking flow, live tracking).
   Next.js itself advises. `jsdom` and Testing Library arrive in M4.3 with
   the first component, not before it.
 
+### ADR-018 — Primitives are extracted, and the theme is an external store — **Accepted** _(M4.3)_
+
+- **Context:** The design system needs components. The tempting move is to
+  build the full set — Button, Input, Card, Link, Badge — in one pass,
+  before anything uses them.
+- **Decision:** Build only primitives with a real caller. M4.3 ships
+  `Button` (used by the page and by the toggle) and `ThemeToggle`. Input,
+  Card and Link wait for the form and page that need them. Separately, the
+  colour preference is modelled as an external store consumed with
+  `useSyncExternalStore`, not as React state.
+- **Rationale:** The first half is `contributing.md`'s rule applied to UI:
+  a primitive designed before its second caller encodes guesses about an
+  API nobody has exercised, and those guesses are expensive precisely
+  because everything later depends on them. The second half is a
+  correctness argument. The theme genuinely lives outside React — a
+  blocking script sets it before React exists, and another tab can change
+  it at any moment. Modelling that as `useState` plus an effect means
+  reading storage after mount and calling `setState`, which triggers a
+  second render pass and is what `react-hooks/set-state-in-effect` flags.
+  `useSyncExternalStore` takes a separate server snapshot, so hydration
+  matches the server's markup and then reconciles without a mismatch, and
+  subscribing gets cross-tab sync for free through the `storage` event.
+- **Alternatives:** `next-themes` (rejected — a dependency for something
+  this small, and it would hide the one part worth understanding).
+  A two-state light/dark toggle (rejected — "follow my system" is a real
+  preference, and a two-state control silently converts every visitor into
+  someone with an opinion). `class-variance-authority` for variants
+  (rejected for now — three variants and two sizes do not need a library;
+  revisit when the matrix genuinely grows).
+- **Consequences:** Button accepts `className` and appends it without
+  resolving Tailwind conflicts, because CSS order rather than attribute
+  order decides the winner. No caller relies on overriding a conflicting
+  utility yet; `tailwind-merge` arrives with the first one that does.
+  Disabled state uses its own tokens rather than `opacity`, since fading a
+  control fades its text too and turns a legible thing into an illegible
+  one.
+
+### ADR-019 — The theme script is a raw inline `<script>` — **Accepted** _(M4.3)_
+
+- **Context:** A stored theme must be applied before first paint, or the
+  page paints in the system scheme and corrects itself after hydration —
+  a white flash for someone who chose dark.
+- **Decision:** A hand-written inline `<script>` rendered as the first
+  child of `<body>`, not `next/script`.
+- **Rationale:** `<Script strategy="beforeInteractive">` is the obvious
+  choice and it does not work here. In the App Router it does not emit a
+  blocking script at all: it serialises the code into a `self.__next_s`
+  queue that Next's runtime drains after the framework bootstraps, which
+  is strictly later than the paint we are trying to beat. This was found
+  by reading the served HTML rather than by reasoning about the docs, and
+  the ESLint rule warning against `beforeInteractive` outside
+  `pages/_document` turned out to be pointing at a real problem. A raw
+  script at the top of `<body>` executes during parsing, after the
+  stylesheet in `<head>` and before any element exists to paint.
+- **Alternatives:** Rendering an explicit `<head>` in the root layout
+  (rejected — discouraged in the App Router, and the top of `<body>` is
+  early enough). Accepting the flash and correcting on hydration
+  (rejected — it is most visible to exactly the people who chose dark
+  mode, at exactly the time of day they chose it for). A cookie read
+  server-side (viable, and it costs static rendering for the whole route;
+  revisit if the flash ever proves visible in practice).
+- **Consequences:** `<html>` carries `suppressHydrationWarning`, because
+  the script legitimately mutates it before React attaches. That
+  suppression is scoped to the one element and hides nothing inside it.
+  The script is built from the same constants the application uses, so
+  renaming the storage key cannot leave it pointing at the old one.
+
 ---
 
 ## 7. Environments
