@@ -97,6 +97,18 @@ export abstract class UnprocessableError extends DomainError {
   public readonly status = 422;
 }
 
+/**
+ * 429 — the caller is sending too many requests.
+ *
+ * Not a judgement about this request's contents: the identical request
+ * would succeed later. That is what separates it from 403, and why these
+ * responses carry `Retry-After` — the client is being asked to wait, not
+ * refused.
+ */
+export abstract class TooManyRequestsError extends DomainError {
+  public readonly status = 429;
+}
+
 /* ────────────────────────────────────────────────────────────────────────
    Concrete platform-level errors. Feature modules define their own.
    ──────────────────────────────────────────────────────────────────────── */
@@ -147,5 +159,23 @@ export class ResourceNotFoundError extends NotFoundError {
         ? `No ${resource} was found.`
         : `No ${resource} exists with id ${id}.`,
     );
+  }
+}
+
+/**
+ * The caller exceeded a rate limit.
+ *
+ * The message deliberately does not say *which* limit was hit or how many
+ * attempts remain. Telling an attacker "5 per 15 minutes per email address"
+ * hands them the exact shape of the wall they need to stay under, and the
+ * `RateLimit-*` headers already give a legitimate client everything it
+ * needs to back off politely.
+ */
+export class RateLimitedError extends TooManyRequestsError {
+  public readonly code = ErrorCode.RATE_LIMITED;
+  public readonly title = 'Too many requests';
+
+  public constructor(public readonly retryAfterSeconds: number) {
+    super('Too many requests. Please wait a moment and try again.');
   }
 }

@@ -277,6 +277,147 @@ reserved for the interactive islands (map, booking flow, live tracking).
 
 ---
 
+### ADR-009 — Refresh tokens are opaque, not JWTs — **Accepted** _(M3.4)_
+
+- **Context:** ADR-008 fixed the two-token shape but left the refresh
+  token's own format open. The obvious choice is symmetry: the access
+  token is a JWT, so make the refresh token one too.
+- **Decision:** The refresh token is 256 bits from the OS CSPRNG, stored
+  as a SHA-256 hash in `refresh_tokens` and looked up by that hash. It
+  carries no signature and needs no signing key, so the application has
+  exactly one JWT secret. Only the access token is a JWT.
+- **Rationale:** A JWT's single advantage is validation without a database
+  read, and a refresh token cannot take it. Revocation on sign-out, on
+  password change, and on detected reuse all require consulting a store on
+  every use. Once that read is unavoidable, the signature does no work —
+  it adds a second key to rotate, a second set of clock-skew rules, and a
+  larger cookie, in exchange for nothing. The database row _is_ the
+  token's validity. Auth0, Okta, and the OAuth 2.0 Security BCP land in
+  the same place for the same reason.
+- **Alternatives:** Signed JWT refresh tokens (rejected — ceremony with no
+  benefit, and a second secret is a second thing to leak); JWT carrying
+  `familyId` so a pruned row can still be traced (rejected — rows are not
+  pruned inside the token's lifetime, so the case does not arise).
+- **Consequences:** One secret instead of two. An unauthenticated caller
+  can force one indexed lookup per garbage string; rate limiting (M3.6) is
+  the answer, since verifying a signature also costs CPU and would not
+  have prevented it. `JWT_REFRESH_SECRET` was removed from the
+  environment before it ever shipped.
+
+---
+
+### ADR-010 — Rotation grace window over strict reuse detection — **Accepted** _(M3.5)_
+
+- **Context:** Refresh-token rotation makes any replay of an exchanged
+  token evidence of theft. But an honest client replays too: two tabs, or
+  a mobile client retrying a request that timed out in a tunnel, both send
+  the same token twice. Strict detection cannot tell those apart from an
+  attacker and signs the user out.
+- **Decision:** A replay arriving strictly within
+  `REFRESH_ROTATION_GRACE_SECONDS` (default 10) of its own rotation returns
+  `REFRESH_TOKEN_STALE` and revokes nothing; the client retries with the
+  cookie the winning request already set. Outside the window it is
+  `REFRESH_TOKEN_REUSED` and the family dies. The window is half-open so a
+  configured 0 genuinely means zero.
+- **Alternatives:** Strict, zero-tolerance detection (rejected as the
+  default — false positives would be routine on Bangladeshi mobile
+  networks, and a security control users learn to route around protects
+  nothing; still available via config). Returning the same successor to
+  the loser (impossible — we store only the hash, never the plaintext, so
+  a successor cannot be re-issued after the fact). Serialising refreshes
+  per user with a lock (adds a distributed-lock dependency to solve a
+  problem a timestamp comparison solves).
+- **Consequences:** A deliberate ten-second window in which a replay raises
+  no alarm. Bounded and small: the attacker still has to hold a live token,
+  and the next refresh outside the window detects them. Rotation is atomic
+  in one transaction — a conditional `UPDATE … WHERE revoked_at IS NULL`
+  guarantees exactly one successor per token even under concurrent requests.
+
+---
+
+### ADR-011 — Sliding refresh window inside an absolute session ceiling — **Accepted** _(M3.5)_
+
+- **Context:** If each rotation grants a fresh seven days, an account that
+  refreshes weekly is never asked for a password again. Rotation would have
+  made sessions _less_ bounded than the fixed seven-day token it replaced.
+- **Decision:** Each successor expires at
+  `min(now + REFRESH_TTL_DAYS, familyStartedAt + REFRESH_ABSOLUTE_TTL_DAYS)`.
+  Seven days of inactivity ends a session; thirty days of activity ends it
+  too. The family's start is an indexed `MIN(created_at)` lookup.
+- **Alternatives:** Pure sliding (rejected — unbounded sessions). Pure
+  absolute (rejected — logs out daily users every week for no security
+  gain). A denormalised `family_started_at` column on every row (rejected —
+  duplicated data that can drift, to save one indexed aggregate per refresh).
+- **Consequences:** One extra read per refresh. The config schema rejects
+  `REFRESH_TTL_DAYS > REFRESH_ABSOLUTE_TTL_DAYS` in every environment,
+  because that combination is not risky so much as incoherent: the clamp
+  would silently ignore the sliding value.
+
+---
+
+### ADR-012 — A first-party rate limiter, not `@nestjs/throttler` — **Accepted** _(M3.6)_
+
+- **Context:** Every unauthenticated endpoint needs throttling, and
+  `@nestjs/throttler` with a Redis storage adapter is the default answer in
+  this ecosystem. Choosing otherwise needs a reason.
+- **Decision:** ~250 lines of our own: a `RateLimitStore` port, a Redis
+  adapter running a sliding-window-counter Lua script, a global
+  `RateLimitGuard`, and `@RateLimit()` / `@SkipRateLimit()` decorators.
+- **Rationale:** Three things we need are awkward or absent in the library.
+  (1) Composite keys — login is limited per email _and_ per IP with
+  different windows, which means subclassing the guard and overriding
+  `getTracker` per route, i.e. writing a custom guard anyway. (2) Explicit
+  fail-open with an alertable warning; the library's storage errors
+  propagate. (3) Hashing the identifier before it becomes a Redis key, so
+  the limiter holds no personal data. Once a custom guard is required, the
+  dependency is supplying a counter we would wrap regardless.
+- **Alternatives:** `@nestjs/throttler` (rejected above; it remains the
+  right default for simpler needs, and this ADR exists so the deviation is
+  a decision rather than an oversight). A fixed-window counter (rejected —
+  a caller can spend the budget twice across a window boundary, which on a
+  login endpoint is the difference between throttling a guessing run and
+  waving it through in bursts). A sliding log of timestamps (rejected —
+  memory grows with request volume, and volume is what spikes during the
+  abuse it defends against).
+- **Consequences:** Two integers per caller regardless of traffic. The
+  weighting assumes the previous window's requests were evenly spread, so a
+  caller who front-loads is measured slightly leniently — bounded, small,
+  and the same trade Cloudflare makes. Check and increment run as one Lua
+  script, for the same reason refresh rotation is one transaction: a
+  read-then-write is not a check. The script needs a real Redis to test, so
+  those suites are gated on `REDIS_TEST_URL` and CI runs a service container.
+
+---
+
+### ADR-013 — Flat roles and one composite `@Auth()` decorator — **Accepted** _(M3.7)_
+
+- **Context:** Routes need role checks, and Nest's building blocks are a
+  guard plus a metadata decorator plus `@UseGuards` in the right order.
+- **Decision:** `RolesGuard` checks role _containment_ with no hierarchy,
+  and `@Auth(...roles)` composes `UseGuards(JwtAuthGuard, RolesGuard)`,
+  `@Roles(...)`, and the Swagger security annotations into one decorator.
+- **Rationale:** Two things. First, hierarchy is a privilege bug waiting to
+  happen — ADMIN implying DRIVER would put administrators into driver
+  matching, which nobody intends; roles are additive per decision D1, so
+  containment is also the honest model. Second, the hand-written form has a
+  silent failure mode: `@Roles(ADMIN)` without the guards records a
+  requirement that nothing enforces, and the route _reads_ as protected. An
+  API in which the mistake cannot be expressed beats a convention that says
+  not to make it.
+- **Alternatives:** A global `RolesGuard` with `@Public()` opt-out
+  (rejected for the same reason as global authentication in M3.4 —
+  forgetting to remove an exemption is silent, and this API is public at the
+  edges and protected in the middle). CASL or a policy engine (rejected —
+  no caller yet needs attribute or ownership rules; when ride ownership
+  arrives in M5 it will be a distinct check, not more roles).
+- **Consequences:** `RolesGuard` still fails closed when `request.user` is
+  absent, because "unreachable" is a claim about today's code and the cost
+  of being wrong is an open admin endpoint. Ownership — "is this _your_
+  ride" — is explicitly out of scope here; RBAC answers what a role may do,
+  not which rows it may touch.
+
+---
+
 ## 7. Environments
 
 |                  | Local                | Production           |

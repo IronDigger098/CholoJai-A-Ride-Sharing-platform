@@ -66,6 +66,80 @@ export const envSchema = z
         message: 'must be a Redis connection string',
       }),
 
+    // ─── Authentication ─────────────────────────────────────────────────
+    /**
+     * The HMAC key that signs access tokens.
+     *
+     * There is deliberately only one signing secret, because only one
+     * token type is signed. Refresh tokens are opaque random strings
+     * validated against the database, so they have no signature and need
+     * no key — see `RefreshTokenService` for why.
+     *
+     * 32 characters minimum: an HS256 secret shorter than its own digest
+     * is brute-forceable offline once an attacker holds a single token,
+     * and forging a token then costs nothing.
+     */
+    JWT_ACCESS_SECRET: z
+      .string()
+      .min(
+        32,
+        'must be at least 32 characters — generate one, do not invent it',
+      ),
+
+    /**
+     * Access tokens are short-lived because they cannot be revoked.
+     *
+     * A JWT is valid until it expires; there is no list to remove it from
+     * without adding a database lookup to every request, which would
+     * discard the reason for using a JWT at all. Fifteen minutes bounds
+     * the damage from a stolen token while keeping refreshes infrequent.
+     */
+    JWT_ACCESS_TTL_MINUTES: z.coerce.number().int().positive().default(15),
+
+    /**
+     * How long an individual refresh token lives — the *sliding* window.
+     *
+     * Refresh tokens ARE revocable, because they live in the database.
+     * Rotation issues a new one on every use, so an active user's session
+     * keeps sliding forward.
+     */
+    REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(7),
+
+    /**
+     * The hard ceiling on one sign-in, regardless of activity.
+     *
+     * Without this, rotation would make sessions *less* bounded than they
+     * were before it existed: refresh once a week and the session never
+     * ends. Every successor's expiry is clamped to the family's start plus
+     * this, so after thirty days the password is required again no matter
+     * how active the account has been.
+     */
+    REFRESH_ABSOLUTE_TTL_DAYS: z.coerce.number().int().positive().default(30),
+
+    /**
+     * Grace period after a token is rotated, in seconds.
+     *
+     * A token replayed inside this window is treated as a concurrency
+     * artefact rather than theft — two browser tabs, or a mobile client
+     * retrying through a tunnel, can genuinely send the same token twice.
+     * Without a grace period those users get signed out for nothing.
+     *
+     * It is a deliberate blind spot: an attacker replaying within the
+     * window gets a 401 and raises no alarm. Ten seconds is short enough
+     * that this costs almost nothing and long enough to cover a retry.
+     * Set it to 0 to run strict, where any replay at all revokes the family.
+     */
+    REFRESH_ROTATION_GRACE_SECONDS: z.coerce.number().int().min(0).default(10),
+
+    /**
+     * Cookie scope for the refresh token.
+     *
+     * `localhost` in development. In production this is the API's own
+     * domain — never a parent domain shared with other services, which
+     * would hand the cookie to every subdomain.
+     */
+    COOKIE_DOMAIN: z.string().min(1).default('localhost'),
+
     // ─── Mail ───────────────────────────────────────────────────────────
     SMTP_HOST: z.string().min(1),
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535),
@@ -73,6 +147,34 @@ export const envSchema = z
 
     // ─── Rate limiting ──────────────────────────────────────────────────
     RATE_LIMIT_GLOBAL_PER_MIN: z.coerce.number().int().positive().default(100),
+
+    /**
+     * Master switch for rate limiting.
+     *
+     * Exists so a developer hammering an endpoint locally can turn it off
+     * without editing code — and so that turning it off is a visible,
+     * recorded act rather than a commented-out guard. Production refuses
+     * to start with it disabled.
+     */
+    RATE_LIMIT_ENABLED: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+
+    /**
+     * How many reverse proxies sit in front of this process.
+     *
+     * Express only trusts `X-Forwarded-For` if you tell it to, and getting
+     * this wrong breaks rate limiting in one of two ways. Too low, and
+     * every request appears to come from the load balancer's IP, so the
+     * global limit throttles the entire user base as if it were one
+     * client. Too high, and a caller can forge extra hops and present any
+     * IP they like, which makes per-IP limits meaningless.
+     *
+     * 0 for local development, where nothing is in front. Railway puts one
+     * proxy in front, so production is 1. Count the hops; do not guess.
+     */
+    TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(10).default(0),
 
     /**
      * Serve interactive API documentation at /api/docs.
@@ -100,6 +202,19 @@ export const envSchema = z
    * intact instead of short-circuiting on the first problem.
    */
   .superRefine((env, ctx) => {
+    /* Checked in every environment, not just production: a sliding window
+       longer than the absolute ceiling is not a risky configuration, it is
+       an incoherent one. The clamp would silently ignore REFRESH_TTL_DAYS
+       and every token would expire at the ceiling, which is the kind of
+       thing that gets diagnosed months later as "sessions feel wrong". */
+    if (env.REFRESH_TTL_DAYS > env.REFRESH_ABSOLUTE_TTL_DAYS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['REFRESH_TTL_DAYS'],
+        message: `must not exceed REFRESH_ABSOLUTE_TTL_DAYS (${env.REFRESH_ABSOLUTE_TTL_DAYS})`,
+      });
+    }
+
     if (env.NODE_ENV !== 'production') return;
 
     if (!env.API_BASE_URL.startsWith('https://')) {
@@ -115,6 +230,32 @@ export const envSchema = z
         code: z.ZodIssueCode.custom,
         path: ['WEB_BASE_URL'],
         message: 'must use https in production',
+      });
+    }
+
+    /* The example file ships an obvious placeholder so a fresh clone runs.
+       Shipping it to production would mean anyone who has read this public
+       repository can forge an access token for any user, including an
+       admin. A length check alone would not catch that: the placeholder is
+       comfortably over 32 characters. */
+    if (
+      env.JWT_ACCESS_SECRET.includes('change-me') ||
+      env.JWT_ACCESS_SECRET.includes('example')
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JWT_ACCESS_SECRET'],
+        message:
+          'is still the placeholder from .env.example — generate a real secret',
+      });
+    }
+
+    if (!env.RATE_LIMIT_ENABLED) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RATE_LIMIT_ENABLED'],
+        message:
+          'cannot be false in production — /auth/login runs argon2 on every attempt',
       });
     }
 

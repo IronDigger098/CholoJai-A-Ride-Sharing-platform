@@ -108,9 +108,21 @@ export const baseConfig = [
      test helpers (Nest's `getHttpServer()` and supertest's `response.body`
      are both typed `any`) legitimately produce loosely typed values.
      Fighting that adds noise, not safety — production code keeps the full
-     strictness. */
+     strictness.
+
+     `src/testing/**` is covered too. Those files are test doubles that
+     happen to live outside a spec file so that several suites can share
+     one — a shared fake is worth more than a per-suite copy that quietly
+     drifts from the port it implements. They are excluded from the
+     production build (see apps/api/tsconfig.build.json), so relaxing the
+     rules here cannot loosen anything that ships. */
   {
-    files: ['**/*.test.ts', '**/*.spec.ts', '**/__tests__/**/*.ts'],
+    files: [
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      '**/__tests__/**/*.ts',
+      '**/src/testing/**/*.ts',
+    ],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
@@ -118,6 +130,10 @@ export const baseConfig = [
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      // In-memory test doubles implement async interfaces with synchronous
+      // bodies. Marking them `async` to satisfy the contract without an
+      // await inside is correct, not an oversight.
+      '@typescript-eslint/require-await': 'off',
     },
   },
 
@@ -136,6 +152,14 @@ export const baseConfig = [
 export const javascriptFilesConfig = {
   files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
   ...tseslint.configs.disableTypeChecked,
+  rules: {
+    ...tseslint.configs.disableTypeChecked.rules,
+    /* `disableTypeChecked` only clears rules that need type information.
+       This one is syntactic, so it survives — and then demands an
+       annotation that JavaScript has no syntax to express. Documenting
+       these signatures is JSDoc's job, not the type checker's. */
+    '@typescript-eslint/explicit-function-return-type': 'off',
+  },
 };
 
 export default baseConfig;

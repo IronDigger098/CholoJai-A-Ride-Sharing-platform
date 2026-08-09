@@ -1,9 +1,14 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 
 import { LoggingModule } from './common/logging/logging.module';
+import { MailModule } from './common/mail/mail.module';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { RateLimitModule } from './common/rate-limit/rate-limit.module';
+import { RedisModule } from './common/redis/redis.module';
 import { ConfigModule } from './config/config.module';
 import { type Env } from './config/env.schema';
+import { AdminModule } from './modules/admin/admin.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 
 /**
@@ -25,7 +30,15 @@ export class AppModule {
         ConfigModule.forRoot(env),
         LoggingModule.forRoot(env),
         PrismaModule,
+        RedisModule,
+        /* Before the feature modules: it registers an APP_GUARD, and a
+           guard that is not in the container when a route is resolved
+           simply does not run. */
+        RateLimitModule,
+        MailModule,
         HealthModule,
+        AuthModule,
+        AdminModule,
       ],
     };
   }

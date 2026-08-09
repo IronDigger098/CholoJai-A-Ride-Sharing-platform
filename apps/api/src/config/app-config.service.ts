@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import { type Env } from './env.schema';
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 /**
  * The only object in the application permitted to expose configuration.
  *
@@ -56,6 +58,84 @@ export class AppConfigService {
     return this.env.REDIS_URL;
   }
 
+  /**
+   * Access-token signing key and lifetime.
+   *
+   * `issuer` and `audience` are checked on every verification. They cost
+   * nothing and mean a token minted by some other service that happens to
+   * share this secret cannot be replayed here.
+   */
+  public get accessToken(): {
+    secret: string;
+    ttlSeconds: number;
+    issuer: string;
+    audience: string;
+  } {
+    return {
+      secret: this.env.JWT_ACCESS_SECRET,
+      ttlSeconds: this.env.JWT_ACCESS_TTL_MINUTES * 60,
+      issuer: 'cholojai-api',
+      audience: 'cholojai-web',
+    };
+  }
+
+  /**
+   * Refresh-token lifetime rules. There is no secret: the token is opaque.
+   *
+   * Returned in milliseconds because every consumer does date arithmetic
+   * with it. Converting once here means no call site multiplies by 86_400_000
+   * and gets a zero wrong.
+   */
+  public get refreshPolicy(): {
+    slidingTtlMs: number;
+    absoluteTtlMs: number;
+    rotationGraceMs: number;
+  } {
+    return {
+      slidingTtlMs: this.env.REFRESH_TTL_DAYS * MS_PER_DAY,
+      absoluteTtlMs: this.env.REFRESH_ABSOLUTE_TTL_DAYS * MS_PER_DAY,
+      rotationGraceMs: this.env.REFRESH_ROTATION_GRACE_SECONDS * 1000,
+    };
+  }
+
+  /**
+   * Cookie attributes for the refresh token.
+   *
+   * `httpOnly` puts it beyond JavaScript's reach, so an XSS payload cannot
+   * read it. `secure` requires HTTPS in production. `sameSite: 'strict'`
+   * means the browser never attaches it to a cross-site request, which is
+   * what closes the CSRF hole that cookie auth would otherwise open.
+   *
+   * The `__Host-` cookie prefix was considered and rejected: it is a
+   * stronger binding to the exact host, but it *requires* `Path=/`, and we
+   * would rather scope the path than have the browser send this cookie to
+   * every endpoint on the API.
+   */
+  public get refreshCookie(): {
+    httpOnly: true;
+    secure: boolean;
+    sameSite: 'strict';
+    domain: string;
+    path: string;
+    maxAge: number;
+  } {
+    return {
+      httpOnly: true,
+      secure: this.isProduction,
+      sameSite: 'strict',
+      domain: this.env.COOKIE_DOMAIN,
+      /* Scoped to the one endpoint that consumes it. The browser will not
+         attach this cookie to any other request, so an XSS payload cannot
+         ride it to /rides or /admin even though it cannot read the value. */
+      path: '/api/v1/auth',
+      /* The sliding window, not the absolute ceiling: rotation replaces
+         this cookie on every refresh, so it only ever has to outlive one
+         token. Using the ceiling here would leave the browser sending a
+         credential that died three weeks earlier. */
+      maxAge: this.refreshPolicy.slidingTtlMs,
+    };
+  }
+
   public get mail(): { host: string; port: number; from: string } {
     return {
       host: this.env.SMTP_HOST,
@@ -66,6 +146,15 @@ export class AppConfigService {
 
   public get rateLimitGlobalPerMinute(): number {
     return this.env.RATE_LIMIT_GLOBAL_PER_MIN;
+  }
+
+  public get rateLimitEnabled(): boolean {
+    return this.env.RATE_LIMIT_ENABLED;
+  }
+
+  /** Reverse-proxy hops Express should trust for `X-Forwarded-For`. */
+  public get trustedProxyHops(): number {
+    return this.env.TRUSTED_PROXY_HOPS;
   }
 
   /**

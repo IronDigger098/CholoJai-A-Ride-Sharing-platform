@@ -20,11 +20,15 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:integration": "turbo run test:integration",
     "test:watch": "turbo run test:watch",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
-    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "clean": "turbo run clean && node scripts/clean.mjs .turbo",
+    "clean:cache": "node scripts/clean.mjs .turbo node_modules/.cache",
+    "clean:deps": "node scripts/clean.mjs node_modules .turbo",
     "verify": "pnpm format:check && pnpm build && pnpm lint && pnpm typecheck && pnpm test",
+    "verify:clean": "pnpm clean && pnpm clean:cache && pnpm verify",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -37,5 +41,13 @@
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
   }
 }

@@ -130,7 +130,7 @@ Grouped by module. `🔒` requires auth; `🚗` driver role; `🛡` admin role.
 | POST   | `/register`            | Create account, send verification email     |
 | POST   | `/login`               | Issue access token + refresh cookie         |
 | POST   | `/refresh`             | Rotate refresh token, issue access token    |
-| POST   | `/logout` 🔒           | Revoke current refresh family               |
+| POST   | `/logout`              | Revoke current refresh family               |
 | POST   | `/verify-email`        | Consume email verification token            |
 | POST   | `/resend-verification` | Re-send verification email (rate limited)   |
 | POST   | `/forgot-password`     | Send reset link (always 204 — see note)     |
@@ -140,6 +140,167 @@ Grouped by module. `🔒` requires auth; `🚗` driver role; `🛡` admin role.
 > `/forgot-password` returns `204` whether or not the email exists.
 > Returning `404` for unknown emails turns the endpoint into a user
 > enumeration oracle.
+
+#### Password recovery
+
+The trade-off here runs the opposite way from registration, which _does_
+return `409` for an address already in use. There, telling the truth saves
+someone from a broken sign-up. Here the caller's next step — check your
+inbox — is identical either way, so honesty buys them nothing and buys an
+attacker a way to test a million addresses.
+
+The generic response is only half of it. The mail is dispatched **without
+blocking the response**, so a known address and an unknown one take the same
+time. A uniform body in front of a measurable timing difference is
+decoration, the same reasoning behind hashing a decoy password on login.
+
+Reset links live **one hour**, against twenty-four for email verification.
+A verification link activates an account that was just created; a reset link
+takes over an existing one. Anyone reaching the mailbox afterwards — a
+shared laptop, a synced tablet, a mail archive — holds an account takeover
+for exactly as long as that number allows.
+
+Completing a reset **revokes every session**, not just the current one.
+People reset a password precisely when they think somebody else has it, so
+leaving the other party's refresh token alive would make the whole exercise
+theatre. Access tokens already issued survive until they expire, up to
+fifteen minutes; that is the standing cost of stateless tokens and is not
+specific to this flow.
+
+Redeeming a reset link also marks the address verified if it was not
+already. Reaching the mailbox is the same proof email verification asks for,
+and demanding it twice for one fact is friction rather than security.
+
+Reset and verification tokens share one table and are separated by a
+`purpose` column that every lookup filters on. Without it a verification
+link — longer-lived and issued far more freely — would double as an
+account-takeover credential.
+
+#### How the two tokens travel
+
+`/login` returns two credentials by two different routes, and the asymmetry
+is the entire security design.
+
+The **access token** is a signed JWT in the response body. The client holds
+it in memory and sends it as `Authorization: Bearer …`. It is readable by
+any script on the page, which is exactly why it lives fifteen minutes and
+carries nothing but a user id and roles. It is not revocable — that is the
+price of not consulting the database on every request.
+
+The **refresh token** is an opaque random string in an httpOnly,
+`SameSite=Strict` cookie scoped to `/api/v1/auth`. JavaScript cannot read
+it, so an XSS payload cannot steal it; the browser cannot be tricked into
+sending it cross-site, so the CSRF surface that cookie authentication
+normally opens stays closed. It lives seven days and _is_ revocable,
+because it is a row in `refresh_tokens`.
+
+Neither token should ever be written to `localStorage`.
+
+`/logout` requires no access token, deliberately. The sign-out button must
+keep working after the access token has expired — which it does every
+fifteen minutes — and the cookie is sufficient proof of which session to
+end. It always returns `204`; telling a caller that their cookie was
+unrecognised would help someone probing with stolen ones.
+
+`/login` returns one `401` for a wrong password and for an address with no
+account. The two paths also spend the same time, by hashing a decoy
+password when no user is found — an identical message in front of a
+measurable timing difference is decoration, not a defence.
+
+#### Rotation and reuse detection
+
+Every call to `/auth/refresh` retires the token it was given and issues a
+successor in the same family. A refresh token is therefore single-use, and
+a token presented after it was already exchanged should not exist anywhere.
+
+That is the detection. When one turns up, either an attacker is replaying a
+token the user has since rotated past, or the user is replaying one the
+attacker rotated first — and nothing in the request distinguishes the two.
+So the whole family is revoked. Both parties are signed out, and only the
+one who knows the password comes back. A stolen refresh token buys at most
+one rotation cycle instead of a week.
+
+Revoking only the replayed row would be worse than useless: it would leave
+whoever holds the successor — quite possibly the thief — with a live
+session while telling us we had handled the incident.
+
+Three failure codes, and clients must branch on them:
+
+`REFRESH_TOKEN_STALE` is not an attack. Two tabs, or a mobile client
+retrying through a tunnel, genuinely send the same token twice, and a
+replay within ten seconds of its own rotation is treated as that. Nothing
+is revoked and the response does not clear the cookie, because the request
+that won the race already set the new one. The client retries once.
+
+`REFRESH_TOKEN_REUSED` means the family was revoked. Tell the user their
+session ended for security reasons and send them to sign in.
+
+`REFRESH_TOKEN_INVALID` covers unknown, expired, signed-out, and
+past-the-ceiling. Send them to sign in.
+
+The ten-second grace period is a deliberate blind spot — an attacker
+replaying inside it gets a 401 and raises no alarm. The alternative is
+signing honest users out whenever their connection stutters, which is a
+worse trade on the networks this app is built for. Set
+`REFRESH_ROTATION_GRACE_SECONDS=0` to run strict.
+
+Sessions are also bounded absolutely. Rotation slides each token's expiry
+forward, but never past thirty days from the original sign-in. Without that
+clamp, rotation would make sessions _less_ bounded than they were before it
+existed: refresh once a week and the session never ends.
+
+Refreshing re-reads the user, so it is also the point at which a role
+change takes effect and a deactivated account loses its session.
+
+Failures on protected endpoints distinguish `ACCESS_TOKEN_EXPIRED` from
+`INVALID_ACCESS_TOKEN` in `code`. The client refreshes on the first and
+sends the user to sign in on the second; collapsing them means the app
+logs people out every quarter of an hour.
+
+#### Roles and the two failure codes
+
+`401` and `403` are not interchangeable. `401` means we do not know who you
+are — obtain credentials and retry. `403` means we do, and retrying will not
+help. A client that treats them alike either loops on a permission error or
+gives up on a fixable one.
+
+Roles are a flat set, never a hierarchy. An ADMIN is **not** implicitly a
+DRIVER. Hierarchies feel tidy and are a common source of accidental
+privilege: the moment ADMIN implies DRIVER, an administrator can accept ride
+requests and appear in driver matching. If an admin needs to drive, they get
+a DRIVER grant like anyone else — decision D1, one account with additive
+roles.
+
+A `403` names neither the role required nor the roles held. That would map
+the privilege model for anyone probing, and a legitimate caller cannot act
+on it anyway.
+
+### Admin — role management
+
+| Method | Path                                 | Purpose                   |
+| ------ | ------------------------------------ | ------------------------- |
+| POST   | `/admin/users/:userId/roles` 🛡       | Grant a role, idempotent  |
+| DELETE | `/admin/users/:userId/roles/:role` 🛡 | Revoke a role, idempotent |
+
+Two refusals protect invariants rather than permissions, and both answer
+`409` because the caller has every permission required.
+
+RIDER cannot be revoked: every account is a rider, and one without it can
+sign in and do nothing.
+
+An administrator cannot revoke their **own** ADMIN role. That single rule is
+what guarantees the platform never runs out of administrators. With two
+admins, either may demote the other, and whoever remains cannot demote
+themselves — so the count falls to one and stops, from any starting number.
+The alternative, counting remaining admins on each revocation, is slower and
+racy: two concurrent revocations could each see "two remain" and both
+proceed.
+
+A demotion needs no session revocation. Access tokens carry roles and are
+stale for at most their lifetime, and `/auth/refresh` re-reads roles from
+the database — so the change lands on the next refresh. That property comes
+from M3.5 and is load-bearing here: rebuilding claims from the old token
+during refresh would make a demotion last until the user signed out.
 
 ### Users — `/api/v1/users`
 
@@ -236,16 +397,52 @@ dropped connections, which on a Dhaka mobile network is not hypothetical.
 
 ## 6. Rate limits (initial)
 
-| Scope                                         | Limit                                               |
-| --------------------------------------------- | --------------------------------------------------- |
-| Global per IP                                 | 100 req / min                                       |
-| `/auth/login`, `/auth/forgot-password`        | 5 req / 15 min per IP + per email                   |
-| `/auth/register`, `/auth/resend-verification` | 3 req / hour per IP                                 |
-| `/geo/search`                                 | 30 req / min per user (protects upstream Nominatim) |
-| `POST /fares/quote`                           | 60 req / min per user                               |
+| Scope                            | Limit                | Status |
+| -------------------------------- | -------------------- | ------ |
+| Global, per IP                   | 100 req / min        | M3.6   |
+| `POST /auth/login`               | 5 / 15 min per email | M3.6   |
+| `POST /auth/login`               | 20 / 15 min per IP   | M3.6   |
+| `POST /auth/register`            | 10 / hour per IP     | M3.6   |
+| `POST /auth/resend-verification` | 3 / hour per email   | M3.6   |
+| `POST /auth/resend-verification` | 10 / hour per IP     | M3.6   |
+| `POST /auth/refresh`             | 120 / hour per IP    | M3.6   |
+| `POST /auth/verify-email`        | 30 / hour per IP     | M3.6   |
+| `POST /auth/forgot-password`     | 3 / hour per email   | M3.8   |
+| `POST /auth/forgot-password`     | 10 / hour per IP     | M3.8   |
+| `POST /auth/reset-password`      | 20 / hour per IP     | M3.8   |
+| `GET /geo/search`                | 30 / min per user    | M6     |
+| `POST /fares/quote`              | 60 / min per user    | M6     |
 
-Backed by Redis counters (ADR-004). Responses include
-`RateLimit-Limit` / `RateLimit-Remaining` / `RateLimit-Reset`.
+Backed by Redis counters (ADR-004), and `/health` is exempt.
+
+**Why two rules on the sensitive endpoints.** Neither key alone is enough.
+A per-IP limit misses a distributed attack on one account, and a per-email
+limit misses one machine working through a wordlist across many accounts.
+The per-IP numbers are deliberately the looser of the pair: an office, a
+university, or a mobile carrier can put hundreds of legitimate users behind
+one address, so a limit tight enough to stop a determined attacker also
+locks out a whole building.
+
+Earlier drafts of this table said 5 per 15 minutes _per IP_ on login and 3
+per hour per IP on register. Both were revised in M3.6 for exactly that
+reason — the numbers looked strict on paper and would have been a support
+queue in Dhaka.
+
+Every response carries `RateLimit-Limit`, `RateLimit-Remaining`, and
+`RateLimit-Reset` for the rule closest to rejecting — not the loosest one,
+which would tell a client "97 remaining" while login is one attempt from
+cutting it off. A 429 adds `Retry-After`.
+
+The 429 body never names the rule that was hit or how long its window is.
+That would hand an attacker the exact shape of the wall they need to stay
+under, and a legitimate client already has the headers.
+
+**When Redis is down, requests are allowed.** Rate limiting exists to make
+abuse expensive, not to decide who may act, so failing closed would turn a
+cache outage into a platform-wide sign-in outage — a better result for an
+attacker than the abuse being prevented. The degradation logs at `warn`
+with the rule name so it is alertable rather than silent. Authentication
+and authorisation fail closed; this does not.
 
 ---
 

@@ -10,6 +10,7 @@ const validEnv = {
   DATABASE_URL:
     'postgresql://cholojai:pw@localhost:5433/cholojai_dev?schema=public',
   REDIS_URL: 'redis://localhost:6379',
+  JWT_ACCESS_SECRET: 'test-only-access-secret-thirty-two-chars-min',
   SMTP_HOST: 'localhost',
   SMTP_PORT: '1025',
   MAIL_FROM: 'CholoJai <no-reply@cholojai.local>',
@@ -93,6 +94,50 @@ describe('parseEnv', () => {
       expect(() => parseEnv({ ...validEnv, SMTP_PORT: 'abc' })).toThrow(
         /SMTP_PORT/,
       );
+    });
+  });
+
+  describe('refresh-token policy', () => {
+    it('rejects a sliding window longer than the absolute ceiling', () => {
+      /* Not merely risky — incoherent. The clamp would silently ignore
+         REFRESH_TTL_DAYS and expire every token at the ceiling, which gets
+         diagnosed months later as "sessions feel wrong". */
+      expect(() =>
+        parseEnv({
+          ...validEnv,
+          REFRESH_TTL_DAYS: '60',
+          REFRESH_ABSOLUTE_TTL_DAYS: '30',
+        }),
+      ).toThrow(EnvValidationError);
+    });
+
+    it('accepts a sliding window equal to the ceiling', () => {
+      expect(() =>
+        parseEnv({
+          ...validEnv,
+          REFRESH_TTL_DAYS: '30',
+          REFRESH_ABSOLUTE_TTL_DAYS: '30',
+        }),
+      ).not.toThrow();
+    });
+
+    it('allows a grace window of zero, meaning strict reuse detection', () => {
+      // Zero is a legitimate policy choice, not a missing value, so it must
+      // survive validation rather than being coerced back to the default.
+      const env = parseEnv({
+        ...validEnv,
+        REFRESH_ROTATION_GRACE_SECONDS: '0',
+      });
+
+      expect(env.REFRESH_ROTATION_GRACE_SECONDS).toBe(0);
+    });
+
+    it('defaults to a sliding week inside an absolute month', () => {
+      const env = parseEnv(validEnv);
+
+      expect(env.REFRESH_TTL_DAYS).toBe(7);
+      expect(env.REFRESH_ABSOLUTE_TTL_DAYS).toBe(30);
+      expect(env.REFRESH_ROTATION_GRACE_SECONDS).toBe(10);
     });
   });
 
