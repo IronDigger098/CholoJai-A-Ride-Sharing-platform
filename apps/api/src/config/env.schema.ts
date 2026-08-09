@@ -145,6 +145,42 @@ export const envSchema = z
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535),
     MAIL_FROM: z.string().min(1),
 
+    // ─── Geo / routing ──────────────────────────────────────────────────
+    /**
+     * OSRM instance used to measure routes.
+     *
+     * Defaults to the public demo server, which is fine for development and
+     * unfit for production: it is rate-limited per address, offers no
+     * availability guarantee, and asks that it not be used for anything
+     * real. Deploying means pointing this at a self-hosted instance. The
+     * default exists so a fresh clone runs, not so production can inherit it.
+     */
+    OSRM_BASE_URL: httpUrl.default('https://router.project-osrm.org'),
+
+    /**
+     * How long to wait for a route before giving up.
+     *
+     * Three seconds is generous for a routing query and short enough that a
+     * hung provider does not hold a booking request open. Without a bound,
+     * the slowest thing in the quote path has no ceiling at all.
+     */
+    OSRM_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+
+    /**
+     * Route cache lifetime.
+     *
+     * Roads change on the timescale of months, so an hour is conservative;
+     * the number is a bound on how long a closure takes to disappear from
+     * quotes, not on correctness. Nothing here is priced from the cache
+     * without being re-priced — the fare snapshot on a ride is taken at
+     * booking (D2), so a stale route can never rewrite a completed receipt.
+     */
+    GEO_ROUTE_CACHE_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(3600),
+
     // ─── Rate limiting ──────────────────────────────────────────────────
     RATE_LIMIT_GLOBAL_PER_MIN: z.coerce.number().int().positive().default(100),
 

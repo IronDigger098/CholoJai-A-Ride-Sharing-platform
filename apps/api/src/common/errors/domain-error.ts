@@ -109,6 +109,19 @@ export abstract class TooManyRequestsError extends DomainError {
   public readonly status = 429;
 }
 
+/**
+ * 503 — a dependency this request needs is not answering.
+ *
+ * Distinct from 500, which says *we* are broken. This says something we
+ * depend on is, the request itself was fine, and the identical request is
+ * worth retrying shortly. Getting that distinction right is what lets a
+ * client back off intelligently instead of showing the user an error that
+ * implies they did something wrong.
+ */
+export abstract class ServiceUnavailableError extends DomainError {
+  public readonly status = 503;
+}
+
 /* ────────────────────────────────────────────────────────────────────────
    Concrete platform-level errors. Feature modules define their own.
    ──────────────────────────────────────────────────────────────────────── */

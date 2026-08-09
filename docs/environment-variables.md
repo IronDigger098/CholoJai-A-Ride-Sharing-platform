@@ -55,7 +55,9 @@ mask a missing platform variable during a deploy.
 | `RESEND_API_KEY`                 | Production email provider                           | —                        | M12       |
 | `CLOUDINARY_URL`                 | Image storage                                       | —                        | M7        |
 | `NOMINATIM_BASE_URL`             | Geocoding upstream                                  | public instance          | M6        |
-| `OSRM_BASE_URL`                  | Routing upstream                                    | public instance          | M6        |
+| `OSRM_BASE_URL`                  | Routing upstream                                    | public instance          | M5        |
+| `OSRM_TIMEOUT_MS`                | Give up on a route after this long                  | `3000`                   | M5        |
+| `GEO_ROUTE_CACHE_TTL_SECONDS`    | Route cache lifetime                                | `3600`                   | M5        |
 | `RATE_LIMIT_GLOBAL_PER_MIN`      | Global per-IP throttle, per minute                  | `100`                    | M3        |
 | `RATE_LIMIT_ENABLED`             | Master switch; must be true in prod                 | `true`                   | M3        |
 | `TRUSTED_PROXY_HOPS`             | Reverse proxies to trust for XFF                    | `0` (1 on Railway)       | M3        |
