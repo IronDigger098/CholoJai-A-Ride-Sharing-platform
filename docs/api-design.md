@@ -310,9 +310,15 @@ during refresh would make a demotion last until the user signed out.
 
 ### Geo — `/api/v1/geo`
 
-`GET /search?q=` (geocoding proxy) · `GET /reverse?lat=&lng=` ·
-`POST /route` (distance + duration). All proxy Nominatim/OSRM server-side
-with caching (ADR-006); the browser never calls a third party.
+`GET /search?q=` (geocoding proxy, M6) · `GET /reverse?lat=&lng=` (M6) ·
+`POST /route` 🔒 (distance + duration, **M5**). All proxy Nominatim/OSRM
+server-side with caching (ADR-006); the browser never calls a third party.
+
+> **Why routing lands in M5 and geocoding does not.** A fare cannot be priced
+> without a distance and a duration, so `POST /route` is a prerequisite of the
+> quote endpoint rather than part of the map feature. Geocoding has no
+> consumer until there is a map to search on. Same reasoning that moved Redis
+> from M2 to M3: infrastructure arrives with its first consumer, not before.
 
 ### Fares — `/api/v1/fares`
 

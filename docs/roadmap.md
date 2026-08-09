@@ -13,8 +13,8 @@
 | M2  | Backend Foundation              | NestJS bootstrap, validated env config, centralized error handling, logging, Swagger, API versioning, Docker Compose, Prisma schema + migrations, health probes, GitHub governance    | ✅     |
 | M3  | Authentication & Authorization  | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin), **Redis + rate limiting**, **CI integration-test job**, seed script | ✅     |
 | M4  | Design System & Marketing Site  | Next.js app scaffold, Tailwind v4 tokens, dark mode, type scale, primitives, landing page, SEO foundation                                                                             | ✅     |
-| M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine                                                                                                                | 🟡     |
-| M6  | Maps & Real-time Tracking       | Maps integration, Socket.IO driver-location simulation                                                                                                                                | 🔲     |
+| M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine, **routing proxy**                                                                                             | 🟡     |
+| M6  | Maps & Real-time Tracking       | Maps integration, geocoding proxy, Socket.IO driver-location simulation                                                                                                               | 🔲     |
 | M7  | Driver Side                     | Driver dashboard, vehicle management, ride acceptance flow                                                                                                                            | 🔲     |
 | M8  | Admin & Analytics               | Admin dashboard, user/driver management, analytics                                                                                                                                    | 🔲     |
 | M9  | Content & Growth                | Blog CMS, careers, contact, notifications, reviews, coupons, referrals                                                                                                                | 🔲     |
@@ -48,6 +48,15 @@ earlier would have meant a module with no caller and a test job with
 nothing to run, which `contributing.md` explicitly forbids
 ("no new abstraction without a second caller"). They are written into M3's
 scope above so they are tracked rather than remembered.
+
+The routing proxy moved M6 → M5 for the same reason. `estimateFare` takes a
+distance and a duration, so a fare quote cannot be honest without a route —
+the alternative is letting the client supply both, which lets a rider price
+their own journey. Geocoding stayed in M6 because nothing searches for a
+place until there is a map to search on. The milestone that owns a piece of
+infrastructure is the one containing its first consumer, and splitting `geo`
+across two milestones is the honest consequence of that rule rather than an
+exception to it.
 
 **Accessibility is a build step, not a review step.** The design tokens are
 checked against WCAG contrast ratios by a unit test that reads the stylesheet,

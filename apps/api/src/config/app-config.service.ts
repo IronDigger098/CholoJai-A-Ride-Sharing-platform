@@ -144,6 +144,25 @@ export class AppConfigService {
     };
   }
 
+  /**
+   * Routing provider and its cache.
+   *
+   * Grouped because they are one decision: where routes come from and how
+   * long we keep them. A consumer that needs the URL invariably needs the
+   * timeout too.
+   */
+  public get routing(): {
+    osrmBaseUrl: string;
+    timeoutMs: number;
+    cacheTtlSeconds: number;
+  } {
+    return {
+      osrmBaseUrl: this.env.OSRM_BASE_URL,
+      timeoutMs: this.env.OSRM_TIMEOUT_MS,
+      cacheTtlSeconds: this.env.GEO_ROUTE_CACHE_TTL_SECONDS,
+    };
+  }
+
   public get rateLimitGlobalPerMinute(): number {
     return this.env.RATE_LIMIT_GLOBAL_PER_MIN;
   }

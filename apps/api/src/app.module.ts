@@ -9,6 +9,7 @@ import { ConfigModule } from './config/config.module';
 import { type Env } from './config/env.schema';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { GeoModule } from './modules/geo/geo.module';
 import { HealthModule } from './modules/health/health.module';
 
 /**
@@ -39,6 +40,7 @@ export class AppModule {
         HealthModule,
         AuthModule,
         AdminModule,
+        GeoModule,
       ],
     };
   }
