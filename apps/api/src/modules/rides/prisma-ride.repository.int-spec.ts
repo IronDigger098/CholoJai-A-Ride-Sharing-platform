@@ -92,11 +92,16 @@ describeWithDatabase('PrismaRideRepository (real database)', () => {
   });
 
   it('refuses a second active ride for the same rider', async () => {
-    /* The test this whole suite exists for. `one_active_ride_per_rider` is
-       a partial unique index, which Prisma's schema cannot express and no
-       fake can enforce for real — and the adapter's translation of P2002
-       reads `error.meta.target`, which until now was my reading of Prisma's
-       behaviour rather than an observed fact. */
+    /* The test this whole suite exists for, and it earned its place
+       immediately: the adapter originally matched `meta.target` against the
+       index name, and this failed. Prisma reports the database column —
+       `['rider_id']` — so the translation never fired and a rider booking a
+       second ride got a raw Prisma error instead of a 409.
+
+       No fake could have caught it. `one_active_ride_per_rider` is a partial
+       unique index that Prisma's schema cannot express, so the in-memory
+       repository enforces the rule with a scan and throws the right error
+       for the wrong reason. */
     const riderId = await createRider();
     await repository.create(await input(riderId));
 
