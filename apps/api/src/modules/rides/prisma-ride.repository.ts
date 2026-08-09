@@ -12,6 +12,7 @@ import {
   type CreateRideInput,
   type RideRecord,
   type RideRepository,
+  type TransitionRideInput,
 } from './ride-repository.port';
 import { RiderAlreadyOnRideError } from './rides.errors';
 
@@ -87,7 +88,75 @@ export class PrismaRideRepository implements RideRepository {
 
     return row === null ? null : toRecord(row);
   }
+
+  public async findById(rideId: string): Promise<RideRecord | null> {
+    const row: RideRow | null = await this.prisma.ride.findUnique({
+      where: { id: rideId },
+    });
+
+    return row === null ? null : toRecord(row);
+  }
+
+  public async transition(input: TransitionRideInput): Promise<boolean> {
+    /* `updateMany` rather than `update`, because only `updateMany` accepts a
+       non-unique WHERE — and `status` in the WHERE is what makes this one
+       atomic statement instead of a check followed by a write. `update`
+       would need the id alone and would happily move a ride that had
+       already left `from`. */
+    /* Spread rather than an inline computed key: a computed key widens the
+       literal to `{ [x: string]: Date }`, which is not assignable to
+       Prisma's update input, while a spread is exempt from excess-property
+       checking and keeps the rest of the object precisely typed. */
+    const stamp = { [TIMESTAMP_COLUMN[input.to]]: input.at };
+
+    const result = await this.prisma.ride.updateMany({
+      where: { id: input.rideId, status: input.from },
+      data: {
+        status: input.to,
+        ...stamp,
+        ...(input.cancelledBy === undefined
+          ? {}
+          : { cancelledBy: input.cancelledBy }),
+        ...(input.cancelReason === undefined
+          ? {}
+          : { cancelReason: input.cancelReason }),
+      },
+    });
+
+    return result.count === 1;
+  }
 }
+
+/**
+ * Which timestamp each status writes.
+ *
+ * The audit trail *is* this set of columns (schema.prisma) — pickup wait and
+ * journey duration fall out of them for free. Recorded as a map so adding a
+ * status to `RideStatus` without deciding what it stamps is a compile error
+ * rather than a column that silently stays null.
+ *
+ * Two entries exist only to make the record total, and both are worth
+ * naming. Nothing transitions *into* `REQUESTED` — the table in
+ * `ride-status.ts` has no arrow pointing at it — so its column is the one
+ * the row already carries by default.
+ *
+ * `EXPIRED` writes `cancelledAt`, which is a compromise rather than a
+ * design: the schema has no `expiredAt`, and the honest reading of
+ * `cancelledAt` is "the moment this ride ended without completing", which
+ * covers both. It is distinguishable because `cancelledBy` stays null for an
+ * expiry, where a real cancellation always records RIDER, DRIVER or SYSTEM
+ * (D3). If expiry reporting ever needs its own column, that is a migration
+ * and this map is the one place that changes.
+ */
+const TIMESTAMP_COLUMN = {
+  REQUESTED: 'requestedAt',
+  ACCEPTED: 'acceptedAt',
+  ARRIVED: 'arrivedAt',
+  IN_PROGRESS: 'startedAt',
+  COMPLETED: 'completedAt',
+  CANCELLED: 'cancelledAt',
+  EXPIRED: 'cancelledAt',
+} as const satisfies Readonly<Record<RideStatus, string>>;
 
 /**
  * Was this a violation of one specific unique index?

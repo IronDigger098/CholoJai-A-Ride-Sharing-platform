@@ -47,3 +47,32 @@ export const rideSchema = z.object({
 });
 
 export type Ride = z.infer<typeof rideSchema>;
+
+/**
+ * A ride id in a path.
+ *
+ * Bounded rather than matched against a CUID pattern, for the same reason as
+ * `userIdParamSchema`: the length check stops an absurd path segment
+ * reaching the database, and deciding whether an id is well-formed is the
+ * database's job.
+ */
+export const rideIdParamSchema = z.object({
+  rideId: z.string().min(1).max(64),
+});
+
+export type RideIdParam = z.infer<typeof rideIdParamSchema>;
+
+/**
+ * Cancelling carries an optional free-text reason.
+ *
+ * Free text rather than an enum of reason codes. Codes are worth having —
+ * they are what makes cancellation reporting possible — but a code list
+ * invented before anyone has read a hundred real cancellations is a list
+ * that will be wrong, and `CANCELLED` already carries `cancelledBy`, which
+ * is the part the state machine acts on (D3).
+ */
+export const cancelRideRequestSchema = z.object({
+  reason: z.string().min(1).max(500).optional(),
+});
+
+export type CancelRideRequest = z.infer<typeof cancelRideRequestSchema>;

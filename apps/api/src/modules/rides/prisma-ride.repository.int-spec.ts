@@ -1,4 +1,5 @@
 import {
+  CancelledBy,
   type FareOption,
   RideStatus,
   VehicleType,
@@ -160,6 +161,106 @@ describeWithDatabase('PrismaRideRepository (real database)', () => {
 
     expect(error).toBeInstanceOf(Error);
     expect(error).not.toBeInstanceOf(RiderAlreadyOnRideError);
+  });
+
+  describe('transition', () => {
+    it('moves the ride and stamps the column belonging to the new status', async () => {
+      const riderId = await createRider();
+      const ride = await repository.create(await input(riderId));
+
+      const moved = await repository.transition({
+        rideId: ride.id,
+        from: RideStatus.REQUESTED,
+        to: RideStatus.CANCELLED,
+        at: new Date(),
+        cancelledBy: CancelledBy.RIDER,
+        cancelReason: 'Changed my mind',
+      });
+
+      const row = await database().ride.findUniqueOrThrow({
+        where: { id: ride.id },
+      });
+
+      expect(moved).toBe(true);
+      expect(row.status).toBe(RideStatus.CANCELLED);
+      expect(row.cancelledAt).not.toBeNull();
+      expect(row.cancelledBy).toBe(CancelledBy.RIDER);
+      expect(row.cancelReason).toBe('Changed my mind');
+    });
+
+    it('refuses to move a ride that has already left the from status', async () => {
+      const riderId = await createRider();
+      const ride = await repository.create(await input(riderId));
+
+      await repository.transition({
+        rideId: ride.id,
+        from: RideStatus.REQUESTED,
+        to: RideStatus.CANCELLED,
+        at: new Date(),
+      });
+
+      const second = await repository.transition({
+        rideId: ride.id,
+        from: RideStatus.REQUESTED,
+        to: RideStatus.ACCEPTED,
+        at: new Date(),
+      });
+
+      expect(second).toBe(false);
+    });
+
+    it('resolves concurrent transitions to exactly one winner', async () => {
+      /* The reason `from` is in the WHERE clause rather than checked in the
+         service. Both statements are issued before either commits; PostgreSQL
+         serialises them, and the loser re-evaluates the predicate against the
+         committed row and matches nothing. A read-then-write in application
+         code would let both pass their check and produce two writes — a ride
+         that is cancelled and accepted at once, with a driver dispatched to
+         a rider who is no longer expecting one. */
+      const riderId = await createRider();
+      const ride = await repository.create(await input(riderId));
+
+      const results = await Promise.all([
+        repository.transition({
+          rideId: ride.id,
+          from: RideStatus.REQUESTED,
+          to: RideStatus.CANCELLED,
+          at: new Date(),
+          cancelledBy: CancelledBy.RIDER,
+        }),
+        repository.transition({
+          rideId: ride.id,
+          from: RideStatus.REQUESTED,
+          to: RideStatus.ACCEPTED,
+          at: new Date(),
+        }),
+      ]);
+
+      expect(results.filter(Boolean)).toHaveLength(1);
+    });
+
+    it('leaves an expiry distinguishable from a cancellation', async () => {
+      /* EXPIRED and CANCELLED share `cancelledAt` because the schema has no
+         expiredAt. `cancelledBy` is what tells them apart: null for an
+         expiry, always set for a real cancellation (D3). */
+      const riderId = await createRider();
+      const ride = await repository.create(await input(riderId));
+
+      await repository.transition({
+        rideId: ride.id,
+        from: RideStatus.REQUESTED,
+        to: RideStatus.EXPIRED,
+        at: new Date(),
+      });
+
+      const row = await database().ride.findUniqueOrThrow({
+        where: { id: ride.id },
+      });
+
+      expect(row.status).toBe(RideStatus.EXPIRED);
+      expect(row.cancelledAt).not.toBeNull();
+      expect(row.cancelledBy).toBeNull();
+    });
   });
 
   describe('findActiveForRider', () => {
