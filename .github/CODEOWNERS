@@ -1,0 +1,9 @@
+# Every path has an owner, so no change can land without a review request
+# reaching someone. On a solo repository this is one line — its value is
+# that the line stops being one the moment a second person appears, rather
+# than being retrofitted after the first unreviewed merge.
+#
+# Requires "Require review from Code Owners" in the branch protection rules
+# for `main` to have any enforcement behind it.
+
+* @IronDigger098

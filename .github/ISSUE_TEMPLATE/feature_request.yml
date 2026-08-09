@@ -1,0 +1,54 @@
+name: Feature request
+description: A capability the product should have but does not.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Features land in milestone order — see `docs/roadmap.md`. An issue
+        that does not map onto a milestone is not rejected, but it does need
+        an argument for why the sequence should change.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        Who is blocked, and by what. Describe the situation rather than the
+        solution — the solution is what the discussion is for.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What you would build, in enough detail to disagree with.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Which milestone does this belong to
+      options:
+        - M5 — Ride Booking Core
+        - M6 — Maps & Real-time Tracking
+        - M7 — Driver Side
+        - M8 — Admin & Analytics
+        - M9 — Content & Growth
+        - M10 — Payments & Polish
+        - M11 — Quality Hardening
+        - M12 — Production Deployment
+        - None of these — argues for a change to the roadmap
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: What this does not include
+      description: >-
+        The boundary matters as much as the feature. `contributing.md`
+        forbids abstraction without a second caller, so say what is
+        deliberately left out.

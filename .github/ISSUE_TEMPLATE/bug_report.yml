@@ -1,0 +1,71 @@
+name: Bug report
+description: Something behaves differently from how it is documented or intended.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A bug report is most useful when someone else can reproduce it without
+        asking you anything. The fields below are the questions that would
+        otherwise be asked.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The observed behaviour, not the diagnosis.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+      description: >-
+        Where possible, cite the document or test that says so — a spec
+        section, an ADR, a domain-model decision.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Numbered, starting from a clean checkout.
+      placeholder: |
+        1. pnpm install
+        2. pnpm docker:up
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: Output of `git rev-parse --short HEAD`.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options:
+        - apps/api
+        - apps/web
+        - packages/shared
+        - tooling / CI
+        - docs
+        - not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or failing output
+      description: >-
+        Paste the actual error. If it came from CI, link the run — a green
+        local gate over a dirty tree is a common source of "works for me".
+      render: text

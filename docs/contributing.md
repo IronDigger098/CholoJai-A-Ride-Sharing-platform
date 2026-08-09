@@ -66,6 +66,27 @@ Squash-merge to `main` so history reads as one commit per logical change.
 - **No new abstraction without a second caller.** Premature abstraction
   costs more than duplication.
 
+## Verifying before you push
+
+`pnpm verify` runs the same gates as CI, in the same order:
+clean tree → format → build → lint → typecheck → test.
+
+**It refuses to run over a dirty working tree, and that is the point.** Every
+tool in the chain reads the working _directory_, not the commit. With
+uncommitted or untracked files present, a green run tells you your machine
+passes — not your branch. The two diverge silently, and the symptom is
+always the same: green locally, red in CI, with nothing pointing at why.
+
+M5.1 lost five CI runs to exactly this. A stale `dist/` served declaration
+files from before a new module existed; an updated `page.spec.tsx` and a
+corrected `domain-model.md` were both sitting unstaged. Each one made the
+local gate pass over a branch that could not pass from a clean checkout.
+
+Use `pnpm verify:clean` when a build result looks suspicious — it wipes every
+`dist/` and Turbo cache first. Turbo's caching is right for iteration and
+wrong for a pre-push gate: a replayed cache entry proves that something
+passed once, not that this tree passes now.
+
 ## Testing expectations
 
 | Change                          | Required                                       |

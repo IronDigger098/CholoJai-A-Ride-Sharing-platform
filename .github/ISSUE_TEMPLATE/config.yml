@@ -1,0 +1,12 @@
+# Blank issues are disabled deliberately. The templates exist because the
+# questions they ask are the ones that would otherwise be asked in a
+# comment thread three days later.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Architecture decisions
+    url: https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/blob/main/docs/architecture.md
+    about: Read the ADRs before proposing a structural change — the reasoning may already be recorded.
+  - name: Contributing standards
+    url: https://github.com/IronDigger098/CholoJai-A-Ride-Sharing-platform/blob/main/docs/contributing.md
+    about: Branching, commit format, testing expectations, and definition of done.
