@@ -73,7 +73,7 @@ export class PrismaRideRepository implements RideRepository {
          exactly one of them reaches this line. Translating here keeps the
          race handled where the database resolved it, rather than in a
          service that cannot see it. */
-      if (isUniqueViolation(error, 'one_active_ride_per_rider')) {
+      if (isUniqueViolation(error, 'rider_id')) {
         throw new RiderAlreadyOnRideError();
       }
       throw error;
@@ -90,23 +90,36 @@ export class PrismaRideRepository implements RideRepository {
 }
 
 /**
- * Was this a violation of one specific index?
+ * Was this a violation of one specific unique index?
  *
- * Checked by name rather than by "some unique constraint failed". `rides`
- * has two partial unique indexes, and reporting "you are already on a ride"
- * because the *driver* index fired would be a confidently wrong answer.
+ * Matched on the column the index covers, not on "some unique constraint
+ * failed". `rides` carries two partial unique indexes, and reporting "you
+ * are already on a ride" because the *driver* index fired would be a
+ * confidently wrong answer.
+ *
+ * The column rather than the index name, because that is what Prisma
+ * actually reports — observed, not assumed. For a violation of
+ * `one_active_ride_per_rider` it puts `['rider_id']` in `meta.target` and
+ * says "Unique constraint failed on the fields: (`rider_id`)". Note the
+ * *database* column, `rider_id`, not the Prisma field `riderId`. An earlier
+ * version of this matched the index name, which meant the translation never
+ * fired and a rider booking twice received an unhandled Prisma error;
+ * `prisma-ride.repository.int-spec.ts` is what caught it.
+ *
+ * Matching by column stays precise here because the two indexes cover
+ * different columns — `rider_id` and `driver_profile_id`. If a future index
+ * ever covered `rider_id` as well, this would need the constraint name back,
+ * and the integration test is what would tell us.
  */
-function isUniqueViolation(error: unknown, indexName: string): boolean {
+function isUniqueViolation(error: unknown, column: string): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
   if (error.code !== 'P2002') return false;
 
-  /* Prisma reports the constraint under `meta.target`, as a string for a
-     named index and an array of columns otherwise. */
   const target = error.meta?.['target'];
 
   return typeof target === 'string'
-    ? target === indexName
-    : Array.isArray(target) && target.includes(indexName);
+    ? target === column
+    : Array.isArray(target) && target.includes(column);
 }
 
 function toRecord(row: RideRow): RideRecord {
