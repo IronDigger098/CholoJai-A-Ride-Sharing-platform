@@ -117,11 +117,22 @@ export const baseConfig = [
      production build (see apps/api/tsconfig.build.json), so relaxing the
      rules here cannot loosen anything that ships. */
   {
+    /* `.tsx` as well as `.ts`. The original list covered only `.ts`, which
+       meant every React component test was held to full production
+       strictness while every service test was not — an accident rather than
+       a decision, and one that stayed invisible until a component test
+       needed a mock. `jest.fn()` returns `any` by construction, so a
+       component test that mocks a module cannot satisfy `no-unsafe-return`
+       no matter how it is written. */
     files: [
       '**/*.test.ts',
+      '**/*.test.tsx',
       '**/*.spec.ts',
+      '**/*.spec.tsx',
       '**/__tests__/**/*.ts',
+      '**/__tests__/**/*.tsx',
       '**/src/testing/**/*.ts',
+      '**/src/testing/**/*.tsx',
     ],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
