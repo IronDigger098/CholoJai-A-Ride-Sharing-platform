@@ -19,8 +19,24 @@
 | `chore/`    | Tooling, deps, config                     |
 | `test/`     | Tests only                                |
 
-One branch = one milestone slice or one bug. Long-lived branches rot; if a
-branch outlives a few days, it was scoped too large.
+**One branch = one milestone, or one bug.** A milestone branch carries one
+commit per slice, and `pnpm verify` runs after each slice rather than being
+saved for the end. The commits stay slice-sized, so the pull request reads as
+a sequence of decisions instead of one wall of diff.
+
+This replaces an earlier rule of one branch per slice. That produced a pull
+request every hour or two, and the ceremony began costing more than the
+isolation bought — the real gate is `pnpm verify`, which runs locally after
+every slice either way, and CI was mostly confirming a result already known.
+
+The trade is worth naming rather than discovering. CI now runs once per
+milestone, so a fault that only appears on a clean checkout — a missing
+migration, an uncommitted file, a stale `dist/` — surfaces later and against
+a larger diff. `verify`'s clean-tree guard exists for exactly that class of
+fault, and it matters more under this rule than it did under the old one.
+
+A milestone branch that outlives a week is a milestone that was scoped too
+large. Split it and land the part that is finished.
 
 ## Commits — Conventional Commits
 
