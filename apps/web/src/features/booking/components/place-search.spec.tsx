@@ -24,6 +24,15 @@ jest.mock('../api', () => ({
   searchPlaces: (query: string) => mockSearchPlaces(query),
 }));
 
+/**
+ * `delay: null` throughout.
+ *
+ * userEvent's default types one character every few milliseconds on real
+ * timers, which is realistic and slow — six characters across several tests,
+ * under a parallel `pnpm verify`, is enough to exceed Jest's 5s limit. It
+ * does not weaken anything here: the component's 300ms debounce still runs
+ * on real timers, so a fast typist is exactly the case being asserted.
+ */
 describe('PlaceSearch', () => {
   beforeEach(() => {
     mockSearchPlaces.mockReset();
@@ -33,7 +42,7 @@ describe('PlaceSearch', () => {
   it('does not search for a single character', async () => {
     /* The server refuses a one-character query anyway — it matches most of
        the country. Not sending it saves a round trip to be told so. */
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(
       <PlaceSearch label="Pickup" value={null} onSelect={jest.fn()} />,
     );
@@ -48,7 +57,7 @@ describe('PlaceSearch', () => {
   it('sends one request for a quickly typed query', async () => {
     /* The debounce. Without it a seven-character place name is seven
        requests to an upstream whose policy caps total volume. */
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(
       <PlaceSearch label="Pickup" value={null} onSelect={jest.fn()} />,
     );
@@ -64,7 +73,7 @@ describe('PlaceSearch', () => {
 
   it('reports the chosen place to its caller', async () => {
     const onSelect = jest.fn();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     renderWithProviders(
       <PlaceSearch label="Pickup" value={null} onSelect={onSelect} />,
@@ -80,7 +89,7 @@ describe('PlaceSearch', () => {
     /* A list still covering the next field after a selection is a control
        that looks broken. Driven by the selected value matching the text
        rather than by a separate open/closed flag that could disagree. */
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const { rerender } = renderWithProviders(
       <PlaceSearch label="Pickup" value={null} onSelect={jest.fn()} />,
     );
@@ -99,7 +108,7 @@ describe('PlaceSearch', () => {
 
   it('says so when nothing matches', async () => {
     mockSearchPlaces.mockResolvedValue([]);
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     renderWithProviders(
       <PlaceSearch label="Pickup" value={null} onSelect={jest.fn()} />,

@@ -103,6 +103,27 @@ export class VehicleTypeNotQuotedError extends UnprocessableError {
  * check before either wrote, and the rider would end up on two rides at once
  * with two drivers dispatched.
  */
+/**
+ * The driver is already on a ride.
+ *
+ * `one_active_ride_per_driver` (database-erd.md N2), and the same argument
+ * as the rider index: two drivers tapping Accept on the same offer, or one
+ * driver accepting two offers, resolve to exactly one write. Checked by the
+ * database rather than the service because a read-then-write would let both
+ * pass and dispatch one driver to two riders.
+ */
+export class DriverAlreadyOnRideError extends ConflictError {
+  public readonly code = 'DRIVER_ALREADY_ON_RIDE';
+  public readonly title = 'You are already on a ride';
+
+  public constructor() {
+    super(
+      'You already have a ride in progress. Complete or cancel it before ' +
+        'accepting another.',
+    );
+  }
+}
+
 export class RiderAlreadyOnRideError extends ConflictError {
   public readonly code = 'RIDER_ALREADY_ON_RIDE';
   public readonly title = 'You are already on a ride';

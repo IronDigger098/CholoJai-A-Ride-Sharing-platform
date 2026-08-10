@@ -9,10 +9,13 @@ import { ConfigModule } from './config/config.module';
 import { type Env } from './config/env.schema';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { DriversModule } from './modules/drivers/drivers.module';
 import { FaresModule } from './modules/fares/fares.module';
 import { GeoModule } from './modules/geo/geo.module';
 import { HealthModule } from './modules/health/health.module';
 import { RidesModule } from './modules/rides/rides.module';
+import { TrackingModule } from './modules/tracking/tracking.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 /**
  * The composition root.
@@ -45,6 +48,9 @@ export class AppModule {
         GeoModule,
         FaresModule,
         RidesModule,
+        DriversModule,
+        VehiclesModule,
+        TrackingModule,
       ],
     };
   }

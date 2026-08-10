@@ -35,6 +35,9 @@ export interface RideRecord extends CreateRideInput {
   readonly id: string;
   readonly status: RideStatus;
   readonly requestedAt: Date;
+  /** Null until a driver accepts (schema.prisma). */
+  readonly driverProfileId: string | null;
+  readonly vehicleId: string | null;
 }
 
 export interface RideRepository {
@@ -50,6 +53,8 @@ export interface RideRepository {
   create(input: CreateRideInput): Promise<RideRecord>;
 
   findActiveForRider(riderId: string): Promise<RideRecord | null>;
+
+  findActiveForDriver(driverProfileId: string): Promise<RideRecord | null>;
 
   findById(rideId: string): Promise<RideRecord | null>;
 
@@ -80,6 +85,16 @@ export interface RideRepository {
    * answer a question the UI asks as "is there a next page", not "how many".
    */
   listForRider(riderId: string, page: RidePageQuery): Promise<RidePageResult>;
+
+  /**
+   * Rides waiting for a driver, oldest first.
+   *
+   * Not paginated and deliberately capped. An offer list is a working set,
+   * not history: a driver reads the top of it and accepts one, and the rows
+   * below the first screenful are stale by the time anyone scrolls to them.
+   * A cursor would be machinery serving nobody.
+   */
+  listOpenOffers(limit: number): Promise<readonly RideRecord[]>;
 }
 
 export interface RidePageQuery {
@@ -101,6 +116,24 @@ export interface TransitionRideInput {
   readonly at: Date;
   readonly cancelledBy?: CancelledBy;
   readonly cancelReason?: string;
+  /**
+   * Driver and vehicle, attached as part of the same statement.
+   *
+   * Accepting is one write, not two. Assigning the driver and then moving
+   * the status would leave a window where a ride has a driver but is still
+   * REQUESTED — visible to the next driver polling for offers, who would
+   * accept a ride someone else is already driving to. Putting the
+   * assignment in the same UPDATE means the partial unique index sees the
+   * final state and refuses the second acceptance.
+   */
+  readonly assign?: { driverProfileId: string; vehicleId: string };
+  /**
+   * Restrict the write to a ride this driver already holds.
+   *
+   * `arrive`, `start` and `complete` pass it so ownership is part of the
+   * WHERE clause rather than a read beforehand — the same reason `from` is.
+   */
+  readonly requireDriverProfileId?: string;
 }
 
 export const RIDE_REPOSITORY = Symbol('RIDE_REPOSITORY');

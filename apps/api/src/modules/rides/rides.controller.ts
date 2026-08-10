@@ -1,3 +1,4 @@
+import { UserRole } from '@cholojai/shared';
 import {
   Body,
   Controller,
@@ -28,6 +29,7 @@ import {
   CancelRideRequestDto,
   RideIdParamDto,
   RideListQueryDto,
+  RideOffersDto,
   RidePageResponseDto,
   RideResponseDto,
 } from './dto/book-ride.dto';
@@ -138,6 +140,32 @@ export class RidesController {
     return { ride: await this.ridesService.findActive(rider.id) };
   }
 
+  /* Before `:rideId`, like `/active` — otherwise the literal "offers" is
+     read as a ride id and answers a confusing 404. */
+  @Get('offers')
+  @Auth(UserRole.DRIVER)
+  @ApiOperation({
+    summary: 'Rides waiting for a driver',
+    description:
+      'Oldest first, capped at one screenful. Every approved driver sees ' +
+      'the same list: there is no matching engine, and filtering by ' +
+      'distance would be inventing a dispatch policy the product has not ' +
+      'decided. First to accept wins, and the partial unique index makes ' +
+      'that safe.\n\n' +
+      'A driver with no active vehicle is refused rather than shown rides ' +
+      'they cannot accept.',
+  })
+  @ApiOkResponse({ type: RideOffersDto })
+  @ApiConflictResponse({
+    description: 'No active vehicle (`NO_ACTIVE_VEHICLE`).',
+    ...PROBLEM_DETAILS,
+  })
+  public async offers(
+    @CurrentUser() driver: AuthenticatedUser,
+  ): Promise<RideOffersDto> {
+    return { offers: [...(await this.ridesService.listOffers(driver.id))] };
+  }
+
   @Get(':rideId')
   @ApiOperation({
     summary: 'Ride detail',
@@ -201,5 +229,102 @@ export class RidesController {
     @CurrentUser() rider: AuthenticatedUser,
   ): Promise<RideResponseDto> {
     return this.ridesService.cancel(rider.id, params.rideId, body.reason);
+  }
+
+  /* ── Driver transitions ────────────────────────────────────────────────
+     Each maps to exactly one arrow in the domain model's diagram, which is
+     the documented reason these are verbs (api-design.md §Rides).
+     `@Auth(DRIVER)` is necessary and not sufficient — the service also
+     resolves an approved profile and an active vehicle. ─────────────────── */
+
+  @Post(':rideId/accept')
+  @Auth(UserRole.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Accept a ride',
+    description:
+      'Attaches the driver and their active vehicle and moves the ride to ' +
+      'ACCEPTED — in one statement, deliberately. Assigning the driver and ' +
+      'then moving the status would leave a window where a ride has a ' +
+      'driver but still reads as REQUESTED to the next driver polling for ' +
+      'offers, who would accept a ride someone is already driving to.\n\n' +
+      'Two drivers tapping Accept on the same offer produce one ride and ' +
+      'one 409: `one_active_ride_per_driver` sees the final state.',
+  })
+  @ApiOkResponse({ description: 'The accepted ride.', type: RideResponseDto })
+  @ApiConflictResponse({
+    description:
+      'Already accepted by someone else (`ILLEGAL_RIDE_TRANSITION`), the ' +
+      'driver is already on a ride (`DRIVER_ALREADY_ON_RIDE`), or they ' +
+      'have no active vehicle (`NO_ACTIVE_VEHICLE`).',
+    ...PROBLEM_DETAILS,
+  })
+  public async accept(
+    @Param() params: RideIdParamDto,
+    @CurrentUser() driver: AuthenticatedUser,
+  ): Promise<RideResponseDto> {
+    return this.ridesService.driverAction(driver.id, params.rideId, 'accept');
+  }
+
+  @Post(':rideId/arrive')
+  @Auth(UserRole.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Arrived at pickup',
+    description: 'ACCEPTED → ARRIVED. Only for the driver on this ride.',
+  })
+  @ApiOkResponse({ type: RideResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such ride, or not this driver’s.',
+    ...PROBLEM_DETAILS,
+  })
+  public async arrive(
+    @Param() params: RideIdParamDto,
+    @CurrentUser() driver: AuthenticatedUser,
+  ): Promise<RideResponseDto> {
+    return this.ridesService.driverAction(driver.id, params.rideId, 'arrive');
+  }
+
+  @Post(':rideId/start')
+  @Auth(UserRole.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Start the journey',
+    description:
+      'ARRIVED → IN_PROGRESS. From here the rider can no longer cancel — ' +
+      'IN_PROGRESS has COMPLETED as its only successor.',
+  })
+  @ApiOkResponse({ type: RideResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such ride, or not this driver’s.',
+    ...PROBLEM_DETAILS,
+  })
+  public async start(
+    @Param() params: RideIdParamDto,
+    @CurrentUser() driver: AuthenticatedUser,
+  ): Promise<RideResponseDto> {
+    return this.ridesService.driverAction(driver.id, params.rideId, 'start');
+  }
+
+  @Post(':rideId/complete')
+  @Auth(UserRole.DRIVER)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Complete the ride',
+    description:
+      'IN_PROGRESS → COMPLETED, which is terminal. The fare snapshotted at ' +
+      'booking becomes payable and reviews unlock; the driver is freed to ' +
+      'accept another ride.',
+  })
+  @ApiOkResponse({ type: RideResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such ride, or not this driver’s.',
+    ...PROBLEM_DETAILS,
+  })
+  public async complete(
+    @Param() params: RideIdParamDto,
+    @CurrentUser() driver: AuthenticatedUser,
+  ): Promise<RideResponseDto> {
+    return this.ridesService.driverAction(driver.id, params.rideId, 'complete');
   }
 }

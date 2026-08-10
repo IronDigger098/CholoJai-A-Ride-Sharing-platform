@@ -1,6 +1,8 @@
 import {
   ACTIVE_RIDE_STATUSES,
+  DRIVER_ENGAGED_STATUSES,
   type RideStatus,
+  RideStatus as Status,
   type VehicleType,
 } from '@cholojai/shared';
 import { Injectable } from '@nestjs/common';
@@ -16,12 +18,17 @@ import {
   type RideRepository,
   type TransitionRideInput,
 } from './ride-repository.port';
-import { RiderAlreadyOnRideError } from './rides.errors';
+import {
+  DriverAlreadyOnRideError,
+  RiderAlreadyOnRideError,
+} from './rides.errors';
 
 /** Shape of the row this adapter reads. */
 interface RideRow {
   id: string;
   riderId: string;
+  driverProfileId: string | null;
+  vehicleId: string | null;
   fareQuoteId: string;
   status: string;
   vehicleType: string;
@@ -91,6 +98,22 @@ export class PrismaRideRepository implements RideRepository {
     return row === null ? null : toRecord(row);
   }
 
+  public async findActiveForDriver(
+    driverProfileId: string,
+  ): Promise<RideRecord | null> {
+    /* DRIVER_ENGAGED_STATUSES, not ACTIVE_RIDE_STATUSES: a driver is never
+       attached to a REQUESTED ride, and it is the same list the
+       one_active_ride_per_driver index uses. */
+    const row: RideRow | null = await this.prisma.ride.findFirst({
+      where: {
+        driverProfileId,
+        status: { in: [...DRIVER_ENGAGED_STATUSES] },
+      },
+    });
+
+    return row === null ? null : toRecord(row);
+  }
+
   public async findById(rideId: string): Promise<RideRecord | null> {
     const row: RideRow | null = await this.prisma.ride.findUnique({
       where: { id: rideId },
@@ -131,6 +154,19 @@ export class PrismaRideRepository implements RideRepository {
     };
   }
 
+  public async listOpenOffers(limit: number): Promise<readonly RideRecord[]> {
+    const rows: RideRow[] = await this.prisma.ride.findMany({
+      /* driverProfileId null as well as status REQUESTED. The two should
+         never disagree — accepting sets both in one statement — but a list
+         that dispatches drivers is the wrong place to assume that. */
+      where: { status: Status.REQUESTED, driverProfileId: null },
+      orderBy: { requestedAt: 'asc' },
+      take: limit,
+    });
+
+    return rows.map(toRecord);
+  }
+
   public async transition(input: TransitionRideInput): Promise<boolean> {
     /* `updateMany` rather than `update`, because only `updateMany` accepts a
        non-unique WHERE — and `status` in the WHERE is what makes this one
@@ -143,21 +179,43 @@ export class PrismaRideRepository implements RideRepository {
        checking and keeps the rest of the object precisely typed. */
     const stamp = { [TIMESTAMP_COLUMN[input.to]]: input.at };
 
-    const result = await this.prisma.ride.updateMany({
-      where: { id: input.rideId, status: input.from },
-      data: {
-        status: input.to,
-        ...stamp,
-        ...(input.cancelledBy === undefined
-          ? {}
-          : { cancelledBy: input.cancelledBy }),
-        ...(input.cancelReason === undefined
-          ? {}
-          : { cancelReason: input.cancelReason }),
-      },
-    });
+    try {
+      const result = await this.prisma.ride.updateMany({
+        where: {
+          id: input.rideId,
+          status: input.from,
+          ...(input.requireDriverProfileId === undefined
+            ? {}
+            : { driverProfileId: input.requireDriverProfileId }),
+        },
+        data: {
+          status: input.to,
+          ...stamp,
+          ...(input.assign === undefined
+            ? {}
+            : {
+                driverProfileId: input.assign.driverProfileId,
+                vehicleId: input.assign.vehicleId,
+              }),
+          ...(input.cancelledBy === undefined
+            ? {}
+            : { cancelledBy: input.cancelledBy }),
+          ...(input.cancelReason === undefined
+            ? {}
+            : { cancelReason: input.cancelReason }),
+        },
+      });
 
-    return result.count === 1;
+      return result.count === 1;
+    } catch (error) {
+      /* `one_active_ride_per_driver` firing: this driver is already on a
+         ride. Only reachable from an accept, because only an accept sets
+         driver_profile_id. */
+      if (isUniqueViolation(error, 'driver_profile_id')) {
+        throw new DriverAlreadyOnRideError();
+      }
+      throw error;
+    }
   }
 }
 
@@ -229,6 +287,8 @@ function toRecord(row: RideRow): RideRecord {
   return {
     id: row.id,
     riderId: row.riderId,
+    driverProfileId: row.driverProfileId,
+    vehicleId: row.vehicleId,
     fareQuoteId: row.fareQuoteId,
     status: row.status as RideStatus,
     vehicleType: row.vehicleType as VehicleType,

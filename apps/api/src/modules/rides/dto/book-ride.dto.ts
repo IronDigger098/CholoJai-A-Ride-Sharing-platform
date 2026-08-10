@@ -4,6 +4,7 @@ import {
   cancelRideRequestSchema,
   rideIdParamSchema,
   rideListQuerySchema,
+  rideOffersSchema,
   ridePageSchema,
   rideSchema,
 } from '@cholojai/shared';
@@ -26,3 +27,5 @@ export class RidePageResponseDto extends createZodDto(ridePageSchema) {}
 export class ActiveRideResponseDto extends createZodDto(
   activeRideResponseSchema,
 ) {}
+
+export class RideOffersDto extends createZodDto(rideOffersSchema) {}

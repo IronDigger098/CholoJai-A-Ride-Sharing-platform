@@ -130,3 +130,17 @@ export const activeRideResponseSchema = z.object({
 });
 
 export type ActiveRideResponse = z.infer<typeof activeRideResponseSchema>;
+
+/**
+ * Rides waiting for a driver.
+ *
+ * Unpaginated on purpose: an offer list is a working set, not history. A
+ * driver reads the top and accepts one; rows below the first screenful are
+ * stale before anyone scrolls to them, so a cursor would be machinery
+ * serving nobody.
+ */
+export const rideOffersSchema = z.object({
+  offers: z.array(rideSchema),
+});
+
+export type RideOffers = z.infer<typeof rideOffersSchema>;
