@@ -56,6 +56,16 @@ export class InMemoryRideRepository implements RideRepository {
     return this.rows.find((row) => row.id === rideId) ?? null;
   }
 
+  public async listOpenOffers(limit: number): Promise<readonly RideRecord[]> {
+    return this.rows
+      .filter(
+        (row) =>
+          row.status === RideStatus.REQUESTED && row.driverProfileId === null,
+      )
+      .sort((a, b) => a.requestedAt.getTime() - b.requestedAt.getTime())
+      .slice(0, limit);
+  }
+
   /**
    * Move a ride, if it is still in `from`.
    *

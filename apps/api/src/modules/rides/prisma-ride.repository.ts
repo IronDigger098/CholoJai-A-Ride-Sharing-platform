@@ -1,6 +1,7 @@
 import {
   ACTIVE_RIDE_STATUSES,
   type RideStatus,
+  RideStatus as Status,
   type VehicleType,
 } from '@cholojai/shared';
 import { Injectable } from '@nestjs/common';
@@ -134,6 +135,19 @@ export class PrismaRideRepository implements RideRepository {
       rides: rows.slice(0, page.limit).map(toRecord),
       hasNextPage,
     };
+  }
+
+  public async listOpenOffers(limit: number): Promise<readonly RideRecord[]> {
+    const rows: RideRow[] = await this.prisma.ride.findMany({
+      /* driverProfileId null as well as status REQUESTED. The two should
+         never disagree — accepting sets both in one statement — but a list
+         that dispatches drivers is the wrong place to assume that. */
+      where: { status: Status.REQUESTED, driverProfileId: null },
+      orderBy: { requestedAt: 'asc' },
+      take: limit,
+    });
+
+    return rows.map(toRecord);
   }
 
   public async transition(input: TransitionRideInput): Promise<boolean> {

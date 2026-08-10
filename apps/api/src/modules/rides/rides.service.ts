@@ -143,6 +143,25 @@ export class RidesService {
   }
 
   /**
+   * Rides waiting for a driver.
+   *
+   * Every approved driver sees the same list — there is no matching engine,
+   * and pretending otherwise by filtering on distance would be inventing a
+   * dispatch policy the product has not decided. First to accept wins, and
+   * the partial unique index makes that safe.
+   *
+   * Calling `requireDispatchTarget` rather than only checking approval is
+   * deliberate: a driver with no active vehicle cannot accept anything, and
+   * showing them a list of rides they will be refused is worse than telling
+   * them why.
+   */
+  public async listOffers(userId: string): Promise<readonly Ride[]> {
+    await this.vehicles.requireDispatchTarget(userId);
+
+    return (await this.rides.listOpenOffers(OFFER_LIMIT)).map(toRide);
+  }
+
+  /**
    * Move a ride the driver is responsible for.
    *
    * `accept` is the one that differs: it attaches the driver and their
@@ -265,6 +284,9 @@ export class RidesService {
  * machine they take and whether they attach a driver. Writing them as four
  * near-identical methods would be four places for the guard to drift.
  */
+/** One screenful. Rows below it are stale before anyone scrolls to them. */
+const OFFER_LIMIT = 20;
+
 const DRIVER_TRANSITIONS = {
   accept: { from: RideStatus.REQUESTED, to: RideStatus.ACCEPTED },
   arrive: { from: RideStatus.ACCEPTED, to: RideStatus.ARRIVED },

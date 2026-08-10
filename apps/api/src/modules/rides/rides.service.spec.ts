@@ -419,6 +419,24 @@ describe('RidesService driver actions', () => {
     ).rejects.toThrow(DriverAlreadyOnRideError);
   });
 
+  it('offers rides that are waiting for a driver', async () => {
+    const { service, rideId } = await bookedRide();
+
+    const offers = await service.listOffers(DRIVER_USER);
+
+    expect(offers.map((ride) => ride.id)).toEqual([rideId]);
+  });
+
+  it('stops offering a ride once it is accepted', async () => {
+    /* The list is filtered on REQUESTED *and* a null driver. The two should
+       never disagree, but a list that dispatches drivers is the wrong place
+       to assume that. */
+    const { service, rideId } = await bookedRide();
+    await service.driverAction(DRIVER_USER, rideId, 'accept');
+
+    expect(await service.listOffers(DRIVER_USER)).toEqual([]);
+  });
+
   it('frees the driver once the ride is complete', async () => {
     const { service, rides, rideId } = await bookedRide();
     await service.driverAction(DRIVER_USER, rideId, 'accept');

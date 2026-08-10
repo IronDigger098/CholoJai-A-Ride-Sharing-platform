@@ -83,6 +83,16 @@ export interface RideRepository {
    * answer a question the UI asks as "is there a next page", not "how many".
    */
   listForRider(riderId: string, page: RidePageQuery): Promise<RidePageResult>;
+
+  /**
+   * Rides waiting for a driver, oldest first.
+   *
+   * Not paginated and deliberately capped. An offer list is a working set,
+   * not history: a driver reads the top of it and accepts one, and the rows
+   * below the first screenful are stale by the time anyone scrolls to them.
+   * A cursor would be machinery serving nobody.
+   */
+  listOpenOffers(limit: number): Promise<readonly RideRecord[]>;
 }
 
 export interface RidePageQuery {

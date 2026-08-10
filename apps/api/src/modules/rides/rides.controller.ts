@@ -29,6 +29,7 @@ import {
   CancelRideRequestDto,
   RideIdParamDto,
   RideListQueryDto,
+  RideOffersDto,
   RidePageResponseDto,
   RideResponseDto,
 } from './dto/book-ride.dto';
@@ -137,6 +138,32 @@ export class RidesController {
     @CurrentUser() rider: AuthenticatedUser,
   ): Promise<ActiveRideResponseDto> {
     return { ride: await this.ridesService.findActive(rider.id) };
+  }
+
+  /* Before `:rideId`, like `/active` — otherwise the literal "offers" is
+     read as a ride id and answers a confusing 404. */
+  @Get('offers')
+  @Auth(UserRole.DRIVER)
+  @ApiOperation({
+    summary: 'Rides waiting for a driver',
+    description:
+      'Oldest first, capped at one screenful. Every approved driver sees ' +
+      'the same list: there is no matching engine, and filtering by ' +
+      'distance would be inventing a dispatch policy the product has not ' +
+      'decided. First to accept wins, and the partial unique index makes ' +
+      'that safe.\n\n' +
+      'A driver with no active vehicle is refused rather than shown rides ' +
+      'they cannot accept.',
+  })
+  @ApiOkResponse({ type: RideOffersDto })
+  @ApiConflictResponse({
+    description: 'No active vehicle (`NO_ACTIVE_VEHICLE`).',
+    ...PROBLEM_DETAILS,
+  })
+  public async offers(
+    @CurrentUser() driver: AuthenticatedUser,
+  ): Promise<RideOffersDto> {
+    return { offers: [...(await this.ridesService.listOffers(driver.id))] };
   }
 
   @Get(':rideId')
