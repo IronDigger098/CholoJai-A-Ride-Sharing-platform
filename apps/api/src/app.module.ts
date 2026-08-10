@@ -14,6 +14,7 @@ import { FaresModule } from './modules/fares/fares.module';
 import { GeoModule } from './modules/geo/geo.module';
 import { HealthModule } from './modules/health/health.module';
 import { RidesModule } from './modules/rides/rides.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 /**
  * The composition root.
@@ -47,6 +48,7 @@ export class AppModule {
         FaresModule,
         RidesModule,
         DriversModule,
+        VehiclesModule,
       ],
     };
   }

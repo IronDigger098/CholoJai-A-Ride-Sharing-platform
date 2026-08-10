@@ -17,6 +17,7 @@ import {
 } from './driver-profile-repository.port';
 import {
   ApplicationAlreadyDecidedError,
+  DriverNotApprovedError,
   DriverProfileNotFoundError,
 } from './drivers.errors';
 
@@ -62,6 +63,29 @@ export class DriversService {
   public async myProfile(userId: string): Promise<DriverProfile | null> {
     const profile = await this.profiles.findByUserId(userId);
     return profile === null ? null : toProfile(profile);
+  }
+
+  /**
+   * The caller's approved driver profile, or a refusal.
+   *
+   * Every driver-only endpoint goes through this rather than trusting the
+   * DRIVER role in the token. The role and the profile are two writes that
+   * can land apart, and a token issued between them carries a role its
+   * holder cannot yet exercise — this is what makes that harmless.
+   *
+   * Returns the id rather than the record: callers need to attach a driver
+   * to something, not to read their rating.
+   */
+  public async requireApprovedProfileId(userId: string): Promise<string> {
+    const profile = await this.profiles.findByUserId(userId);
+
+    /* The optional chain covers both cases: no profile yields `undefined`,
+       which never equals APPROVED. */
+    if (profile?.applicationStatus !== Status.APPROVED) {
+      throw new DriverNotApprovedError();
+    }
+
+    return profile.id;
   }
 
   public async listApplications(

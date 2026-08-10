@@ -13,6 +13,7 @@ export * from './api/fares.contracts';
 export * from './api/geo.contracts';
 export * from './api/problem-details';
 export * from './api/rides.contracts';
+export * from './api/vehicles.contracts';
 export * from './domain/fare';
 export * from './domain/ride-status';
 export * from './domain/roles';

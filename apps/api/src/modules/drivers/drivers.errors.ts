@@ -1,4 +1,25 @@
-import { ConflictError, NotFoundError } from '../../common/errors/domain-error';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from '../../common/errors/domain-error';
+
+/**
+ * The caller holds the DRIVER role but has no approved application.
+ *
+ * 403, and it exists because the role and the profile are granted by two
+ * writes that can land apart — see `DriversService.approve`. The role alone
+ * opens nothing, and this is what enforces that: every driver endpoint
+ * resolves an approved profile rather than trusting the token's claim.
+ */
+export class DriverNotApprovedError extends ForbiddenError {
+  public readonly code = 'DRIVER_NOT_APPROVED';
+  public readonly title = 'Your application is not approved';
+
+  public constructor() {
+    super('You need an approved driver application before you can do this.');
+  }
+}
 
 /**
  * This user has already applied.
