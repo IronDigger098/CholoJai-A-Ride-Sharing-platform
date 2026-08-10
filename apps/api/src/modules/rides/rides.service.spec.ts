@@ -48,11 +48,12 @@ function makeService(): {
   };
 }
 
-/** Only `requireDispatchTarget` is reachable from RidesService. */
+/** The two questions RidesService asks the vehicles module. */
 function stubVehicles(driverProfileId = 'driver_1'): VehiclesService {
   return {
     requireDispatchTarget: () =>
       Promise.resolve({ driverProfileId, vehicleId: 'vehicle_1' }),
+    findDriverProfileId: () => Promise.resolve(driverProfileId),
   } as unknown as VehiclesService;
 }
 
@@ -435,6 +436,16 @@ describe('RidesService driver actions', () => {
     await service.driverAction(DRIVER_USER, rideId, 'accept');
 
     expect(await service.listOffers(DRIVER_USER)).toEqual([]);
+  });
+
+  it('reports the accepted ride as the driver’s current one', async () => {
+    /* `findActive` answers for whichever capacity the caller is in. Without
+       this the driver branch is uncovered, and a driver reloading mid-ride
+       would silently see nothing. */
+    const { service, rideId } = await bookedRide();
+    await service.driverAction(DRIVER_USER, rideId, 'accept');
+
+    expect((await service.findActive(DRIVER_USER))?.id).toBe(rideId);
   });
 
   it('frees the driver once the ride is complete', async () => {
