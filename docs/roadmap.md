@@ -13,8 +13,8 @@
 | M2  | Backend Foundation              | NestJS bootstrap, validated env config, centralized error handling, logging, Swagger, API versioning, Docker Compose, Prisma schema + migrations, health probes, GitHub governance    | ✅     |
 | M3  | Authentication & Authorization  | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin), **Redis + rate limiting**, **CI integration-test job**, seed script | ✅     |
 | M4  | Design System & Marketing Site  | Next.js app scaffold, Tailwind v4 tokens, dark mode, type scale, primitives, landing page, SEO foundation                                                                             | ✅     |
-| M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine, **routing proxy**                                                                                             | 🟡     |
-| M6  | Maps & Real-time Tracking       | Maps integration, geocoding proxy, Socket.IO driver-location simulation                                                                                                               | 🔲     |
+| M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine, **routing proxy**                                                                                             | ✅     |
+| M6  | Rider Web App & Maps            | **Web data layer, auth UI**, maps integration, geocoding proxy, booking + tracking UI, Socket.IO driver-location simulation                                                           | 🔲     |
 | M7  | Driver Side                     | Driver dashboard, vehicle management, ride acceptance flow                                                                                                                            | 🔲     |
 | M8  | Admin & Analytics               | Admin dashboard, user/driver management, analytics                                                                                                                                    | 🔲     |
 | M9  | Content & Growth                | Blog CMS, careers, contact, notifications, reviews, coupons, referrals                                                                                                                | 🔲     |
@@ -57,6 +57,22 @@ place until there is a map to search on. The milestone that owns a piece of
 infrastructure is the one containing its first consumer, and splitting `geo`
 across two milestones is the honest consequence of that rule rather than an
 exception to it.
+
+**M5 is a backend milestone, and saying so is the correction.** Its three
+scoped items — booking workflow, fare estimation, lifecycle state machine —
+are all server-side, and they are done. A rider-facing booking screen was
+never in M5's scope, and building one here would have meant a form with two
+pairs of latitude and longitude boxes: enough to demonstrate the endpoints,
+not enough for anyone to use. Choosing a pickup point is a map, and the map
+is M6.
+
+**Authentication had a user interface nowhere in this table.** M3 built the
+whole auth API — register, login, refresh rotation, verification, reset — and
+M4 built the design system and the marketing site. Neither owned the screens,
+so a plan that read as complete described a product no one could sign in to.
+That is now M6's, along with the API client and query layer every
+authenticated screen needs. It is recorded here rather than quietly built,
+because a gap found late is cheaper than a gap found by a reviewer.
 
 **Accessibility is a build step, not a review step.** The design tokens are
 checked against WCAG contrast ratios by a unit test that reads the stylesheet,
