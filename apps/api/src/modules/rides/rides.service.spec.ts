@@ -8,8 +8,10 @@ import { describe, expect, it } from '@jest/globals';
 
 import { InMemoryFareQuoteRepository } from '../../testing/in-memory-fare-quote.repository';
 import { InMemoryRideRepository } from '../../testing/in-memory-ride.repository';
+import { type VehiclesService } from '../vehicles/vehicles.service';
 
 import {
+  DriverAlreadyOnRideError,
   IllegalRideTransitionError,
   QuoteExpiredError,
   QuoteNotFoundError,
@@ -39,7 +41,19 @@ function makeService(): {
 } {
   const quotes = new InMemoryFareQuoteRepository();
   const rides = new InMemoryRideRepository();
-  return { service: new RidesService(rides, quotes), quotes, rides };
+  return {
+    service: new RidesService(rides, quotes, stubVehicles()),
+    quotes,
+    rides,
+  };
+}
+
+/** Only `requireDispatchTarget` is reachable from RidesService. */
+function stubVehicles(driverProfileId = 'driver_1'): VehiclesService {
+  return {
+    requireDispatchTarget: () =>
+      Promise.resolve({ driverProfileId, vehicleId: 'vehicle_1' }),
+  } as unknown as VehiclesService;
 }
 
 async function storeQuote(
@@ -294,6 +308,138 @@ describe('RidesService.cancel', () => {
     await expect(service.cancel(RIDER, 'ride_nope')).rejects.toThrow(
       RideNotFoundError,
     );
+  });
+});
+
+describe('RidesService driver actions', () => {
+  const DRIVER_USER = 'user_driver_1';
+  const DRIVER_PROFILE = 'driver_1';
+
+  async function bookedRide(): Promise<{
+    service: RidesService;
+    rides: InMemoryRideRepository;
+    rideId: string;
+  }> {
+    const quotes = new InMemoryFareQuoteRepository();
+    const rides = new InMemoryRideRepository();
+    const service = new RidesService(
+      rides,
+      quotes,
+      stubVehicles(DRIVER_PROFILE),
+    );
+
+    const ride = await service.book(RIDER, {
+      quoteId: await storeQuote(quotes),
+      vehicleType: VehicleType.CNG,
+    });
+
+    return { service, rides, rideId: ride.id };
+  }
+
+  it('accepts a requested ride and attaches the driver', async () => {
+    const { service, rides, rideId } = await bookedRide();
+
+    const accepted = await service.driverAction(DRIVER_USER, rideId, 'accept');
+
+    expect(accepted.status).toBe(RideStatus.ACCEPTED);
+    expect((await rides.findById(rideId))?.driverProfileId).toBe(
+      DRIVER_PROFILE,
+    );
+  });
+
+  it('walks the ride to completion', async () => {
+    const { service, rideId } = await bookedRide();
+
+    await service.driverAction(DRIVER_USER, rideId, 'accept');
+    await service.driverAction(DRIVER_USER, rideId, 'arrive');
+    await service.driverAction(DRIVER_USER, rideId, 'start');
+    const done = await service.driverAction(DRIVER_USER, rideId, 'complete');
+
+    expect(done.status).toBe(RideStatus.COMPLETED);
+  });
+
+  it('refuses to start a ride the driver has not arrived at', async () => {
+    /* The state machine, not a rule written here: ACCEPTED has ARRIVED as
+       its only forward move. */
+    const { service, rideId } = await bookedRide();
+    await service.driverAction(DRIVER_USER, rideId, 'accept');
+
+    await expect(
+      service.driverAction(DRIVER_USER, rideId, 'start'),
+    ).rejects.toThrow(IllegalRideTransitionError);
+  });
+
+  it('refuses a second acceptance of the same ride', async () => {
+    const { service, rideId } = await bookedRide();
+    await service.driverAction(DRIVER_USER, rideId, 'accept');
+
+    await expect(
+      service.driverAction(DRIVER_USER, rideId, 'accept'),
+    ).rejects.toThrow(IllegalRideTransitionError);
+  });
+
+  it('hides another driver’s ride behind a 404', async () => {
+    /* Accepting is open to any approved driver; everything after it belongs
+       to the driver already on the ride. */
+    const { service, rides, rideId } = await bookedRide();
+    await service.driverAction(DRIVER_USER, rideId, 'accept');
+
+    const quotes = new InMemoryFareQuoteRepository();
+    const other = new RidesService(rides, quotes, stubVehicles('driver_2'));
+
+    await expect(
+      other.driverAction('user_driver_2', rideId, 'arrive'),
+    ).rejects.toThrow(RideNotFoundError);
+  });
+
+  it('refuses a driver already on another ride', async () => {
+    /* one_active_ride_per_driver, mirrored by the fake. The real guarantee
+       is the index; this asserts the fake agrees with it. */
+    const quotes = new InMemoryFareQuoteRepository();
+    const rides = new InMemoryRideRepository();
+    const service = new RidesService(
+      rides,
+      quotes,
+      stubVehicles(DRIVER_PROFILE),
+    );
+
+    const first = await service.book(RIDER, {
+      quoteId: await storeQuote(quotes),
+      vehicleType: VehicleType.CNG,
+    });
+    await service.driverAction(DRIVER_USER, first.id, 'accept');
+
+    const second = await service.book('user_rider_2', {
+      quoteId: await storeQuote(quotes),
+      vehicleType: VehicleType.CNG,
+    });
+
+    await expect(
+      service.driverAction(DRIVER_USER, second.id, 'accept'),
+    ).rejects.toThrow(DriverAlreadyOnRideError);
+  });
+
+  it('frees the driver once the ride is complete', async () => {
+    const { service, rides, rideId } = await bookedRide();
+    await service.driverAction(DRIVER_USER, rideId, 'accept');
+    await service.driverAction(DRIVER_USER, rideId, 'arrive');
+    await service.driverAction(DRIVER_USER, rideId, 'start');
+    await service.driverAction(DRIVER_USER, rideId, 'complete');
+
+    const quotes = new InMemoryFareQuoteRepository();
+    const service2 = new RidesService(
+      rides,
+      quotes,
+      stubVehicles(DRIVER_PROFILE),
+    );
+    const next = await service2.book('user_rider_3', {
+      quoteId: await storeQuote(quotes),
+      vehicleType: VehicleType.CNG,
+    });
+
+    await expect(
+      service2.driverAction(DRIVER_USER, next.id, 'accept'),
+    ).resolves.toMatchObject({ status: RideStatus.ACCEPTED });
   });
 });
 

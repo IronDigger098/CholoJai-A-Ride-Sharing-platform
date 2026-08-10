@@ -8,7 +8,7 @@ import {
   type VehicleRecord,
   type VehicleRepository,
 } from './vehicle-repository.port';
-import { VehicleNotFoundError } from './vehicles.errors';
+import { NoActiveVehicleError, VehicleNotFoundError } from './vehicles.errors';
 
 /**
  * A driver's vehicles.
@@ -50,6 +50,26 @@ export class VehiclesService {
     });
 
     return toVehicle(vehicle);
+  }
+
+  /**
+   * Everything needed to dispatch this driver.
+   *
+   * One call rather than two, because accepting a ride needs both the
+   * profile and the vehicle, and resolving them separately means two chances
+   * to forget the approval check. The rides module never touches a driver or
+   * vehicle repository — it asks this question and gets two ids.
+   */
+  public async requireDispatchTarget(
+    userId: string,
+  ): Promise<{ driverProfileId: string; vehicleId: string }> {
+    const driverProfileId = await this.drivers.requireApprovedProfileId(userId);
+
+    const active = await this.vehicles.findActiveForDriver(driverProfileId);
+
+    if (active === null) throw new NoActiveVehicleError();
+
+    return { driverProfileId, vehicleId: active.id };
   }
 
   public async list(userId: string): Promise<readonly Vehicle[]> {

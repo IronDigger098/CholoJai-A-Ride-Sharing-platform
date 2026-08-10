@@ -1,6 +1,23 @@
 import { ConflictError, NotFoundError } from '../../common/errors/domain-error';
 
 /**
+ * The driver has no active vehicle.
+ *
+ * 409 rather than 403: they are permitted to accept rides, they just have
+ * nothing to carry anyone in. Reachable in ordinary use — a driver who has
+ * removed their only vehicle, or an approved applicant who has not
+ * registered one yet.
+ */
+export class NoActiveVehicleError extends ConflictError {
+  public readonly code = 'NO_ACTIVE_VEHICLE';
+  public readonly title = 'You have no active vehicle';
+
+  public constructor() {
+    super('Register a vehicle and make it active before accepting rides.');
+  }
+}
+
+/**
  * That plate is already registered.
  *
  * Globally unique, not per driver: two drivers cannot register the same

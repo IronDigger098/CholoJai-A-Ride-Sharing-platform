@@ -16,12 +16,17 @@ import {
   type RideRepository,
   type TransitionRideInput,
 } from './ride-repository.port';
-import { RiderAlreadyOnRideError } from './rides.errors';
+import {
+  DriverAlreadyOnRideError,
+  RiderAlreadyOnRideError,
+} from './rides.errors';
 
 /** Shape of the row this adapter reads. */
 interface RideRow {
   id: string;
   riderId: string;
+  driverProfileId: string | null;
+  vehicleId: string | null;
   fareQuoteId: string;
   status: string;
   vehicleType: string;
@@ -143,21 +148,43 @@ export class PrismaRideRepository implements RideRepository {
        checking and keeps the rest of the object precisely typed. */
     const stamp = { [TIMESTAMP_COLUMN[input.to]]: input.at };
 
-    const result = await this.prisma.ride.updateMany({
-      where: { id: input.rideId, status: input.from },
-      data: {
-        status: input.to,
-        ...stamp,
-        ...(input.cancelledBy === undefined
-          ? {}
-          : { cancelledBy: input.cancelledBy }),
-        ...(input.cancelReason === undefined
-          ? {}
-          : { cancelReason: input.cancelReason }),
-      },
-    });
+    try {
+      const result = await this.prisma.ride.updateMany({
+        where: {
+          id: input.rideId,
+          status: input.from,
+          ...(input.requireDriverProfileId === undefined
+            ? {}
+            : { driverProfileId: input.requireDriverProfileId }),
+        },
+        data: {
+          status: input.to,
+          ...stamp,
+          ...(input.assign === undefined
+            ? {}
+            : {
+                driverProfileId: input.assign.driverProfileId,
+                vehicleId: input.assign.vehicleId,
+              }),
+          ...(input.cancelledBy === undefined
+            ? {}
+            : { cancelledBy: input.cancelledBy }),
+          ...(input.cancelReason === undefined
+            ? {}
+            : { cancelReason: input.cancelReason }),
+        },
+      });
 
-    return result.count === 1;
+      return result.count === 1;
+    } catch (error) {
+      /* `one_active_ride_per_driver` firing: this driver is already on a
+         ride. Only reachable from an accept, because only an accept sets
+         driver_profile_id. */
+      if (isUniqueViolation(error, 'driver_profile_id')) {
+        throw new DriverAlreadyOnRideError();
+      }
+      throw error;
+    }
   }
 }
 
@@ -229,6 +256,8 @@ function toRecord(row: RideRow): RideRecord {
   return {
     id: row.id,
     riderId: row.riderId,
+    driverProfileId: row.driverProfileId,
+    vehicleId: row.vehicleId,
     fareQuoteId: row.fareQuoteId,
     status: row.status as RideStatus,
     vehicleType: row.vehicleType as VehicleType,

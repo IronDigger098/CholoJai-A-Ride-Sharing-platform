@@ -35,6 +35,9 @@ export interface RideRecord extends CreateRideInput {
   readonly id: string;
   readonly status: RideStatus;
   readonly requestedAt: Date;
+  /** Null until a driver accepts (schema.prisma). */
+  readonly driverProfileId: string | null;
+  readonly vehicleId: string | null;
 }
 
 export interface RideRepository {
@@ -101,6 +104,24 @@ export interface TransitionRideInput {
   readonly at: Date;
   readonly cancelledBy?: CancelledBy;
   readonly cancelReason?: string;
+  /**
+   * Driver and vehicle, attached as part of the same statement.
+   *
+   * Accepting is one write, not two. Assigning the driver and then moving
+   * the status would leave a window where a ride has a driver but is still
+   * REQUESTED — visible to the next driver polling for offers, who would
+   * accept a ride someone else is already driving to. Putting the
+   * assignment in the same UPDATE means the partial unique index sees the
+   * final state and refuses the second acceptance.
+   */
+  readonly assign?: { driverProfileId: string; vehicleId: string };
+  /**
+   * Restrict the write to a ride this driver already holds.
+   *
+   * `arrive`, `start` and `complete` pass it so ownership is part of the
+   * WHERE clause rather than a read beforehand — the same reason `from` is.
+   */
+  readonly requireDriverProfileId?: string;
 }
 
 export const RIDE_REPOSITORY = Symbol('RIDE_REPOSITORY');

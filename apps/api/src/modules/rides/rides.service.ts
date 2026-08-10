@@ -13,6 +13,7 @@ import {
   FARE_QUOTE_REPOSITORY,
   type FareQuoteRepository,
 } from '../fares/fare-quote-repository.port';
+import { VehiclesService } from '../vehicles/vehicles.service';
 
 import {
   RIDE_REPOSITORY,
@@ -45,6 +46,10 @@ export class RidesService {
     @Inject(RIDE_REPOSITORY) private readonly rides: RideRepository,
     @Inject(FARE_QUOTE_REPOSITORY)
     private readonly quotes: FareQuoteRepository,
+    /* The rides module never touches a driver or vehicle repository. It
+       asks one question — "who is this driver and what are they driving?" —
+       and the vehicles module answers it, approval check included. */
+    private readonly vehicles: VehiclesService,
   ) {}
 
   public async book(riderId: string, request: BookRideRequest): Promise<Ride> {
@@ -138,6 +143,63 @@ export class RidesService {
   }
 
   /**
+   * Move a ride the driver is responsible for.
+   *
+   * `accept` is the one that differs: it attaches the driver and their
+   * active vehicle in the same statement, and it does not require the ride
+   * to already be theirs — that is the point of accepting. The other three
+   * pass `requireDriverProfileId`, so a driver cannot advance someone else's
+   * ride even with a valid id.
+   *
+   * The legality of each move still comes from `RIDE_TRANSITIONS`, not from
+   * the table above: that table says which arrow each verb takes, and
+   * `canTransition` says whether the arrow exists.
+   */
+  public async driverAction(
+    userId: string,
+    rideId: string,
+    action: DriverAction,
+  ): Promise<Ride> {
+    const { from, to } = DRIVER_TRANSITIONS[action];
+    const { driverProfileId, vehicleId } =
+      await this.vehicles.requireDispatchTarget(userId);
+
+    const ride = await this.rides.findById(rideId);
+
+    if (ride === null) throw new RideNotFoundError(rideId);
+
+    /* An accept is open to any approved driver; everything after it belongs
+       to the driver already on the ride. A ride that is not theirs reads as
+       not found, for the same reason it does on the rider side. */
+    if (action !== 'accept' && ride.driverProfileId !== driverProfileId) {
+      throw new RideNotFoundError(rideId);
+    }
+
+    if (!canTransition(ride.status, to)) {
+      throw new IllegalRideTransitionError(ride.status, to);
+    }
+
+    const moved = await this.rides.transition({
+      rideId,
+      from,
+      to,
+      at: new Date(),
+      ...(action === 'accept'
+        ? { assign: { driverProfileId, vehicleId } }
+        : { requireDriverProfileId: driverProfileId }),
+    });
+
+    /* Nothing moved: the ride left `from` between the read and the write.
+       For an accept that means another driver got there first. */
+    if (!moved) throw new IllegalRideTransitionError(ride.status, to);
+
+    const updated = await this.rides.findById(rideId);
+    if (updated === null) throw new RideNotFoundError(rideId);
+
+    return toRide(updated);
+  }
+
+  /**
    * Cancel a ride the caller owns.
    *
    * Which states allow this is not decided here — `RIDE_TRANSITIONS` in
@@ -195,6 +257,24 @@ export class RidesService {
     return toRide(cancelled);
   }
 }
+
+/**
+ * Every driver-side move, in one shape.
+ *
+ * accept / arrive / start / complete differ only in which arrow of the state
+ * machine they take and whether they attach a driver. Writing them as four
+ * near-identical methods would be four places for the guard to drift.
+ */
+const DRIVER_TRANSITIONS = {
+  accept: { from: RideStatus.REQUESTED, to: RideStatus.ACCEPTED },
+  arrive: { from: RideStatus.ACCEPTED, to: RideStatus.ARRIVED },
+  start: { from: RideStatus.ARRIVED, to: RideStatus.IN_PROGRESS },
+  complete: { from: RideStatus.IN_PROGRESS, to: RideStatus.COMPLETED },
+} as const satisfies Readonly<
+  Record<string, { from: RideStatus; to: RideStatus }>
+>;
+
+export type DriverAction = keyof typeof DRIVER_TRANSITIONS;
 
 function toRide(record: RideRecord): Ride {
   return {

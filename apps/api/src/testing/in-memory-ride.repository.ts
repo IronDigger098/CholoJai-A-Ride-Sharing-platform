@@ -8,7 +8,10 @@ import {
   type RideRepository,
   type TransitionRideInput,
 } from '../modules/rides/ride-repository.port';
-import { RiderAlreadyOnRideError } from '../modules/rides/rides.errors';
+import {
+  DriverAlreadyOnRideError,
+  RiderAlreadyOnRideError,
+} from '../modules/rides/rides.errors';
 
 /**
  * In-memory {@link RideRepository}.
@@ -33,6 +36,8 @@ export class InMemoryRideRepository implements RideRepository {
       id: `ride_${this.sequence}`,
       status: RideStatus.REQUESTED,
       requestedAt: new Date(),
+      driverProfileId: null,
+      vehicleId: null,
     };
 
     this.rows.push(record);
@@ -62,7 +67,11 @@ export class InMemoryRideRepository implements RideRepository {
    */
   public async transition(input: TransitionRideInput): Promise<boolean> {
     const index = this.rows.findIndex(
-      (row) => row.id === input.rideId && row.status === input.from,
+      (row) =>
+        row.id === input.rideId &&
+        row.status === input.from &&
+        (input.requireDriverProfileId === undefined ||
+          row.driverProfileId === input.requireDriverProfileId),
     );
 
     if (index === -1) return false;
@@ -70,7 +79,30 @@ export class InMemoryRideRepository implements RideRepository {
     const existing = this.rows[index];
     if (existing === undefined) return false;
 
-    this.rows[index] = { ...existing, status: input.to };
+    /* Mirrors `one_active_ride_per_driver`. The real guarantee is the
+       database's; this exists so a unit test cannot prove a driver may hold
+       two rides at once. */
+    if (input.assign !== undefined) {
+      const busy = this.rows.some(
+        (row) =>
+          row.driverProfileId === input.assign?.driverProfileId &&
+          isActiveRideStatus(row.status),
+      );
+
+      if (busy) throw new DriverAlreadyOnRideError();
+    }
+
+    this.rows[index] = {
+      ...existing,
+      status: input.to,
+      ...(input.assign === undefined
+        ? {}
+        : {
+            driverProfileId: input.assign.driverProfileId,
+            vehicleId: input.assign.vehicleId,
+          }),
+    };
+
     return true;
   }
 
