@@ -10,6 +10,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { cancelRide, getRide } from '../api';
 
+import { RateRide } from './rate-ride';
+
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -114,6 +116,11 @@ export function RideDetail({ rideId }: { rideId: string }): ReactNode {
           {cancel.isPending ? 'Cancelling…' : 'Cancel ride'}
         </Button>
       )}
+
+      {/* Only once the journey is over. A rating form on a ride in progress
+          asks someone to judge something that has not happened yet, and the
+          API would refuse it anyway. */}
+      {ride.status === RideStatus.COMPLETED && <RateRide rideId={rideId} />}
     </div>
   );
 }
