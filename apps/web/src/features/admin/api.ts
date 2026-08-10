@@ -4,6 +4,8 @@ import {
   type DriverApplicationStatus,
   type DriverProfile,
   driverProfileSchema,
+  type PlatformMetrics,
+  platformMetricsSchema,
   roleChangeResponseSchema,
   type UserListQuery,
   type UserPage,
@@ -91,4 +93,14 @@ export async function revokeRole({
   );
 
   return roleChangeResponseSchema.parse(response.data).user;
+}
+
+export async function getPlatformMetrics(
+  days: number,
+): Promise<PlatformMetrics> {
+  const response = await apiClient.get('/admin/analytics', {
+    params: { days },
+  });
+
+  return platformMetricsSchema.parse(response.data);
 }

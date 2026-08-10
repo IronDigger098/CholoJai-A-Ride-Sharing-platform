@@ -18,6 +18,7 @@ import { RequireRole } from '@/features/auth/components/require-role';
  */
 
 const SECTIONS = [
+  { href: '/admin', label: 'Overview' },
   { href: '/admin/applications', label: 'Driver applications' },
   { href: '/admin/users', label: 'Users' },
 ] as const;
