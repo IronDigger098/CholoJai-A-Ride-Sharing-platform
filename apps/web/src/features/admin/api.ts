@@ -4,6 +4,12 @@ import {
   type DriverApplicationStatus,
   type DriverProfile,
   driverProfileSchema,
+  roleChangeResponseSchema,
+  type UserListQuery,
+  type UserPage,
+  userPageSchema,
+  type UserRole,
+  type UserSummary,
 } from '@cholojai/shared';
 
 import { apiClient } from '@/lib/api-client';
@@ -52,4 +58,37 @@ export async function rejectDriverApplication({
   );
 
   return driverProfileSchema.parse(response.data);
+}
+
+export async function listUsers(query: UserListQuery): Promise<UserPage> {
+  const response = await apiClient.get('/admin/users', { params: query });
+
+  return userPageSchema.parse(response.data);
+}
+
+export interface RoleChangeInput {
+  readonly userId: string;
+  readonly role: UserRole;
+}
+
+export async function grantRole({
+  userId,
+  role,
+}: RoleChangeInput): Promise<UserSummary> {
+  const response = await apiClient.post(`/admin/users/${userId}/roles`, {
+    role,
+  });
+
+  return roleChangeResponseSchema.parse(response.data).user;
+}
+
+export async function revokeRole({
+  userId,
+  role,
+}: RoleChangeInput): Promise<UserSummary> {
+  const response = await apiClient.delete(
+    `/admin/users/${userId}/roles/${role}`,
+  );
+
+  return roleChangeResponseSchema.parse(response.data).user;
 }
