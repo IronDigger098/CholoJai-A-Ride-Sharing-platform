@@ -94,6 +94,21 @@ enum VerificationPurpose {
   @@map("verification_purpose")
 }
 
+/// What a notification is about.
+///
+/// An enum rather than free text, because the kind is what a client filters
+/// and groups by — and a typo in a string column is a category nobody ever
+/// finds again. The wording lives on the row; this is only the category.
+enum NotificationKind {
+  RIDE_ACCEPTED
+  RIDE_COMPLETED
+  RIDE_CANCELLED
+  DRIVER_APPLICATION_APPROVED
+  DRIVER_APPLICATION_REJECTED
+
+  @@map("notification_kind")
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 //  Identity & access
 // ─────────────────────────────────────────────────────────────────────────
@@ -120,6 +135,7 @@ model User {
 
   roleGrants         RoleGrant[]
   driverProfile      DriverProfile?
+  notifications      Notification[]
   savedPlaces        SavedPlace[]
   refreshTokens      RefreshToken[]
   verificationTokens VerificationToken[]
@@ -375,6 +391,41 @@ model SavedPlace {
 
   @@index([userId])
   @@map("saved_places")
+}
+
+/// Something that happened, addressed to one person.
+///
+/// Stored rather than pushed and forgotten, unlike a driver's live position
+/// (D4). A position is only interesting while the ride is happening; "your
+/// application was approved" is interesting whenever the driver next opens
+/// the app, which may be tomorrow.
+///
+/// `title` and `body` are written by the module that raises the event, not
+/// composed from `kind` at read time. A notification is a record of what the
+/// platform said at a moment — rewording the template later must not rewrite
+/// what a user was already told.
+model Notification {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+
+  kind  NotificationKind
+  title String
+  body  String
+
+  /// Where tapping it should lead. Null for notifications with nowhere to go.
+  href String?
+
+  readAt DateTime? @map("read_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Newest first for one person — the only way this table is ever read.
+  @@index([userId, createdAt(sort: Desc)])
+  /// The unread count, which every page asks for on load.
+  @@index([userId, readAt])
+  @@map("notifications")
 }
 
 // ─────────────────────────────────────────────────────────────────────────
