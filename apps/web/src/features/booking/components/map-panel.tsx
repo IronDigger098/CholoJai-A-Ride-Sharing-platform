@@ -26,7 +26,6 @@ import type { ComponentType, ReactNode } from 'react';
    this the props are unchecked and every handler below is an implicit any.
    Importing the type is safe: types are erased, so this does not pull
    Leaflet into the server bundle the way a value import would. */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- see above
 const RouteMap: ComponentType<RouteMapProps> = dynamic(
   () => import('./route-map'),
   {
