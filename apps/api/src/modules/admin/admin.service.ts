@@ -1,4 +1,9 @@
-import { type RoleChangeResponse, UserRole } from '@cholojai/shared';
+import {
+  type RoleChangeResponse,
+  type UserListQuery,
+  type UserPage,
+  UserRole,
+} from '@cholojai/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { ResourceNotFoundError } from '../../common/errors/domain-error';
@@ -92,5 +97,38 @@ export class AdminService {
     this.logger.warn(`Admin ${actorId} revoked ${role} from user ${user.id}`);
 
     return { user: toUserSummary(user) };
+  }
+
+  /**
+   * One page of the user directory.
+   *
+   * Not logged, unlike every other method here. The audit trail exists to
+   * answer "who changed this account"; recording that an administrator
+   * looked at a list would bury those entries under thousands that record
+   * nothing having happened.
+   *
+   * The cursor is the last row's id rather than an encoded offset. That is
+   * what makes it stable under writes: it names a row, and the next page is
+   * whatever sorts after that row now — not whatever currently sits at
+   * position 20. `nextCursor` is null unless a next page genuinely exists,
+   * so a client can stop on the cursor alone.
+   */
+  public async listUsers(query: UserListQuery): Promise<UserPage> {
+    const page = await this.users.list({
+      limit: query.limit,
+      ...(query.q === undefined ? {} : { query: query.q }),
+      ...(query.role === undefined ? {} : { role: query.role }),
+      ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+    });
+
+    const data = page.users.map(toUserSummary);
+
+    return {
+      data,
+      pageInfo: {
+        nextCursor: page.hasNextPage ? (data.at(-1)?.id ?? null) : null,
+        hasNextPage: page.hasNextPage,
+      },
+    };
   }
 }

@@ -206,4 +206,74 @@ describe('AdminService', () => {
       ]);
     });
   });
+
+  describe('listUsers', () => {
+    /* The fixture gives all three accounts the same `createdAt`, so the
+       order below is the `id` tiebreak doing its job — which is the part of
+       the sort a cursor depends on and the part most likely to be dropped. */
+    const NEWEST_FIRST = [RIDER, ADMIN_B, ADMIN_A];
+
+    it('returns active users newest first', async () => {
+      const { service } = makeService();
+
+      const page = await service.listUsers({ limit: 20 });
+
+      expect(page.data.map((user) => user.id)).toEqual(NEWEST_FIRST);
+      expect(page.pageInfo).toEqual({ nextCursor: null, hasNextPage: false });
+    });
+
+    it('omits a deactivated account', async () => {
+      /* Every other endpoint already refuses to find one. A directory that
+         listed it would offer an administrator a row whose every action
+         fails. */
+      const { service, users } = makeService();
+      users.deactivated.add(RIDER);
+
+      const page = await service.listUsers({ limit: 20 });
+
+      expect(page.data.map((user) => user.id)).not.toContain(RIDER);
+    });
+
+    it('matches a fragment of an email', async () => {
+      const { service } = makeService();
+
+      const page = await service.listUsers({ limit: 20, q: 'ADMIN_B@' });
+
+      expect(page.data.map((user) => user.id)).toEqual([ADMIN_B]);
+    });
+
+    it('narrows to a role without searching', async () => {
+      const { service } = makeService();
+      await service.grantRole(ADMIN_A, RIDER, UserRole.DRIVER);
+
+      const page = await service.listUsers({
+        limit: 20,
+        role: UserRole.DRIVER,
+      });
+
+      expect(page.data.map((user) => user.id)).toEqual([RIDER]);
+    });
+
+    it('walks to the end with the cursor and then stops', async () => {
+      /* The property that makes `nextCursor` safe to loop on: it is null
+         exactly when there is nothing left, so a client never needs to read
+         `hasNextPage` to know when to stop. */
+      const { service } = makeService();
+
+      const first = await service.listUsers({ limit: 2 });
+      expect(first.data.map((user) => user.id)).toEqual([RIDER, ADMIN_B]);
+      expect(first.pageInfo).toEqual({
+        nextCursor: ADMIN_B,
+        hasNextPage: true,
+      });
+
+      const second = await service.listUsers({
+        limit: 2,
+        cursor: first.pageInfo.nextCursor ?? '',
+      });
+
+      expect(second.data.map((user) => user.id)).toEqual([ADMIN_A]);
+      expect(second.pageInfo).toEqual({ nextCursor: null, hasNextPage: false });
+    });
+  });
 });

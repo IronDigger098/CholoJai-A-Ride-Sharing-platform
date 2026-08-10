@@ -5,6 +5,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 
 import {
   type CreateUserInput,
+  type ListUsersFilter,
+  type UserPageRecord,
   type UserRecord,
   type UserRepository,
 } from './user-repository.port';
@@ -143,6 +145,55 @@ export class PrismaUserRepository implements UserRepository {
     await this.prisma.roleGrant.deleteMany({ where: { userId, role } });
 
     return this.findById(userId);
+  }
+
+  /**
+   * One page of the directory.
+   *
+   * `take: limit + 1` asks for one row more than the caller wants. Its
+   * presence is what "there is a next page" means — the alternative is a
+   * second `COUNT(*)` over the same predicate, which doubles the work to
+   * answer a question a single extra row already answers.
+   *
+   * `id` is a tiebreak on the sort, not decoration. Cursor pagination needs
+   * a total order: two accounts created in the same millisecond could
+   * otherwise swap places between requests, and the reader would see one
+   * twice and never see the other.
+   *
+   * The search is `contains`, so it cannot use an index and never will.
+   * That is a deliberate limit rather than an oversight — matching a
+   * fragment anywhere in a name is what an administrator means by search,
+   * and the honest fix when this table is large is a text search index, not
+   * a prefix match that stops finding people.
+   */
+  public async list(filter: ListUsersFilter): Promise<UserPageRecord> {
+    const rows = await this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        ...(filter.role === undefined
+          ? {}
+          : { roleGrants: { some: { role: filter.role } } }),
+        ...(filter.query === undefined
+          ? {}
+          : {
+              OR: [
+                { fullName: { contains: filter.query, mode: 'insensitive' } },
+                { email: { contains: filter.query, mode: 'insensitive' } },
+              ],
+            }),
+      },
+      include: { roleGrants: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: filter.limit + 1,
+      ...(filter.cursor === undefined
+        ? {}
+        : { cursor: { id: filter.cursor }, skip: 1 }),
+    });
+
+    return {
+      users: rows.slice(0, filter.limit).map(toUserRecord),
+      hasNextPage: rows.length > filter.limit,
+    };
   }
 }
 

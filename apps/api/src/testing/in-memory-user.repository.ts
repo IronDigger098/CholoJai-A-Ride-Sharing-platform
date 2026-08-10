@@ -2,6 +2,8 @@ import { type UserRole } from '@cholojai/shared';
 
 import {
   type CreateUserInput,
+  type ListUsersFilter,
+  type UserPageRecord,
   type UserRecord,
   type UserRepository,
 } from '../modules/users/user-repository.port';
@@ -101,6 +103,35 @@ export class InMemoryUserRepository implements UserRepository {
     return this.findById(userId);
   }
 
+  /**
+   * Filtered, sorted, and sliced the way the Prisma adapter does.
+   *
+   * A fake that returned insertion order would let a pagination bug pass
+   * here and fail in production, which is the failure mode this whole file
+   * exists to prevent.
+   */
+  public async list(filter: ListUsersFilter): Promise<UserPageRecord> {
+    const matches = this.active()
+      .filter((row) => matchesQuery(row, filter.query))
+      .filter(
+        (row) => filter.role === undefined || row.roles.includes(filter.role),
+      )
+      .sort(newestFirst);
+
+    /* An unknown cursor restarts from the top. The real adapter throws;
+       neither matters, because a cursor only goes missing if the row it
+       named was deleted between two pages. */
+    const start =
+      filter.cursor === undefined
+        ? 0
+        : matches.findIndex((row) => row.id === filter.cursor) + 1;
+
+    return {
+      users: matches.slice(start, start + filter.limit),
+      hasNextPage: matches.length > start + filter.limit,
+    };
+  }
+
   private active(): UserRecord[] {
     return this.rows.filter((row) => !this.deactivated.has(row.id));
   }
@@ -111,4 +142,23 @@ export class InMemoryUserRepository implements UserRepository {
 
     if (existing !== undefined) this.rows[index] = change(existing);
   }
+}
+
+/** Case-insensitive across name and email, like the adapter's OR clause. */
+function matchesQuery(row: UserRecord, query: string | undefined): boolean {
+  if (query === undefined) return true;
+
+  const needle = query.toLowerCase();
+
+  return (
+    row.fullName.toLowerCase().includes(needle) ||
+    row.email.toLowerCase().includes(needle)
+  );
+}
+
+/** Newest first, with `id` breaking ties — the adapter's `orderBy`. */
+function newestFirst(left: UserRecord, right: UserRecord): number {
+  const byDate = right.createdAt.getTime() - left.createdAt.getTime();
+
+  return byDate === 0 ? right.id.localeCompare(left.id) : byDate;
 }

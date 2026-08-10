@@ -11,6 +11,7 @@ export * from './api/auth.contracts';
 export * from './api/drivers.contracts';
 export * from './api/fares.contracts';
 export * from './api/geo.contracts';
+export * from './api/pagination.contracts';
 export * from './api/problem-details';
 export * from './api/rides.contracts';
 export * from './api/tracking.contracts';
