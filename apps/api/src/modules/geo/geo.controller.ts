@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiOkResponse,
   ApiOperation,
@@ -10,7 +18,14 @@ import {
 import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
 import { Auth } from '../auth/roles.decorator';
 
-import { RouteRequestDto, RouteResponseDto } from './dto/route.dto';
+import {
+  ReverseGeocodeQueryDto,
+  ReverseGeocodeResponseDto,
+  RouteRequestDto,
+  RouteResponseDto,
+  SearchPlacesQueryDto,
+  SearchPlacesResponseDto,
+} from './dto/route.dto';
 import { GeoService } from './geo.service';
 
 /** Shorthand for the shared error schema in Swagger responses. */
@@ -79,5 +94,70 @@ export class GeoController {
   })
   public async route(@Body() body: RouteRequestDto): Promise<RouteResponseDto> {
     return this.geoService.route(body.pickup, body.dropoff);
+  }
+
+  @Get('search')
+  @RateLimit({
+    name: 'geo-search-ip',
+    limit: 120,
+    windowSeconds: 60,
+    by: 'ip',
+  })
+  @ApiOperation({
+    summary: 'Search for a place',
+    description:
+      'Free-text place search, biased toward Bangladesh but not limited ' +
+      'to it — a filter would refuse a legitimate cross-border address, ' +
+      'whereas a bias just ranks the local match first.\n\n' +
+      'Results are cached on the normalised query. A debounced picker ' +
+      'still fires often, and the upstream policy caps total volume rather ' +
+      'than rate, so a shared cache is what keeps this within it.',
+  })
+  @ApiOkResponse({
+    description: 'Matching places, best first. Empty when nothing matches.',
+    type: SearchPlacesResponseDto,
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'The geocoder did not answer. Retry shortly.',
+    ...PROBLEM_DETAILS,
+  })
+  public async search(
+    @Query() query: SearchPlacesQueryDto,
+  ): Promise<SearchPlacesResponseDto> {
+    return { places: [...(await this.geoService.searchPlaces(query.q))] };
+  }
+
+  @Get('reverse')
+  @RateLimit({
+    name: 'geo-reverse-ip',
+    limit: 120,
+    windowSeconds: 60,
+    by: 'ip',
+  })
+  @ApiOperation({
+    summary: 'The place at a point',
+    description:
+      'Turns a dropped pin into an address.\n\n' +
+      'Answers `{ "place": null }` rather than 404 when there is nothing ' +
+      'there. Dropping a pin in the middle of a river is an ordinary thing ' +
+      'to do with a map, and "no address here" is a result, not a failure.',
+  })
+  @ApiOkResponse({
+    description: 'The place, or `{ "place": null }`.',
+    type: ReverseGeocodeResponseDto,
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'The geocoder did not answer. Retry shortly.',
+    ...PROBLEM_DETAILS,
+  })
+  public async reverse(
+    @Query() query: ReverseGeocodeQueryDto,
+  ): Promise<ReverseGeocodeResponseDto> {
+    return {
+      place: await this.geoService.reverseGeocode({
+        lat: query.lat,
+        lng: query.lng,
+      }),
+    };
   }
 }

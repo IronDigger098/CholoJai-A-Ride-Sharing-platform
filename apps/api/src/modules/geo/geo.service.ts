@@ -1,14 +1,18 @@
 import {
   type Coordinates,
+  type Place,
+  placeSchema,
   type RouteResponse,
   routeResponseSchema,
 } from '@cholojai/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { type Redis } from 'ioredis';
+import { type ZodType } from 'zod';
 
 import { REDIS_CLIENT } from '../../common/redis/redis.module';
 import { AppConfigService } from '../../config/app-config.service';
 
+import { GEOCODING_PROVIDER, type GeocodingProvider } from './geocoding.port';
 import { ROUTING_PROVIDER, type RoutingProvider } from './routing.port';
 
 /**
@@ -41,9 +45,48 @@ export class GeoService {
 
   public constructor(
     @Inject(ROUTING_PROVIDER) private readonly routing: RoutingProvider,
+    @Inject(GEOCODING_PROVIDER) private readonly geocoding: GeocodingProvider,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly config: AppConfigService,
   ) {}
+
+  /**
+   * Search for a place by name.
+   *
+   * Cached on the normalised query. A picker fires a request per keystroke
+   * once debounced, and "banani" typed by a hundred riders is one upstream
+   * call — which matters more here than for routes, because Nominatim's
+   * usage policy caps absolute volume rather than rate.
+   */
+  public async searchPlaces(query: string): Promise<readonly Place[]> {
+    const key = `geo:search:${query.trim().toLowerCase()}`;
+
+    const cached = await this.readCache(key, placeSchema.array());
+    if (cached !== null) return cached;
+
+    const places = await this.geocoding.search(query);
+    await this.writeCache(key, places, this.config.geocoding.cacheTtlSeconds);
+
+    return places;
+  }
+
+  /**
+   * The place at a point.
+   *
+   * Cached on the same ~11 metre grid as routes: two pins that close are the
+   * same doorway as far as any address is concerned.
+   */
+  public async reverseGeocode(point: Coordinates): Promise<Place | null> {
+    const key = `geo:reverse:${point.lat.toFixed(KEY_PRECISION)},${point.lng.toFixed(KEY_PRECISION)}`;
+
+    const cached = await this.readCache(key, placeSchema.nullable());
+    if (cached !== null) return cached;
+
+    const place = await this.geocoding.reverse(point);
+    await this.writeCache(key, place, this.config.geocoding.cacheTtlSeconds);
+
+    return place;
+  }
 
   public async route(
     pickup: Coordinates,
@@ -51,12 +94,12 @@ export class GeoService {
   ): Promise<RouteResponse> {
     const key = cacheKey(pickup, dropoff);
 
-    const cached = await this.readCache(key);
+    const cached = await this.readCache(key, routeResponseSchema);
     if (cached !== null) return cached;
 
     const route = await this.routing.route(pickup, dropoff);
 
-    await this.writeCache(key, route);
+    await this.writeCache(key, route, this.config.routing.cacheTtlSeconds);
 
     return route;
   }
@@ -69,35 +112,49 @@ export class GeoService {
    * value written by an older version of this code all land here, and all
    * mean the same thing: go and ask the provider.
    */
-  private async readCache(key: string): Promise<RouteResponse | null> {
+  /**
+   * Read a cached value, treating every failure as a miss.
+   *
+   * Redis being down, a value written by an older version of this code, or
+   * anything unparseable all land here and all mean the same thing: go and
+   * ask the provider.
+   *
+   * A cached `null` is indistinguishable from a miss, which is why an empty
+   * reverse lookup is effectively uncached. That is the honest trade for one
+   * generic reader, and the case it costs — a pin in open water — is rare
+   * enough not to buy a sentinel value for.
+   */
+  private async readCache<T>(
+    key: string,
+    schema: ZodType<T>,
+  ): Promise<T | null> {
     try {
       const raw = await this.redis.get(key);
       if (raw === null) return null;
 
-      const parsed = routeResponseSchema.safeParse(JSON.parse(raw));
+      const parsed = schema.safeParse(JSON.parse(raw));
       return parsed.success ? parsed.data : null;
     } catch (cause) {
-      this.logger.warn(
-        `Route cache read failed: ${cause instanceof Error ? cause.message : 'unknown error'}`,
-      );
+      this.logger.warn(`Cache read failed for ${key}: ${describe(cause)}`);
       return null;
     }
   }
 
-  private async writeCache(key: string, route: RouteResponse): Promise<void> {
+  private async writeCache(
+    key: string,
+    value: unknown,
+    ttlSeconds: number,
+  ): Promise<void> {
     try {
-      await this.redis.set(
-        key,
-        JSON.stringify(route),
-        'EX',
-        this.config.routing.cacheTtlSeconds,
-      );
+      await this.redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
     } catch (cause) {
-      this.logger.warn(
-        `Route cache write failed: ${cause instanceof Error ? cause.message : 'unknown error'}`,
-      );
+      this.logger.warn(`Cache write failed for ${key}: ${describe(cause)}`);
     }
   }
+}
+
+function describe(cause: unknown): string {
+  return cause instanceof Error ? cause.message : 'unknown error';
 }
 
 /**

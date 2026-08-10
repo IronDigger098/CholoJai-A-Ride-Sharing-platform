@@ -55,6 +55,9 @@ mask a missing platform variable during a deploy.
 | `RESEND_API_KEY`                 | Production email provider                           | —                        | M12       |
 | `CLOUDINARY_URL`                 | Image storage                                       | —                        | M7        |
 | `NOMINATIM_BASE_URL`             | Geocoding upstream                                  | public instance          | M6        |
+| `NOMINATIM_TIMEOUT_MS`           | Give up on a geocode after this long                | `3000`                   | M6        |
+| `NOMINATIM_USER_AGENT`           | Required by Nominatim's usage policy                | `CholoJai/0.1`           | M6        |
+| `GEO_PLACE_CACHE_TTL_SECONDS`    | Place lookup cache lifetime                         | `86400`                  | M6        |
 | `OSRM_BASE_URL`                  | Routing upstream                                    | public instance          | M5        |
 | `OSRM_TIMEOUT_MS`                | Give up on a route after this long                  | `3000`                   | M5        |
 | `GEO_ROUTE_CACHE_TTL_SECONDS`    | Route cache lifetime                                | `3600`                   | M5        |

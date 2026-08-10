@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import { type Redis } from 'ioredis';
 
 import { makeTestConfig } from '../../testing/env.fixture';
+import { InMemoryGeocodingProvider } from '../../testing/in-memory-geocoding.provider';
 import { InMemoryRoutingProvider } from '../../testing/in-memory-routing.provider';
 
 import { RouteNotFoundError } from './geo.errors';
@@ -55,7 +56,12 @@ describe('GeoService', () => {
   it('returns the provider measurement on a cache miss', async () => {
     const provider = new InMemoryRoutingProvider();
     const redis = makeFakeRedis();
-    const service = new GeoService(provider, redis.client, makeTestConfig());
+    const service = new GeoService(
+      provider,
+      new InMemoryGeocodingProvider(),
+      redis.client,
+      makeTestConfig(),
+    );
 
     const route = await service.route(DHANMONDI, BANANI);
 
@@ -71,7 +77,12 @@ describe('GeoService', () => {
        request. */
     const provider = new InMemoryRoutingProvider();
     const redis = makeFakeRedis();
-    const service = new GeoService(provider, redis.client, makeTestConfig());
+    const service = new GeoService(
+      provider,
+      new InMemoryGeocodingProvider(),
+      redis.client,
+      makeTestConfig(),
+    );
 
     const first = await service.route(DHANMONDI, BANANI);
     const second = await service.route(DHANMONDI, BANANI);
@@ -86,7 +97,12 @@ describe('GeoService', () => {
        far as anything can tell, dropped on the same spot. */
     const provider = new InMemoryRoutingProvider();
     const redis = makeFakeRedis();
-    const service = new GeoService(provider, redis.client, makeTestConfig());
+    const service = new GeoService(
+      provider,
+      new InMemoryGeocodingProvider(),
+      redis.client,
+      makeTestConfig(),
+    );
 
     await service.route(DHANMONDI, BANANI);
     await service.route(
@@ -104,7 +120,12 @@ describe('GeoService', () => {
        entirely plausible. */
     const provider = new InMemoryRoutingProvider();
     const redis = makeFakeRedis();
-    const service = new GeoService(provider, redis.client, makeTestConfig());
+    const service = new GeoService(
+      provider,
+      new InMemoryGeocodingProvider(),
+      redis.client,
+      makeTestConfig(),
+    );
 
     await service.route(DHANMONDI, BANANI);
     await service.route(BANANI, DHANMONDI);
@@ -121,7 +142,12 @@ describe('GeoService', () => {
     it('still answers when the read fails', async () => {
       const provider = new InMemoryRoutingProvider();
       const redis = makeFakeRedis({ read: true });
-      const service = new GeoService(provider, redis.client, makeTestConfig());
+      const service = new GeoService(
+        provider,
+        new InMemoryGeocodingProvider(),
+        redis.client,
+        makeTestConfig(),
+      );
 
       const route = await service.route(DHANMONDI, BANANI);
 
@@ -132,7 +158,12 @@ describe('GeoService', () => {
     it('still answers when the write fails', async () => {
       const provider = new InMemoryRoutingProvider();
       const redis = makeFakeRedis({ write: true });
-      const service = new GeoService(provider, redis.client, makeTestConfig());
+      const service = new GeoService(
+        provider,
+        new InMemoryGeocodingProvider(),
+        redis.client,
+        makeTestConfig(),
+      );
 
       const route = await service.route(DHANMONDI, BANANI);
 
@@ -146,7 +177,12 @@ describe('GeoService', () => {
        alternative is pricing a ride from a shape nobody validated. */
     const provider = new InMemoryRoutingProvider();
     const redis = makeFakeRedis();
-    const service = new GeoService(provider, redis.client, makeTestConfig());
+    const service = new GeoService(
+      provider,
+      new InMemoryGeocodingProvider(),
+      redis.client,
+      makeTestConfig(),
+    );
 
     await service.route(DHANMONDI, BANANI);
     for (const key of redis.store.keys()) {
@@ -161,7 +197,12 @@ describe('GeoService', () => {
     const provider = new InMemoryRoutingProvider();
     provider.markUnreachable(BANANI);
     const redis = makeFakeRedis();
-    const service = new GeoService(provider, redis.client, makeTestConfig());
+    const service = new GeoService(
+      provider,
+      new InMemoryGeocodingProvider(),
+      redis.client,
+      makeTestConfig(),
+    );
 
     /* The type, not the message. `problem-details.ts` is explicit that
        `detail` is human-facing and translatable and must never be switched

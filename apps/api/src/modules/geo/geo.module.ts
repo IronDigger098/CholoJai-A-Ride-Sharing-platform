@@ -4,6 +4,8 @@ import { AuthModule } from '../auth/auth.module';
 
 import { GeoController } from './geo.controller';
 import { GeoService } from './geo.service';
+import { GEOCODING_PROVIDER } from './geocoding.port';
+import { NominatimGeocodingProvider } from './nominatim-geocoding.provider';
 import { OsrmRoutingProvider } from './osrm-routing.provider';
 import { ROUTING_PROVIDER } from './routing.port';
 
@@ -27,6 +29,7 @@ import { ROUTING_PROVIDER } from './routing.port';
   providers: [
     GeoService,
     { provide: ROUTING_PROVIDER, useClass: OsrmRoutingProvider },
+    { provide: GEOCODING_PROVIDER, useClass: NominatimGeocodingProvider },
   ],
   exports: [GeoService],
 })

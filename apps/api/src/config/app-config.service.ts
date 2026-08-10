@@ -163,6 +163,21 @@ export class AppConfigService {
     };
   }
 
+  /** Geocoding upstream and its cache. */
+  public get geocoding(): {
+    nominatimBaseUrl: string;
+    timeoutMs: number;
+    userAgent: string;
+    cacheTtlSeconds: number;
+  } {
+    return {
+      nominatimBaseUrl: this.env.NOMINATIM_BASE_URL,
+      timeoutMs: this.env.NOMINATIM_TIMEOUT_MS,
+      userAgent: this.env.NOMINATIM_USER_AGENT,
+      cacheTtlSeconds: this.env.GEO_PLACE_CACHE_TTL_SECONDS,
+    };
+  }
+
   /** Quote lifetime and the ceiling on what we will price. */
   public get fares(): {
     quoteTtlSeconds: number;
