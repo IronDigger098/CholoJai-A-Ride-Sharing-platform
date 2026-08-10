@@ -1,7 +1,12 @@
-import { DriverApplicationStatus, UserRole } from '@cholojai/shared';
+import {
+  DriverApplicationStatus,
+  NotificationKind,
+  UserRole,
+} from '@cholojai/shared';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 import { InMemoryDriverProfileRepository } from '../../testing/in-memory-driver-profile.repository';
+import { makeRecordingNotifications } from '../../testing/recording-notifications';
 import { type AdminService } from '../admin/admin.service';
 
 import {
@@ -49,13 +54,19 @@ function makeAdmin(): {
 describe('DriversService', () => {
   let profiles: InMemoryDriverProfileRepository;
   let admin: ReturnType<typeof makeAdmin>;
+  let notifications: ReturnType<typeof makeRecordingNotifications>;
   let service: DriversService;
 
   beforeEach(() => {
     profiles = new InMemoryDriverProfileRepository();
     profiles.register(RIDER, 'Nabila Rahman', 'nabila@cholojai.test');
     admin = makeAdmin();
-    service = new DriversService(profiles, admin.service);
+    notifications = makeRecordingNotifications();
+    service = new DriversService(
+      profiles,
+      admin.service,
+      notifications.service,
+    );
   });
 
   describe('apply', () => {
@@ -104,6 +115,29 @@ describe('DriversService', () => {
       expect(admin.grants).toEqual([{ userId: RIDER, role: UserRole.DRIVER }]);
     });
 
+    it('tells the applicant', async () => {
+      const { id } = await service.apply(RIDER, 'DK-1234567890');
+
+      await service.approve(ADMIN, id);
+
+      expect(notifications.sent).toHaveLength(1);
+      expect(notifications.sent[0]?.userId).toBe(RIDER);
+      expect(notifications.sent[0]?.kind).toBe(
+        NotificationKind.DRIVER_APPLICATION_APPROVED,
+      );
+    });
+
+    it('does not notify when the decision was refused', async () => {
+      /* The second administrator's click changed nothing, so telling the
+         applicant again would be announcing an event that did not happen. */
+      const { id } = await service.apply(RIDER, 'DK-1234567890');
+      await service.approve(ADMIN, id);
+
+      await service.approve(ADMIN, id).catch(() => undefined);
+
+      expect(notifications.sent).toHaveLength(1);
+    });
+
     it('leaves the application pending if the role grant fails', async () => {
       /* The ordering that makes a partial failure recoverable. A role
          without an approved profile opens nothing, and the application can
@@ -148,6 +182,19 @@ describe('DriversService', () => {
       expect(rejected.applicationStatus).toBe(DriverApplicationStatus.REJECTED);
       expect(rejected.rejectionReason).toBe('Licence expired');
       expect(admin.grants).toEqual([]);
+    });
+
+    it('sends the administrator’s reason verbatim', async () => {
+      /* Paraphrasing it would mean the applicant reads something the
+         administrator did not write. */
+      const { id } = await service.apply(RIDER, 'DK-1234567890');
+
+      await service.reject(ADMIN, id, 'Licence expired');
+
+      expect(notifications.sent[0]?.body).toBe('Licence expired');
+      expect(notifications.sent[0]?.kind).toBe(
+        NotificationKind.DRIVER_APPLICATION_REJECTED,
+      );
     });
 
     it('cannot reject an application already approved', async () => {

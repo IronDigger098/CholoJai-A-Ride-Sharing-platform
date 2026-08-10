@@ -2,6 +2,7 @@ import { UserRole } from '@cholojai/shared';
 
 import type { ReactNode } from 'react';
 
+import { AppHeader } from '@/components/layout/app-header';
 import { Link } from '@/components/ui/link';
 import { RequireRole } from '@/features/auth/components/require-role';
 
@@ -27,8 +28,10 @@ export default function AdminLayout({
   children,
 }: Readonly<{ children: ReactNode }>): ReactNode {
   return (
-    <main id="main" tabIndex={-1} className="mx-auto max-w-3xl px-6 py-10">
-      <RequireRole role={UserRole.ADMIN}>
+    <RequireRole role={UserRole.ADMIN}>
+      <AppHeader />
+
+      <main id="main" tabIndex={-1} className="mx-auto max-w-3xl px-6 py-10">
         <nav
           aria-label="Admin"
           className="border-border mb-8 flex gap-5 border-b pb-4"
@@ -45,7 +48,7 @@ export default function AdminLayout({
         </nav>
 
         {children}
-      </RequireRole>
-    </main>
+      </main>
+    </RequireRole>
   );
 }

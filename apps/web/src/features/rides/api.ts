@@ -1,5 +1,8 @@
 import {
   activeRideResponseSchema,
+  myReviewResponseSchema,
+  type Review,
+  reviewSchema,
   type RideListQuery,
   type RidePage,
   ridePageSchema,
@@ -33,4 +36,31 @@ export async function getRide(rideId: string): Promise<Ride> {
 export async function cancelRide(rideId: string): Promise<Ride> {
   const response = await apiClient.post(`/rides/${rideId}/cancel`, {});
   return rideSchema.parse(response.data);
+}
+
+export async function getMyReview(rideId: string): Promise<Review | null> {
+  const response = await apiClient.get(`/rides/${rideId}/review`);
+  return myReviewResponseSchema.parse(response.data).review;
+}
+
+export interface SubmitReviewInput {
+  readonly rideId: string;
+  readonly rating: number;
+  readonly comment?: string | undefined;
+}
+
+export async function submitReview({
+  rideId,
+  rating,
+  comment,
+}: SubmitReviewInput): Promise<Review> {
+  const response = await apiClient.post(`/rides/${rideId}/review`, {
+    rating,
+    /* Omitted rather than sent empty. The contract's `comment` is optional
+       and trimmed to a minimum of one character, so `""` is a validation
+       error where "no comment" is the ordinary case. */
+    ...(comment === undefined || comment === '' ? {} : { comment }),
+  });
+
+  return reviewSchema.parse(response.data);
 }

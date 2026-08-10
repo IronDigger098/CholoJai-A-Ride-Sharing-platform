@@ -8,6 +8,8 @@ import { describe, expect, it } from '@jest/globals';
 
 import { InMemoryFareQuoteRepository } from '../../testing/in-memory-fare-quote.repository';
 import { InMemoryRideRepository } from '../../testing/in-memory-ride.repository';
+import { makeRecordingNotifications } from '../../testing/recording-notifications';
+import { type DriversService } from '../drivers/drivers.service';
 import { type VehiclesService } from '../vehicles/vehicles.service';
 
 import {
@@ -42,10 +44,31 @@ function makeService(): {
   const quotes = new InMemoryFareQuoteRepository();
   const rides = new InMemoryRideRepository();
   return {
-    service: new RidesService(rides, quotes, stubVehicles()),
+    service: makeRides(rides, quotes, stubVehicles()),
     quotes,
     rides,
   };
+}
+
+/**
+ * The service, with its two announcement collaborators stubbed out.
+ *
+ * Every test below is about the state machine rather than about who gets
+ * told, so the default is a recorder nobody reads. The tests that *are*
+ * about notifications build their own.
+ */
+function makeRides(
+  rides: InMemoryRideRepository,
+  quotes: InMemoryFareQuoteRepository,
+  vehicles: VehiclesService,
+): RidesService {
+  return new RidesService(
+    rides,
+    quotes,
+    vehicles,
+    stubDrivers(),
+    makeRecordingNotifications().service,
+  );
 }
 
 /** The two questions RidesService asks the vehicles module. */
@@ -55,6 +78,13 @@ function stubVehicles(driverProfileId = 'driver_1'): VehiclesService {
       Promise.resolve({ driverProfileId, vehicleId: 'vehicle_1' }),
     findDriverProfileId: () => Promise.resolve(driverProfileId),
   } as unknown as VehiclesService;
+}
+
+/** The one question it asks the drivers module. */
+function stubDrivers(userId: string | null = 'user_driver_1'): DriversService {
+  return {
+    findUserId: () => Promise.resolve(userId),
+  } as unknown as DriversService;
 }
 
 async function storeQuote(
@@ -323,11 +353,7 @@ describe('RidesService driver actions', () => {
   }> {
     const quotes = new InMemoryFareQuoteRepository();
     const rides = new InMemoryRideRepository();
-    const service = new RidesService(
-      rides,
-      quotes,
-      stubVehicles(DRIVER_PROFILE),
-    );
+    const service = makeRides(rides, quotes, stubVehicles(DRIVER_PROFILE));
 
     const ride = await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
@@ -386,7 +412,7 @@ describe('RidesService driver actions', () => {
     await service.driverAction(DRIVER_USER, rideId, 'accept');
 
     const quotes = new InMemoryFareQuoteRepository();
-    const other = new RidesService(rides, quotes, stubVehicles('driver_2'));
+    const other = makeRides(rides, quotes, stubVehicles('driver_2'));
 
     await expect(
       other.driverAction('user_driver_2', rideId, 'arrive'),
@@ -398,11 +424,7 @@ describe('RidesService driver actions', () => {
        is the index; this asserts the fake agrees with it. */
     const quotes = new InMemoryFareQuoteRepository();
     const rides = new InMemoryRideRepository();
-    const service = new RidesService(
-      rides,
-      quotes,
-      stubVehicles(DRIVER_PROFILE),
-    );
+    const service = makeRides(rides, quotes, stubVehicles(DRIVER_PROFILE));
 
     const first = await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
@@ -456,11 +478,7 @@ describe('RidesService driver actions', () => {
     await service.driverAction(DRIVER_USER, rideId, 'complete');
 
     const quotes = new InMemoryFareQuoteRepository();
-    const service2 = new RidesService(
-      rides,
-      quotes,
-      stubVehicles(DRIVER_PROFILE),
-    );
+    const service2 = makeRides(rides, quotes, stubVehicles(DRIVER_PROFILE));
     const next = await service2.book('user_rider_3', {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,

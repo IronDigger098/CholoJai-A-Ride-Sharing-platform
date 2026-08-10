@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { AppHeader } from '@/components/layout/app-header';
 import { RequireSession } from '@/features/auth/components/require-session';
 
 /**
@@ -13,8 +14,12 @@ export default function DriverLayout({
   children,
 }: Readonly<{ children: ReactNode }>): ReactNode {
   return (
-    <main id="main" tabIndex={-1} className="mx-auto max-w-xl px-6 py-10">
-      <RequireSession>{children}</RequireSession>
-    </main>
+    <RequireSession>
+      <AppHeader />
+
+      <main id="main" tabIndex={-1} className="mx-auto max-w-xl px-6 py-10">
+        {children}
+      </main>
+    </RequireSession>
   );
 }

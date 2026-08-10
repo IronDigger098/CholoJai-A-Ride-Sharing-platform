@@ -3,11 +3,13 @@ import {
   type DriverApplicationListQuery,
   DriverApplicationStatus as Status,
   type DriverProfile,
+  NotificationKind,
   UserRole,
 } from '@cholojai/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { AdminService } from '../admin/admin.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 import {
   DRIVER_PROFILE_REPOSITORY,
@@ -35,6 +37,7 @@ export class DriversService {
     @Inject(DRIVER_PROFILE_REPOSITORY)
     private readonly profiles: DriverProfileRepository,
     private readonly admin: AdminService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -102,6 +105,21 @@ export class DriversService {
     return profile?.applicationStatus === Status.APPROVED ? profile.id : null;
   }
 
+  /**
+   * Which account a driver profile belongs to.
+   *
+   * Asked by the reviews module, because a review targets a *user* rather
+   * than a driver profile. That is not an accident of the schema: the day a
+   * driver rates a rider, both directions live in one table, and a foreign
+   * key that points at a profile in one row and an account in the next is
+   * not a foreign key.
+   */
+  public async findUserId(driverProfileId: string): Promise<string | null> {
+    const profile = await this.profiles.findById(driverProfileId);
+
+    return profile?.userId ?? null;
+  }
+
   public async listApplications(
     query: DriverApplicationListQuery,
   ): Promise<readonly DriverApplication[]> {
@@ -144,6 +162,14 @@ export class DriversService {
 
     this.logger.log(`Admin ${adminId} approved driver ${driverProfileId}`);
 
+    await this.notifications.notify({
+      userId: existing.userId,
+      kind: NotificationKind.DRIVER_APPLICATION_APPROVED,
+      title: 'You can start driving',
+      body: 'Your application was approved. Register a vehicle to be sent rides.',
+      href: '/drive/vehicles',
+    });
+
     return toProfile(decided);
   }
 
@@ -173,6 +199,17 @@ export class DriversService {
     if (decided === null) throw new ApplicationAlreadyDecidedError();
 
     this.logger.log(`Admin ${adminId} rejected driver ${driverProfileId}`);
+
+    /* The reason is the body. It was written to be read by this person, and
+       paraphrasing it here would mean the applicant sees something the
+       administrator did not write. */
+    await this.notifications.notify({
+      userId: existing.userId,
+      kind: NotificationKind.DRIVER_APPLICATION_REJECTED,
+      title: 'Your application was not approved',
+      body: reason,
+      href: '/drive/apply',
+    });
 
     return toProfile(decided);
   }
