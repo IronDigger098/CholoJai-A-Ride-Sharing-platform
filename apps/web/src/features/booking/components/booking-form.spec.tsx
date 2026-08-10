@@ -121,7 +121,7 @@ describe('BookingForm', () => {
   });
 
   it('shows an option per vehicle type once quoted', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(<BookingForm />);
 
     await quoteAJourney(user);
@@ -133,7 +133,7 @@ describe('BookingForm', () => {
   it('cannot confirm before a vehicle is chosen', async () => {
     /* The quote prices three vehicles; booking one is a separate decision.
        A default selection would book whatever happened to be first. */
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(<BookingForm />);
 
     await quoteAJourney(user);
@@ -145,7 +145,7 @@ describe('BookingForm', () => {
 
   it('books the vehicle the rider selected', async () => {
     mockBookRide.mockResolvedValue({ id: 'ride_1' });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(<BookingForm />);
 
     await quoteAJourney(user);
@@ -162,7 +162,7 @@ describe('BookingForm', () => {
        identically every time it is pressed. Clearing them puts the rider
        back at "get a price", which is the only thing that can work. */
     mockBookRide.mockRejectedValue(expiredQuoteError());
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(<BookingForm />);
 
     await quoteAJourney(user);
@@ -190,7 +190,7 @@ describe('BookingForm', () => {
       }),
     );
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(<BookingForm />);
 
     await quoteAJourney(user);

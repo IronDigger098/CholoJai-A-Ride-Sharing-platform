@@ -95,7 +95,7 @@ describe('RideHistory', () => {
       .mockResolvedValueOnce(page([ride('r1', 'Banani 11')], 'r1'))
       .mockResolvedValueOnce(page([ride('r2', 'Gulshan 2')], null));
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(<RideHistory />);
 
     await user.click(
@@ -111,7 +111,7 @@ describe('RideHistory', () => {
       .mockResolvedValueOnce(page([ride('r1', 'Banani 11')], 'cursor-1'))
       .mockResolvedValueOnce(page([ride('r2', 'Gulshan 2')], null));
 
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     renderWithProviders(<RideHistory />);
 
     await user.click(
