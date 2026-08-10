@@ -8,6 +8,7 @@ import { type ReactNode, useState } from 'react';
 import { bookRide, requestQuote } from '../api';
 
 import { FareOptions } from './fare-options';
+import { MapPanel } from './map-panel';
 import { PlaceSearch } from './place-search';
 
 import { Button } from '@/components/ui/button';
@@ -88,6 +89,18 @@ export function BookingForm(): ReactNode {
 
       <PlaceSearch label="Pickup" value={pickup} onSelect={setPickup} />
       <PlaceSearch label="Destination" value={dropoff} onSelect={setDropoff} />
+
+      {/* Two ways into the same two values. Tapping fills whichever point
+          is still empty, so the map and the search boxes stay in step
+          rather than being separate sources of truth. */}
+      <MapPanel
+        pickup={pickup}
+        dropoff={dropoff}
+        onPlace={(place) => {
+          if (pickup === null) setPickup(place);
+          else setDropoff(place);
+        }}
+      />
 
       <Button
         onClick={onQuote}

@@ -14,8 +14,8 @@
 | M3  | Authentication & Authorization  | Register/login, JWT + refresh token rotation, email verification, forgot password, RBAC (rider / driver / admin), **Redis + rate limiting**, **CI integration-test job**, seed script | ✅     |
 | M4  | Design System & Marketing Site  | Next.js app scaffold, Tailwind v4 tokens, dark mode, type scale, primitives, landing page, SEO foundation                                                                             | ✅     |
 | M5  | Ride Booking Core               | Booking workflow, fare estimation engine, ride lifecycle state machine, **routing proxy**                                                                                             | ✅     |
-| M6  | Rider Web App & Maps            | **Web data layer, auth UI**, maps integration, geocoding proxy, booking + tracking UI, Socket.IO driver-location simulation                                                           | 🔲     |
-| M7  | Driver Side                     | Driver dashboard, vehicle management, ride acceptance flow                                                                                                                            | 🔲     |
+| M6  | Rider Web App                   | Web data layer, auth UI, geocoding proxy, booking flow, ride history, Leaflet map                                                                                                     | ✅     |
+| M7  | Driver Side & Live Tracking     | Driver dashboard, vehicle management, ride acceptance flow, **Socket.IO driver-location tracking**                                                                                    | 🔲     |
 | M8  | Admin & Analytics               | Admin dashboard, user/driver management, analytics                                                                                                                                    | 🔲     |
 | M9  | Content & Growth                | Blog CMS, careers, contact, notifications, reviews, coupons, referrals                                                                                                                | 🔲     |
 | M10 | Payments & Polish               | Mock payment integration, settings, search, i18n-ready architecture                                                                                                                   | 🔲     |
@@ -73,6 +73,15 @@ so a plan that read as complete described a product no one could sign in to.
 That is now M6's, along with the API client and query layer every
 authenticated screen needs. It is recorded here rather than quietly built,
 because a gap found late is cheaper than a gap found by a reviewer.
+
+**Live tracking moved M6 → M7, because it had nothing to track.** M6 built
+the rider's side of the product; a ride it books stays `REQUESTED`, since no
+driver exists to accept it until M7 adds applications, approval, vehicles and
+the accept endpoint. Building a location feed in M6 would have meant
+simulating a driver that cannot exist, and then rewriting it against the real
+one a milestone later. The same rule as the routing proxy, pointing the other
+way: infrastructure arrives with its first consumer, and tracking's first
+consumer is a driver who has actually accepted a ride.
 
 **Accessibility is a build step, not a review step.** The design tokens are
 checked against WCAG contrast ratios by a unit test that reads the stylesheet,
