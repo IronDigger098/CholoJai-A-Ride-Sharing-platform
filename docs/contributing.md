@@ -85,7 +85,17 @@ Squash-merge to `main` so history reads as one commit per logical change.
 ## Verifying before you push
 
 `pnpm verify` runs the same gates as CI, in the same order:
-clean tree → format → build → lint → typecheck → test.
+clean tree → format → build → lint → typecheck → test → integration test.
+
+**The integration suites are part of that list, and were not always.** They
+gate on `DATABASE_TEST_URL`: unset, they skip; set, they run against a real
+PostgreSQL. `verify` used to stop at `test`, so a contributor with a test
+database configured still never ran them before pushing — while CI, which
+does set the variable, ran them every time. "Verify is green" and "CI will
+pass" were therefore two different claims, and M9a discovered the difference
+the expensive way. If you have not configured `DATABASE_TEST_URL`, the
+suites still skip and `verify` still tells you less than CI knows; that is
+worth fixing on your machine rather than working around.
 
 **It refuses to run over a dirty working tree, and that is the point.** Every
 tool in the chain reads the working _directory_, not the commit. With
@@ -102,6 +112,13 @@ Use `pnpm verify:clean` when a build result looks suspicious — it wipes every
 `dist/` and Turbo cache first. Turbo's caching is right for iteration and
 wrong for a pre-push gate: a replayed cache entry proves that something
 passed once, not that this tree passes now.
+
+**A green CI history does not mean the suite is deterministic.** The
+`grantRole` concurrency test in `prisma-user.repository.int-spec.ts` had been
+racing on a shared runner for several milestones and only lost once. When a
+check fails and then passes on a re-run, the correct response is to find the
+race, not to re-run until it is convenient — the second failure lands during
+a release, not during a chore branch.
 
 ## Testing expectations
 

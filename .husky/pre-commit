@@ -1,4 +1,15 @@
-# Fast feedback: lint and format only the files being committed.
-# Full typecheck and tests run in CI — a pre-commit hook that takes a
+# The shared package is built first because the lint that follows is
+# type-aware: ESLint resolves `@cholojai/shared` through its published
+# `dist/`, not its source. A stale dist means the linter reads declarations
+# from before the change being committed — reporting errors for exports that
+# now exist, or missing ones that no longer do. That is the failure that
+# cost M5.1 five CI runs.
+#
+# `tsc --build` is incremental, so this is a no-op costing about a second
+# when nothing changed. That is the budget: a pre-commit hook that takes a
 # minute is a hook developers disable.
+pnpm --filter @cholojai/shared build
+
+# Fast feedback: lint and format only the files being committed.
+# Full typecheck and tests run in CI.
 pnpm exec lint-staged
