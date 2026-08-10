@@ -8,6 +8,7 @@
 
 export * from './api/admin.contracts';
 export * from './api/auth.contracts';
+export * from './api/drivers.contracts';
 export * from './api/fares.contracts';
 export * from './api/geo.contracts';
 export * from './api/problem-details';
