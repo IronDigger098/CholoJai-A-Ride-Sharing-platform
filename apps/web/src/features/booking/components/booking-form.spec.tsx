@@ -64,6 +64,15 @@ jest.mock('../api', () => ({
   searchPlaces: (query: string) => mockSearchPlaces(query),
   requestQuote: () => mockRequestQuote(),
   bookRide: () => mockBookRide(),
+  reverseGeocode: () => Promise.resolve(null),
+}));
+
+/* The map is stubbed out here. Leaflet reads `window` at module scope and
+   renders to a canvas jsdom does not implement, and none of these tests are
+   about the map — they are about what the form does with two places once it
+   has them, however they were chosen. */
+jest.mock('./map-panel', () => ({
+  MapPanel: () => null,
 }));
 
 jest.mock('next/navigation', () => ({
