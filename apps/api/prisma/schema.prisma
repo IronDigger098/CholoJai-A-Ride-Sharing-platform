@@ -128,7 +128,10 @@ model User {
   reviewsAuthored    Review[]            @relation("ReviewAuthor")
   reviewsReceived    Review[]            @relation("ReviewTarget")
 
-  @@index([deletedAt])
+  /// Composite rather than `deletedAt` alone. The admin directory reads
+  /// active users newest first, and a leading `deletedAt` still serves every
+  /// lookup the single-column index served — an index on (a, b) covers a.
+  @@index([deletedAt, createdAt(sort: Desc)])
   @@map("users")
 }
 

@@ -3,10 +3,12 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiConflictResponse,
@@ -27,6 +29,7 @@ import {
   RoleChangeResponseDto,
   UserIdParamDto,
 } from './dto/role.dto';
+import { UserListQueryDto, UserPageDto } from './dto/user.dto';
 
 /** Shorthand for the shared error schema in Swagger responses. */
 const PROBLEM_DETAILS = {
@@ -47,6 +50,26 @@ const PROBLEM_DETAILS = {
 @Auth(UserRole.ADMIN)
 export class AdminController {
   public constructor(private readonly adminService: AdminService) {}
+
+  @Get('users')
+  @ApiOperation({
+    summary: 'User directory',
+    description:
+      'Active users, newest first, cursor-paginated.\n\n' +
+      '`q` matches name or email, case-insensitively — an administrator ' +
+      'looking someone up has a fragment of something and rarely knows ' +
+      'which field it came from. `role` narrows the directory instead, ' +
+      'which is a different act from searching it.\n\n' +
+      'Soft-deleted accounts are excluded, because every other endpoint ' +
+      'already refuses to find them — listing one would offer a row whose ' +
+      'every action fails.',
+  })
+  @ApiOkResponse({ type: UserPageDto })
+  public async listUsers(
+    @Query() query: UserListQueryDto,
+  ): Promise<UserPageDto> {
+    return this.adminService.listUsers(query);
+  }
 
   @Post('users/:userId/roles')
   @HttpCode(HttpStatus.OK)

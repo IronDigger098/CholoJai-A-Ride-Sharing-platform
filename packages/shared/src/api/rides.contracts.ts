@@ -5,6 +5,11 @@ import { VehicleType } from '../domain/vehicle';
 
 import { fareBreakdownSchema } from './fares.contracts';
 import { coordinatesSchema } from './geo.contracts';
+import {
+  type CursorPageQuery,
+  cursorPageQuerySchema,
+  pageInfoSchema,
+} from './pagination.contracts';
 
 /**
  * Ride contracts — `docs/api-design.md` §Rides.
@@ -80,39 +85,26 @@ export type CancelRideRequest = z.infer<typeof cancelRideRequestSchema>;
 /**
  * Cursor pagination, per `api-design.md` §3.
  *
- * Cursor rather than offset because ride history is written to while a
- * rider reads it. `OFFSET 3` shifts the moment a new ride is inserted, so
- * the rider sees a duplicate or misses a row; seeking on an indexed key is
- * stable and stays flat at depth. The cost is no random page access, which
- * nothing in this product needs.
- *
- * `limit` is capped. Without a ceiling the page size is chosen by the
- * caller, and "give me everything" is one request away from being the
- * slowest query in the system.
+ * An alias, not a copy. Ride history asks for a page exactly the way every
+ * other collection does, and the reasoning for cursors over offsets now
+ * lives in `pagination.contracts.ts` with the shape it justifies. The name
+ * survives because `RideListQueryDto` reads better in Swagger than a generic
+ * one would.
  */
-export const rideListQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-  cursor: z.string().min(1).max(64).optional(),
-});
+export const rideListQuerySchema = cursorPageQuerySchema;
 
-export type RideListQuery = z.infer<typeof rideListQuerySchema>;
+export type RideListQuery = CursorPageQuery;
 
 /**
  * A page of rides.
  *
- * Written out concretely rather than as a generic `paginated(schema)`
- * helper. The envelope is a platform convention and will eventually wrap
- * several collections, but rides is the first — and `contributing.md`
- * forbids the abstraction until there is a second caller. When admin lists
- * arrive, this shape is what gets promoted.
+ * The envelope is shared; what it wraps is not. Each collection names its
+ * own item type so the response is concrete — for the client parsing it and
+ * for Swagger documenting it.
  */
 export const ridePageSchema = z.object({
   data: z.array(rideSchema),
-  pageInfo: z.object({
-    /** Pass as `cursor` to fetch the next page. Null on the last page. */
-    nextCursor: z.string().nullable(),
-    hasNextPage: z.boolean(),
-  }),
+  pageInfo: pageInfoSchema,
 });
 
 export type RidePage = z.infer<typeof ridePageSchema>;

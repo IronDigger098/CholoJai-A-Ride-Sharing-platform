@@ -46,6 +46,25 @@ export interface CreateUserInput {
   readonly roles: readonly UserRole[];
 }
 
+/**
+ * One page of the administrative directory.
+ *
+ * `query` matches name or email; `role` narrows. Both are optional and
+ * independent — an administrator may browse everyone, search everyone,
+ * filter to drivers, or search within drivers.
+ */
+export interface ListUsersFilter {
+  readonly query?: string | undefined;
+  readonly role?: UserRole | undefined;
+  readonly limit: number;
+  readonly cursor?: string | undefined;
+}
+
+export interface UserPageRecord {
+  readonly users: readonly UserRecord[];
+  readonly hasNextPage: boolean;
+}
+
 export interface UserRepository {
   /**
    * Find an active user by email.
@@ -87,6 +106,15 @@ export interface UserRepository {
 
   /** Revoke a role, idempotently. Returns the updated user, or `null`. */
   revokeRole(userId: string, role: UserRole): Promise<UserRecord | null>;
+
+  /**
+   * One page of active users, newest first.
+   *
+   * Soft-deleted accounts are excluded like everywhere else. A directory
+   * that listed them would offer an administrator a row whose every action
+   * fails, because every other method already refuses to find it.
+   */
+  list(filter: ListUsersFilter): Promise<UserPageRecord>;
 }
 
 /**
