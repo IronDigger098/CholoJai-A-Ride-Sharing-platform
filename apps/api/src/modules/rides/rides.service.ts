@@ -138,6 +138,28 @@ export class RidesService {
   }
 
   /**
+   * A ride's status and the driver who took it.
+   *
+   * Separate from `findForRider` because the rider-facing `Ride` carries
+   * neither, deliberately: a driver profile id is an identifier a rider has
+   * no use for and no business holding. Callers that need to *act* on a
+   * ride rather than display it ask for this instead, and the ownership
+   * check is the same one.
+   */
+  public async findParticipants(
+    riderId: string,
+    rideId: string,
+  ): Promise<{ status: RideStatus; driverProfileId: string | null }> {
+    const ride = await this.rides.findById(rideId);
+
+    if (ride?.riderId !== riderId) {
+      throw new RideNotFoundError(rideId);
+    }
+
+    return { status: ride.status, driverProfileId: ride.driverProfileId };
+  }
+
+  /**
    * The ride the caller is currently on, in whichever capacity.
    *
    * Rider first, then driver. One endpoint rather than two because "my

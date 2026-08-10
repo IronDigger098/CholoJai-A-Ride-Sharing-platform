@@ -102,6 +102,21 @@ export class DriversService {
     return profile?.applicationStatus === Status.APPROVED ? profile.id : null;
   }
 
+  /**
+   * Which account a driver profile belongs to.
+   *
+   * Asked by the reviews module, because a review targets a *user* rather
+   * than a driver profile. That is not an accident of the schema: the day a
+   * driver rates a rider, both directions live in one table, and a foreign
+   * key that points at a profile in one row and an account in the next is
+   * not a foreign key.
+   */
+  public async findUserId(driverProfileId: string): Promise<string | null> {
+    const profile = await this.profiles.findById(driverProfileId);
+
+    return profile?.userId ?? null;
+  }
+
   public async listApplications(
     query: DriverApplicationListQuery,
   ): Promise<readonly DriverApplication[]> {
