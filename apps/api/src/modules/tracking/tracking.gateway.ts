@@ -33,7 +33,7 @@ import { TrackingService } from './tracking.service';
 const subscribeSchema = z.object({ rideId: z.string().min(1).max(64) });
 
 /** The user id attached to an authenticated socket. */
-interface AuthenticatedSocket extends Socket {
+export interface AuthenticatedSocket extends Socket {
   userId?: string;
 }
 
