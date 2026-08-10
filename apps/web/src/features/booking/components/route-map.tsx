@@ -62,12 +62,10 @@ function FitToPoints({
   pickup: Place | null;
   dropoff: Place | null;
 }): null {
-  /* Annotated with Leaflet's own type rather than relying on what
-     `useMap()` infers. react-leaflet ships ESM-only typings that `tsc`
-     resolves and typescript-eslint does not, so its return reads as an
-     unresolvable type and every call on it becomes an unsafe-call error.
-     `@types/leaflet` is plain CommonJS and resolves either way. */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- see above
+  /* Annotated with Leaflet's own type rather than left to inference.
+     `useMap()` is declared in react-leaflet's ESM-only typings; naming the
+     type here checks every call below against `@types/leaflet`, which is
+     plain CommonJS and resolves the same way in every tool. */
   const map: L.Map = useMap();
 
   useEffect(() => {
