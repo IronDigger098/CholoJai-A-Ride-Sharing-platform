@@ -16,6 +16,7 @@ import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Link } from '@/components/ui/link';
 import { getActiveRide } from '@/features/rides/api';
+import { usePublishLocation } from '@/features/tracking/use-ride-location';
 import { toApiError } from '@/lib/api-error';
 
 const EXACT = { withDecimals: true } as const;
@@ -72,6 +73,10 @@ export function DriverDashboard(): ReactNode {
     enabled: active === null,
     refetchInterval: 10_000,
   });
+
+  /* Publishes while there is a ride, stops when there is not. The hook is
+     called unconditionally — hooks always are — and does nothing on null. */
+  usePublishLocation(active?.id ?? null);
 
   const act = useMutation({
     mutationFn: ({

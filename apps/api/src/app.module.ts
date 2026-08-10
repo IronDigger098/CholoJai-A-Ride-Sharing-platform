@@ -14,6 +14,7 @@ import { FaresModule } from './modules/fares/fares.module';
 import { GeoModule } from './modules/geo/geo.module';
 import { HealthModule } from './modules/health/health.module';
 import { RidesModule } from './modules/rides/rides.module';
+import { TrackingModule } from './modules/tracking/tracking.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 /**
@@ -49,6 +50,7 @@ export class AppModule {
         RidesModule,
         DriversModule,
         VehiclesModule,
+        TrackingModule,
       ],
     };
   }
