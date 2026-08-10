@@ -72,6 +72,17 @@ export class VehiclesService {
     return { driverProfileId, vehicleId: active.id };
   }
 
+  /**
+   * The caller's driver profile id if they have one, else null.
+   *
+   * Passed through rather than reaching into the drivers module from
+   * elsewhere: rides already depends on this service, and one dependency
+   * asking two questions beats two dependencies asking one each.
+   */
+  public async findDriverProfileId(userId: string): Promise<string | null> {
+    return this.drivers.findApprovedProfileId(userId);
+  }
+
   public async list(userId: string): Promise<readonly Vehicle[]> {
     const driverProfileId = await this.drivers.requireApprovedProfileId(userId);
 

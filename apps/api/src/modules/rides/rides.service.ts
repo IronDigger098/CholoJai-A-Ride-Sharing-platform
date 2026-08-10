@@ -137,9 +137,25 @@ export class RidesService {
     return toRide(ride);
   }
 
-  public async findActive(riderId: string): Promise<Ride | null> {
-    const ride = await this.rides.findActiveForRider(riderId);
-    return ride === null ? null : toRide(ride);
+  /**
+   * The ride the caller is currently on, in whichever capacity.
+   *
+   * Rider first, then driver. One endpoint rather than two because "my
+   * current ride" is one question a person asks — and an account can be
+   * both: a driver books rides of their own, and while riding they are a
+   * rider. Checking that side first means the answer matches whichever hat
+   * they are actually wearing, since the two indexes make it impossible to
+   * hold an active ride in both roles at once.
+   */
+  public async findActive(userId: string): Promise<Ride | null> {
+    const asRider = await this.rides.findActiveForRider(userId);
+    if (asRider !== null) return toRide(asRider);
+
+    const driverProfileId = await this.vehicles.findDriverProfileId(userId);
+    if (driverProfileId === null) return null;
+
+    const asDriver = await this.rides.findActiveForDriver(driverProfileId);
+    return asDriver === null ? null : toRide(asDriver);
   }
 
   /**

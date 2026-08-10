@@ -88,6 +88,20 @@ export class DriversService {
     return profile.id;
   }
 
+  /**
+   * The caller's approved profile id, or null if they have none.
+   *
+   * The non-throwing counterpart of `requireApprovedProfileId`, for the
+   * places that ask "is this person also a driver?" rather than "let this
+   * driver through". Answering with an exception there would make an
+   * ordinary rider's request look like a failure.
+   */
+  public async findApprovedProfileId(userId: string): Promise<string | null> {
+    const profile = await this.profiles.findByUserId(userId);
+
+    return profile?.applicationStatus === Status.APPROVED ? profile.id : null;
+  }
+
   public async listApplications(
     query: DriverApplicationListQuery,
   ): Promise<readonly DriverApplication[]> {

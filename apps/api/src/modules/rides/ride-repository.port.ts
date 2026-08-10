@@ -54,6 +54,8 @@ export interface RideRepository {
 
   findActiveForRider(riderId: string): Promise<RideRecord | null>;
 
+  findActiveForDriver(driverProfileId: string): Promise<RideRecord | null>;
+
   findById(rideId: string): Promise<RideRecord | null>;
 
   /**

@@ -52,6 +52,18 @@ export class InMemoryRideRepository implements RideRepository {
     );
   }
 
+  public async findActiveForDriver(
+    driverProfileId: string,
+  ): Promise<RideRecord | null> {
+    return (
+      this.rows.find(
+        (row) =>
+          row.driverProfileId === driverProfileId &&
+          isActiveRideStatus(row.status),
+      ) ?? null
+    );
+  }
+
   public async findById(rideId: string): Promise<RideRecord | null> {
     return this.rows.find((row) => row.id === rideId) ?? null;
   }

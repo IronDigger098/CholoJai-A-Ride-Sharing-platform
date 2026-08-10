@@ -1,5 +1,6 @@
 import {
   ACTIVE_RIDE_STATUSES,
+  DRIVER_ENGAGED_STATUSES,
   type RideStatus,
   RideStatus as Status,
   type VehicleType,
@@ -92,6 +93,22 @@ export class PrismaRideRepository implements RideRepository {
   public async findActiveForRider(riderId: string): Promise<RideRecord | null> {
     const row: RideRow | null = await this.prisma.ride.findFirst({
       where: { riderId, status: { in: [...ACTIVE_RIDE_STATUSES] } },
+    });
+
+    return row === null ? null : toRecord(row);
+  }
+
+  public async findActiveForDriver(
+    driverProfileId: string,
+  ): Promise<RideRecord | null> {
+    /* DRIVER_ENGAGED_STATUSES, not ACTIVE_RIDE_STATUSES: a driver is never
+       attached to a REQUESTED ride, and it is the same list the
+       one_active_ride_per_driver index uses. */
+    const row: RideRow | null = await this.prisma.ride.findFirst({
+      where: {
+        driverProfileId,
+        status: { in: [...DRIVER_ENGAGED_STATUSES] },
+      },
     });
 
     return row === null ? null : toRecord(row);

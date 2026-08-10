@@ -54,10 +54,12 @@ export async function listOffers(): Promise<readonly Ride[]> {
   return rideOffersSchema.parse(response.data).offers;
 }
 
-/** accept / arrive / start / complete — one arrow of the state machine each. */
+/** One arrow of the state machine each. */
+export type DriverAction = 'accept' | 'arrive' | 'start' | 'complete';
+
 export async function driverAction(
   rideId: string,
-  action: 'accept' | 'arrive' | 'start' | 'complete',
+  action: DriverAction,
 ): Promise<Ride> {
   const response = await apiClient.post(`/rides/${rideId}/${action}`, {});
   return rideSchema.parse(response.data);
