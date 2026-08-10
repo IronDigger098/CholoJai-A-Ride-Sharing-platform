@@ -50,6 +50,19 @@ export const driverProfileSchema = z.object({
 
 export type DriverProfile = z.infer<typeof driverProfileSchema>;
 
+/**
+ * The caller's own application, or explicitly nothing.
+ *
+ * Wrapped rather than answering 404: never having applied is an ordinary
+ * state, not a missing resource, and one shape is easier to parse than two
+ * that depend on the status code.
+ */
+export const myDriverProfileSchema = z.object({
+  profile: driverProfileSchema.nullable(),
+});
+
+export type MyDriverProfile = z.infer<typeof myDriverProfileSchema>;
+
 /** An application as an administrator reviews it. */
 export const driverApplicationSchema = driverProfileSchema.extend({
   userId: z.string(),
