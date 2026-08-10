@@ -36,6 +36,26 @@ export class RouteNotFoundError extends UnprocessableError {
  * reaches the response body — an upstream message can carry a URL, an API
  * key, or an internal hostname.
  */
+/**
+ * The geocoder did not answer.
+ *
+ * Its own error rather than reusing `RoutingUnavailableError`. They are
+ * different upstreams that fail independently — Nominatim can be down while
+ * OSRM is fine — and a log line saying "routing unavailable" during a
+ * geocoding outage sends whoever is on call to the wrong service.
+ */
+export class GeocodingUnavailableError extends ServiceUnavailableError {
+  public readonly code = 'GEOCODING_UNAVAILABLE';
+  public readonly title = 'Place search is temporarily unavailable';
+
+  public constructor(cause?: unknown) {
+    super(
+      'We could not search for places just now. Please try again in a moment.',
+      cause === undefined ? undefined : { cause },
+    );
+  }
+}
+
 export class RoutingUnavailableError extends ServiceUnavailableError {
   public readonly code = 'ROUTING_UNAVAILABLE';
   public readonly title = 'Routing is temporarily unavailable';

@@ -4,6 +4,7 @@ import { type Redis } from 'ioredis';
 
 import { makeTestConfig } from '../../testing/env.fixture';
 import { InMemoryFareQuoteRepository } from '../../testing/in-memory-fare-quote.repository';
+import { InMemoryGeocodingProvider } from '../../testing/in-memory-geocoding.provider';
 import { InMemoryRoutingProvider } from '../../testing/in-memory-routing.provider';
 import { GeoService } from '../geo/geo.service';
 
@@ -30,7 +31,12 @@ function makeService(overrides: Record<string, string> = {}): {
   quotes: InMemoryFareQuoteRepository;
 } {
   const config = makeTestConfig(overrides);
-  const geo = new GeoService(new InMemoryRoutingProvider(), NO_CACHE, config);
+  const geo = new GeoService(
+    new InMemoryRoutingProvider(),
+    new InMemoryGeocodingProvider(),
+    NO_CACHE,
+    config,
+  );
   const quotes = new InMemoryFareQuoteRepository();
 
   return { service: new FaresService(geo, quotes, config), quotes };

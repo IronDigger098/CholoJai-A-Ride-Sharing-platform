@@ -181,6 +181,38 @@ export const envSchema = z
       .positive()
       .default(3600),
 
+    /**
+     * Nominatim instance used for place search and reverse lookup.
+     *
+     * The public instance, like OSRM's, is for development. Its usage policy
+     * caps absolute request volume and forbids heavy use — a deployment
+     * points this at a self-hosted instance or a commercial geocoder.
+     */
+    NOMINATIM_BASE_URL: httpUrl.default('https://nominatim.openstreetmap.org'),
+
+    NOMINATIM_TIMEOUT_MS: z.coerce.number().int().positive().default(3000),
+
+    /**
+     * Sent as `User-Agent` on every geocoding request.
+     *
+     * Nominatim's policy requires an identifying agent and blocks anonymous
+     * traffic outright, so this is a functional requirement rather than
+     * courtesy.
+     */
+    NOMINATIM_USER_AGENT: z.string().min(1).default('CholoJai/0.1'),
+
+    /**
+     * How long a place lookup stays cached.
+     *
+     * Longer than routes: an address does not move. The bound exists so a
+     * renamed or corrected place eventually propagates, not for correctness.
+     */
+    GEO_PLACE_CACHE_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(86_400),
+
     // ─── Fares ──────────────────────────────────────────────────────────
     /**
      * How long a quote stays bookable.

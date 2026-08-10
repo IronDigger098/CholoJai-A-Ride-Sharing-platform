@@ -55,3 +55,61 @@ export const routeResponseSchema = z.object({
 });
 
 export type RouteResponse = z.infer<typeof routeResponseSchema>;
+
+/**
+ * A place a rider can pick.
+ *
+ * `label` is what the picker shows and what lands in `pickupAddress` on the
+ * ride — one string rather than a structured address, because nothing in
+ * this product sorts or filters on a district, and a shape with eight
+ * optional fields invites code that reassembles it differently in each
+ * screen.
+ */
+export const placeSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  coordinates: coordinatesSchema,
+});
+
+export type Place = z.infer<typeof placeSchema>;
+
+/**
+ * Free-text place search.
+ *
+ * Two characters minimum. A one-character query matches most of the country
+ * and costs an upstream request to return nothing useful.
+ */
+export const searchPlacesQuerySchema = z.object({
+  q: z.string().trim().min(2).max(200),
+});
+
+export type SearchPlacesQuery = z.infer<typeof searchPlacesQuerySchema>;
+
+export const searchPlacesResponseSchema = z.object({
+  places: z.array(placeSchema),
+});
+
+export type SearchPlacesResponse = z.infer<typeof searchPlacesResponseSchema>;
+
+/** Coordinates arrive as query strings, so they are coerced then bounded. */
+export const reverseGeocodeQuerySchema = z.object({
+  lat: z.coerce.number().finite().min(-90).max(90),
+  lng: z.coerce.number().finite().min(-180).max(180),
+});
+
+export type ReverseGeocodeQuery = z.infer<typeof reverseGeocodeQuerySchema>;
+
+/**
+ * Reverse lookup returns a place or nothing.
+ *
+ * Nullable rather than 404: dropping a pin in the middle of a river is an
+ * ordinary thing to do with a map, and the answer "no address here" is a
+ * result, not a failure.
+ */
+export const reverseGeocodeResponseSchema = z.object({
+  place: placeSchema.nullable(),
+});
+
+export type ReverseGeocodeResponse = z.infer<
+  typeof reverseGeocodeResponseSchema
+>;
