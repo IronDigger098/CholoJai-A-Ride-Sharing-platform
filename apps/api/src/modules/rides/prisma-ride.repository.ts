@@ -11,6 +11,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   type CreateRideInput,
   type RideRecord,
+  type RidePageQuery,
+  type RidePageResult,
   type RideRepository,
   type TransitionRideInput,
 } from './ride-repository.port';
@@ -95,6 +97,38 @@ export class PrismaRideRepository implements RideRepository {
     });
 
     return row === null ? null : toRecord(row);
+  }
+
+  public async listForRider(
+    riderId: string,
+    page: RidePageQuery,
+  ): Promise<RidePageResult> {
+    /* One row more than asked for. Its presence is the entire answer to
+       "is there a next page", and it costs one row rather than the full
+       scan a COUNT over the rider's history would need. */
+    const rows: RideRow[] = await this.prisma.ride.findMany({
+      where: { riderId },
+      /* Matches @@index([riderId, requestedAt(sort: Desc)]), so the seek is
+         an index range scan rather than a sort of everything the rider has
+         ever booked.
+
+         `id` is a tiebreak, not decoration. Cursor pagination needs a total
+         order: two rides sharing a `requestedAt` — same millisecond, or a
+         seeded fixture — could otherwise swap places between two requests,
+         and the reader would see one twice and never see the other. */
+      orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+      take: page.limit + 1,
+      ...(page.cursor === undefined
+        ? {}
+        : { cursor: { id: page.cursor }, skip: 1 }),
+    });
+
+    const hasNextPage = rows.length > page.limit;
+
+    return {
+      rides: rows.slice(0, page.limit).map(toRecord),
+      hasNextPage,
+    };
   }
 
   public async transition(input: TransitionRideInput): Promise<boolean> {

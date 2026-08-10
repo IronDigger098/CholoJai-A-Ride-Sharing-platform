@@ -296,3 +296,113 @@ describe('RidesService.cancel', () => {
     );
   });
 });
+
+describe('RidesService.list', () => {
+  /** Book and immediately cancel, so the rider is free to book again. */
+  async function bookHistory(
+    service: RidesService,
+    quotes: InMemoryFareQuoteRepository,
+    count: number,
+  ): Promise<void> {
+    for (let index = 0; index < count; index += 1) {
+      const ride = await service.book(RIDER, {
+        quoteId: await storeQuote(quotes),
+        vehicleType: VehicleType.CNG,
+      });
+      await service.cancel(RIDER, ride.id);
+    }
+  }
+
+  it('returns a page no larger than the limit', async () => {
+    const { service, quotes } = makeService();
+    await bookHistory(service, quotes, 5);
+
+    const page = await service.list(RIDER, { limit: 2 });
+
+    expect(page.data).toHaveLength(2);
+    expect(page.pageInfo.hasNextPage).toBe(true);
+  });
+
+  it('walks the whole history without repeating or skipping a ride', async () => {
+    /* The property cursor pagination exists for. Asserted by collecting
+       every page and comparing the set, because an off-by-one in the cursor
+       shows up as a duplicate or a gap and not as an error. */
+    const { service, quotes } = makeService();
+    await bookHistory(service, quotes, 5);
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const page: Awaited<ReturnType<typeof service.list>> = await service.list(
+        RIDER,
+        {
+          limit: 2,
+          ...(cursor === undefined ? {} : { cursor }),
+        },
+      );
+
+      seen.push(...page.data.map((ride) => ride.id));
+      cursor = page.pageInfo.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+
+    expect(seen).toHaveLength(5);
+    expect(new Set(seen).size).toBe(5);
+  });
+
+  it('reports no next page on the last one', async () => {
+    const { service, quotes } = makeService();
+    await bookHistory(service, quotes, 2);
+
+    const page = await service.list(RIDER, { limit: 10 });
+
+    expect(page.pageInfo.hasNextPage).toBe(false);
+    expect(page.pageInfo.nextCursor).toBeNull();
+  });
+
+  it('never returns another rider’s rides', async () => {
+    const { service, quotes } = makeService();
+    await bookHistory(service, quotes, 2);
+    await service.book('user_rider_2', {
+      quoteId: await storeQuote(quotes),
+      vehicleType: VehicleType.BIKE,
+    });
+
+    const page = await service.list(RIDER, { limit: 50 });
+
+    expect(page.data).toHaveLength(2);
+  });
+
+  it('returns an empty page for a rider with no history', async () => {
+    const { service } = makeService();
+
+    const page = await service.list('user_rider_nobody', { limit: 10 });
+
+    expect(page.data).toEqual([]);
+    expect(page.pageInfo).toEqual({ nextCursor: null, hasNextPage: false });
+  });
+});
+
+describe('RidesService.findForRider', () => {
+  it('returns the caller’s own ride', async () => {
+    const { service, quotes } = makeService();
+    const booked = await service.book(RIDER, {
+      quoteId: await storeQuote(quotes),
+      vehicleType: VehicleType.CNG,
+    });
+
+    expect((await service.findForRider(RIDER, booked.id)).id).toBe(booked.id);
+  });
+
+  it('hides another rider’s ride behind a 404', async () => {
+    const { service, quotes } = makeService();
+    const booked = await service.book(RIDER, {
+      quoteId: await storeQuote(quotes),
+      vehicleType: VehicleType.CNG,
+    });
+
+    await expect(
+      service.findForRider('user_rider_2', booked.id),
+    ).rejects.toThrow(RideNotFoundError);
+  });
+});

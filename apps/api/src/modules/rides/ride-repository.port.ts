@@ -70,6 +70,27 @@ export interface RideRepository {
    * reason.
    */
   transition(input: TransitionRideInput): Promise<boolean>;
+
+  /**
+   * One page of a rider's history, newest first.
+   *
+   * Returns up to `limit` rows plus whether more exist. Implementations read
+   * `limit + 1` and discard the extra rather than issuing a second COUNT —
+   * the count would be a full scan of the rider's history on every page, to
+   * answer a question the UI asks as "is there a next page", not "how many".
+   */
+  listForRider(riderId: string, page: RidePageQuery): Promise<RidePageResult>;
+}
+
+export interface RidePageQuery {
+  readonly limit: number;
+  /** Id of the last row of the previous page. */
+  readonly cursor?: string;
+}
+
+export interface RidePageResult {
+  readonly rides: readonly RideRecord[];
+  readonly hasNextPage: boolean;
 }
 
 export interface TransitionRideInput {

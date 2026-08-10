@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiConflictResponse,
@@ -21,9 +23,12 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { Auth } from '../auth/roles.decorator';
 
 import {
+  ActiveRideResponseDto,
   BookRideRequestDto,
   CancelRideRequestDto,
   RideIdParamDto,
+  RideListQueryDto,
+  RidePageResponseDto,
   RideResponseDto,
 } from './dto/book-ride.dto';
 import { RidesService } from './rides.service';
@@ -81,6 +86,76 @@ export class RidesController {
     @CurrentUser() rider: AuthenticatedUser,
   ): Promise<RideResponseDto> {
     return this.ridesService.book(rider.id, body);
+  }
+
+  @Get()
+  @ApiOperation({
+    summary: 'My rides',
+    description:
+      'The caller’s ride history, newest first, cursor paginated.\n\n' +
+      'Scoped to the token holder — there is no `riderId` parameter, ' +
+      'because "whose history?" is not a decision the request gets to ' +
+      'make.\n\n' +
+      'Cursor rather than offset (api-design.md §3): history is written to ' +
+      'while it is read, and an offset shifts the moment a new ride is ' +
+      'inserted, so the reader sees a duplicate or misses a row.',
+  })
+  @ApiOkResponse({
+    description: 'A page of rides, with `pageInfo.nextCursor` if more exist.',
+    type: RidePageResponseDto,
+  })
+  public async list(
+    @Query() query: RideListQueryDto,
+    @CurrentUser() rider: AuthenticatedUser,
+  ): Promise<RidePageResponseDto> {
+    return this.ridesService.list(rider.id, query);
+  }
+
+  /**
+   * Declared before `:rideId`, and it has to stay that way.
+   *
+   * Nest matches routes in declaration order, so a `:rideId` route defined
+   * above this one would capture the literal path `active` and send it to
+   * the database as a ride id. The failure is a confusing 404 rather than
+   * an error, which is exactly the kind that survives review.
+   */
+  @Get('active')
+  @ApiOperation({
+    summary: 'My current ride',
+    description:
+      'The caller’s ride that has not reached a terminal state, or `null`.' +
+      '\n\nWrapped rather than answering 204: having no ride in progress is ' +
+      'an ordinary state, not an absence of content, and one response ' +
+      'shape is easier to consume than two that depend on the status code.',
+  })
+  @ApiOkResponse({
+    description: 'The active ride, or `{ "ride": null }`.',
+    type: ActiveRideResponseDto,
+  })
+  public async active(
+    @CurrentUser() rider: AuthenticatedUser,
+  ): Promise<ActiveRideResponseDto> {
+    return { ride: await this.ridesService.findActive(rider.id) };
+  }
+
+  @Get(':rideId')
+  @ApiOperation({
+    summary: 'Ride detail',
+    description:
+      'A single ride the caller owns. A ride belonging to someone else ' +
+      'answers 404 rather than 403 — a 403 would tell anyone guessing ids ' +
+      'which ones are real.',
+  })
+  @ApiOkResponse({ description: 'The ride.', type: RideResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such ride, or not the caller’s.',
+    ...PROBLEM_DETAILS,
+  })
+  public async detail(
+    @Param() params: RideIdParamDto,
+    @CurrentUser() rider: AuthenticatedUser,
+  ): Promise<RideResponseDto> {
+    return this.ridesService.findForRider(rider.id, params.rideId);
   }
 
   /**
