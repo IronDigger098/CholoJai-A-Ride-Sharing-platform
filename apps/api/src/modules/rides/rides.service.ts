@@ -3,6 +3,8 @@ import {
   CancelledBy,
   canTransition,
   type Ride,
+  type RideListQuery,
+  type RidePage,
   RideStatus,
 } from '@cholojai/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -82,6 +84,50 @@ export class RidesService {
          copy with a CHECK constraint (N3). */
       fare: option.breakdown,
     });
+
+    return toRide(ride);
+  }
+
+  /**
+   * One page of the rider's history, newest first.
+   *
+   * Scoped to the caller rather than filtered by a `riderId` the client
+   * sends. A query parameter would make "whose history?" a decision the
+   * request gets to make, and the only correct answer is "the person
+   * holding the token".
+   */
+  public async list(riderId: string, query: RideListQuery): Promise<RidePage> {
+    const { rides, hasNextPage } = await this.rides.listForRider(riderId, {
+      limit: query.limit,
+      ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+    });
+
+    const data = rides.map(toRide);
+
+    return {
+      data,
+      pageInfo: {
+        /* The last row of this page, not of the whole set — that is what
+           the next request seeks past. Null on the final page so a client
+           cannot loop forever asking for more. */
+        nextCursor: hasNextPage ? (data.at(-1)?.id ?? null) : null,
+        hasNextPage,
+      },
+    };
+  }
+
+  /**
+   * A single ride the caller owns.
+   *
+   * Same 404-for-not-yours rule as `cancel`: a 403 would tell anyone
+   * guessing ride ids which ones exist.
+   */
+  public async findForRider(riderId: string, rideId: string): Promise<Ride> {
+    const ride = await this.rides.findById(rideId);
+
+    if (ride?.riderId !== riderId) {
+      throw new RideNotFoundError(rideId);
+    }
 
     return toRide(ride);
   }

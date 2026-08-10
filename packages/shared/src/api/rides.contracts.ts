@@ -76,3 +76,57 @@ export const cancelRideRequestSchema = z.object({
 });
 
 export type CancelRideRequest = z.infer<typeof cancelRideRequestSchema>;
+
+/**
+ * Cursor pagination, per `api-design.md` §3.
+ *
+ * Cursor rather than offset because ride history is written to while a
+ * rider reads it. `OFFSET 3` shifts the moment a new ride is inserted, so
+ * the rider sees a duplicate or misses a row; seeking on an indexed key is
+ * stable and stays flat at depth. The cost is no random page access, which
+ * nothing in this product needs.
+ *
+ * `limit` is capped. Without a ceiling the page size is chosen by the
+ * caller, and "give me everything" is one request away from being the
+ * slowest query in the system.
+ */
+export const rideListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: z.string().min(1).max(64).optional(),
+});
+
+export type RideListQuery = z.infer<typeof rideListQuerySchema>;
+
+/**
+ * A page of rides.
+ *
+ * Written out concretely rather than as a generic `paginated(schema)`
+ * helper. The envelope is a platform convention and will eventually wrap
+ * several collections, but rides is the first — and `contributing.md`
+ * forbids the abstraction until there is a second caller. When admin lists
+ * arrive, this shape is what gets promoted.
+ */
+export const ridePageSchema = z.object({
+  data: z.array(rideSchema),
+  pageInfo: z.object({
+    /** Pass as `cursor` to fetch the next page. Null on the last page. */
+    nextCursor: z.string().nullable(),
+    hasNextPage: z.boolean(),
+  }),
+});
+
+export type RidePage = z.infer<typeof ridePageSchema>;
+
+/**
+ * The rider's current ride, or explicitly nothing.
+ *
+ * Wrapped rather than answering 204 for "no active ride". Having no ride in
+ * progress is an ordinary, expected state, not an absence of content — and
+ * a wrapped null is one shape the client parses every time instead of two
+ * that depend on the status code.
+ */
+export const activeRideResponseSchema = z.object({
+  ride: rideSchema.nullable(),
+});
+
+export type ActiveRideResponse = z.infer<typeof activeRideResponseSchema>;

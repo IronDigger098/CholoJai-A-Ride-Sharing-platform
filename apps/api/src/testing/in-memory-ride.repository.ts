@@ -3,6 +3,8 @@ import { isActiveRideStatus, RideStatus } from '@cholojai/shared';
 import {
   type CreateRideInput,
   type RideRecord,
+  type RidePageQuery,
+  type RidePageResult,
   type RideRepository,
   type TransitionRideInput,
 } from '../modules/rides/ride-repository.port';
@@ -70,6 +72,45 @@ export class InMemoryRideRepository implements RideRepository {
 
     this.rows[index] = { ...existing, status: input.to };
     return true;
+  }
+
+  public async listForRider(
+    riderId: string,
+    page: RidePageQuery,
+  ): Promise<RidePageResult> {
+    /* Insertion order is the tiebreak, mirroring the adapter's `id` tiebreak.
+       Rides created inside one test share a millisecond, so a sort on
+       `requestedAt` alone is not a total order and the cursor walk would be
+       flaky — passing or failing on how the engine happened to arrange
+       equal elements. */
+    const owned = this.rows
+      .map((row, index) => ({ row, index }))
+      .filter((entry) => entry.row.riderId === riderId)
+      .sort(
+        (a, b) =>
+          b.row.requestedAt.getTime() - a.row.requestedAt.getTime() ||
+          b.index - a.index,
+      )
+      .map((entry) => entry.row);
+
+    /* The cursor is exclusive, matching Prisma's `skip: 1`. An unknown
+       cursor yields an empty page rather than the first one — silently
+       restarting from the top would make a client with a stale cursor
+       re-render history it had already scrolled past. */
+    const start =
+      page.cursor === undefined
+        ? 0
+        : owned.findIndex((row) => row.id === page.cursor) + 1;
+
+    const slice =
+      page.cursor !== undefined && start === 0
+        ? []
+        : owned.slice(start, start + page.limit);
+
+    return {
+      rides: slice,
+      hasNextPage: start + slice.length < owned.length,
+    };
   }
 
   public get size(): number {
