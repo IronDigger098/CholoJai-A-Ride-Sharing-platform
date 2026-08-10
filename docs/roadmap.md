@@ -17,12 +17,21 @@
 | M6  | Rider Web App                   | Web data layer, auth UI, geocoding proxy, booking flow, ride history, Leaflet map                                                                                                     | ✅     |
 | M7  | Driver Side & Live Tracking     | Driver applications, vehicle management, ride acceptance flow, Socket.IO driver-location tracking                                                                                     | ✅     |
 | M8  | Admin & Analytics               | Admin dashboard, user/driver management, analytics                                                                                                                                    | ✅     |
-| M9  | Content & Growth                | Blog CMS, careers, contact, notifications, reviews, coupons, referrals                                                                                                                | 🔲     |
+| M9a | Reviews & Notifications         | Post-ride ratings with a driver rating rollup, in-app notifications delivered over the existing socket                                                                                | ✅     |
+| M9b | Content & Growth                | Blog and careers as MDX in the repo, contact, coupons, referrals                                                                                                                      | 🔲     |
 | M10 | Payments & Polish               | Mock payment integration, settings, search, i18n-ready architecture                                                                                                                   | 🔲     |
 | M11 | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                                      | 🔲     |
 | M12 | Production Deployment           | Vercel + Railway, GitHub Actions pipelines, release process                                                                                                                           | 🔲     |
 
 ## Sequencing rationale
+
+**M9 was split, because it was three milestones under one heading.** Blog,
+careers, contact, notifications, reviews, coupons and referrals share a
+label and nothing else. Reviews and notifications touch the ride flow and
+already had tables designed for them in M0, so they went first as M9a; the
+marketing and growth features are M9b. The split is about reviewability —
+one branch carrying seven unrelated features produces a pull request nobody
+can read, and any failing check in it blocks all seven.
 
 **Schema evolves per feature, not up front.** The core domain (users, roles,
 drivers, vehicles, rides) is designed in M0; every later feature adds its own
