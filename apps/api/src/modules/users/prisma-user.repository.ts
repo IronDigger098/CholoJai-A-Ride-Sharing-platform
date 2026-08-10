@@ -104,12 +104,12 @@ export class PrismaUserRepository implements UserRepository {
   /**
    * Grant a role.
    *
-   * `upsert` against the `(user_id, role)` unique index rather than a
-   * read-then-insert: two administrators acting at the same moment would
-   * both see "not granted yet", and the second insert would surface as a
-   * constraint violation — a 500 for a request that wanted something that
-   * is already true. Letting the database resolve the collision turns a
-   * race into a no-op.
+   * `INSERT … ON CONFLICT DO NOTHING` against the `(user_id, role)` unique
+   * index, rather than a read-then-insert: two administrators acting at the
+   * same moment would both see "not granted yet", and the second insert
+   * would surface as a constraint violation — a 500 for a request that
+   * wanted something already true. Letting the database resolve the
+   * collision turns a race into a no-op.
    *
    * The existence check runs first and filters soft-deleted accounts, so a
    * deactivated user cannot quietly be handed a role.
@@ -120,10 +120,17 @@ export class PrismaUserRepository implements UserRepository {
   ): Promise<UserRecord | null> {
     if ((await this.findById(userId)) === null) return null;
 
-    await this.prisma.roleGrant.upsert({
-      where: { userId_role: { userId, role } },
-      create: { userId, role },
-      update: {},
+    /* `createMany` with `skipDuplicates`, not `upsert`. Both express "grant
+       it if it is not already granted", but they compile differently:
+       this one is `ON CONFLICT DO NOTHING`, while `upsert` takes the
+       `DO UPDATE` branch and locks the conflicting row to write an empty
+       update to it. Two concurrent grants of the same role then contend for
+       that lock — which is how the "two administrators at the same moment"
+       integration test failed once in CI and never once locally. Saying
+       "do nothing" precisely leaves nothing to contend on. */
+    await this.prisma.roleGrant.createMany({
+      data: [{ userId, role }],
+      skipDuplicates: true,
     });
 
     return this.findById(userId);
