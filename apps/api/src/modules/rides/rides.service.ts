@@ -2,6 +2,7 @@ import {
   type BookRideRequest,
   CancelledBy,
   canTransition,
+  NotificationKind,
   type Ride,
   type RideListQuery,
   type RidePage,
@@ -9,10 +10,12 @@ import {
 } from '@cholojai/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { DriversService } from '../drivers/drivers.service';
 import {
   FARE_QUOTE_REPOSITORY,
   type FareQuoteRepository,
 } from '../fares/fare-quote-repository.port';
+import { NotificationsService } from '../notifications/notifications.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 
 import {
@@ -50,6 +53,10 @@ export class RidesService {
        asks one question — "who is this driver and what are they driving?" —
        and the vehicles module answers it, approval check included. */
     private readonly vehicles: VehiclesService,
+    /* For one question only: which account a driver profile belongs to, so
+       a cancelled ride can reach the driver who was on their way to it. */
+    private readonly drivers: DriversService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   public async book(riderId: string, request: BookRideRequest): Promise<Ride> {
@@ -253,7 +260,42 @@ export class RidesService {
     const updated = await this.rides.findById(rideId);
     if (updated === null) throw new RideNotFoundError(rideId);
 
+    await this.announce(action, updated);
+
     return toRide(updated);
+  }
+
+  /**
+   * Tell the rider what their driver just did.
+   *
+   * Only two of the four moves. `arrive` and `start` happen while the rider
+   * is watching the ride screen, where the status is already live — a
+   * notification would be telling someone something they are looking at.
+   */
+  private async announce(
+    action: DriverAction,
+    ride: RideRecord,
+  ): Promise<void> {
+    if (action === 'accept') {
+      await this.notifications.notify({
+        userId: ride.riderId,
+        kind: NotificationKind.RIDE_ACCEPTED,
+        title: 'Your driver is on the way',
+        body: 'A driver accepted your ride.',
+        href: `/rides/${ride.id}`,
+      });
+      return;
+    }
+
+    if (action === 'complete') {
+      await this.notifications.notify({
+        userId: ride.riderId,
+        kind: NotificationKind.RIDE_COMPLETED,
+        title: 'Ride finished',
+        body: 'Thanks for riding. Tap to rate your driver.',
+        href: `/rides/${ride.id}`,
+      });
+    }
   }
 
   /**
@@ -310,6 +352,24 @@ export class RidesService {
        deletes rides. Guarded rather than asserted, because a non-null
        assertion here would be a promise the type system cannot keep. */
     if (cancelled === null) throw new RideNotFoundError(rideId);
+
+    /* Only when someone was already on their way. A ride cancelled before
+       any driver accepted it has nobody to tell. */
+    if (cancelled.driverProfileId !== null) {
+      const driverUserId = await this.drivers.findUserId(
+        cancelled.driverProfileId,
+      );
+
+      if (driverUserId !== null) {
+        await this.notifications.notify({
+          userId: driverUserId,
+          kind: NotificationKind.RIDE_CANCELLED,
+          title: 'A ride was cancelled',
+          body: 'The rider cancelled after you accepted. You are free again.',
+          href: '/drive',
+        });
+      }
+    }
 
     return toRide(cancelled);
   }

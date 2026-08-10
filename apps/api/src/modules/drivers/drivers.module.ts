@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AdminModule } from '../admin/admin.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 import { DriverApplicationsController } from './driver-applications.controller';
 import { DRIVER_PROFILE_REPOSITORY } from './driver-profile-repository.port';
@@ -22,7 +23,7 @@ import { PrismaDriverProfileRepository } from './prisma-driver-profile.repositor
  * them accept anything.
  */
 @Module({
-  imports: [AuthModule, AdminModule],
+  imports: [AuthModule, AdminModule, NotificationsModule],
   controllers: [DriversController, DriverApplicationsController],
   providers: [
     DriversService,

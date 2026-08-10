@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { DriversModule } from '../drivers/drivers.module';
 import { FaresModule } from '../fares/fares.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 
 import { PrismaRideRepository } from './prisma-ride.repository';
@@ -18,11 +20,21 @@ import { RidesService } from './rides.service';
  * booking time, which is exactly what D2's snapshot rule exists to prevent.
  */
 @Module({
-  /* VehiclesModule, not DriversModule: the only question rides asks is
-     "who is this driver and what are they driving", and vehicles answers
-     both — including the approval check it already delegates to drivers.
-     Importing both would give this module two ways to ask the same thing. */
-  imports: [AuthModule, FaresModule, VehiclesModule],
+  /* VehiclesModule answers "who is this driver and what are they driving",
+     including the approval check it delegates to drivers — that is still
+     the only way dispatch asks the question.
+
+     DriversModule arrives alongside it for the opposite direction, and one
+     use: turning a driver profile back into an account, so a cancelled ride
+     can notify the driver who was on their way to it. Two imports, two
+     distinct questions; neither is a second route to the other. */
+  imports: [
+    AuthModule,
+    FaresModule,
+    VehiclesModule,
+    DriversModule,
+    NotificationsModule,
+  ],
   controllers: [RidesController],
   providers: [
     RidesService,
