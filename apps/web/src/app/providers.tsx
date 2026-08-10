@@ -3,6 +3,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 
+import { SessionProvider } from '@/features/auth/session';
 import { createQueryClient } from '@/lib/query-client';
 
 /**
@@ -21,7 +22,12 @@ import { createQueryClient } from '@/lib/query-client';
 export function Providers({ children }: { children: ReactNode }): ReactNode {
   const [queryClient] = useState(createQueryClient);
 
+  /* Session inside the query client, not outside it. Restoring a session
+     issues an HTTP call, and anything that later wants to cache or
+     invalidate around sign-in needs the query client already above it. */
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <SessionProvider>{children}</SessionProvider>
+    </QueryClientProvider>
   );
 }
