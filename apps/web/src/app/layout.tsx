@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
+import { Providers } from '@/app/providers';
 import { ThemeScript } from '@/components/theme-script';
 import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from '@/lib/site';
 
@@ -90,7 +91,10 @@ export default function RootLayout({
         {/* First child of <body> on purpose — see ThemeScript. It has to
             run during parsing, before anything exists to paint. */}
         <ThemeScript />
-        {children}
+        {/* The only client boundary in the layout. Everything above this
+            stays a Server Component; `Providers` and its subtree ship to
+            the browser. */}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
