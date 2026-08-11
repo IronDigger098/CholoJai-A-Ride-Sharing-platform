@@ -31,6 +31,7 @@ import {
   RideListQueryDto,
   RideOffersDto,
   RidePageResponseDto,
+  PaymentResponseDto,
   RideResponseDto,
 } from './dto/book-ride.dto';
 import { RidesService } from './rides.service';
@@ -184,6 +185,29 @@ export class RidesController {
     @CurrentUser() rider: AuthenticatedUser,
   ): Promise<RideResponseDto> {
     return this.ridesService.findForRider(rider.id, params.rideId);
+  }
+
+  @Get(':rideId/payment')
+  @ApiOperation({
+    summary: 'How this ride was paid for',
+    description:
+      'Separate from the ride itself because it changes on a different ' +
+      'clock: the ride is finished the moment the driver says so, and the ' +
+      'payment settles after. Folding it into the ride would mean every ' +
+      'poll of a moving ride re-read a row that only changes twice.\n\n' +
+      'Ownership is checked the same way the ride is — somebody else’s ' +
+      'ride answers 404, and so does its payment.',
+  })
+  @ApiOkResponse({ description: 'The payment.', type: PaymentResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such ride, or not the caller’s, or no payment on it.',
+    ...PROBLEM_DETAILS,
+  })
+  public async payment(
+    @Param() params: RideIdParamDto,
+    @CurrentUser() rider: AuthenticatedUser,
+  ): Promise<PaymentResponseDto> {
+    return this.ridesService.findPaymentForRider(rider.id, params.rideId);
   }
 
   /**

@@ -1,6 +1,8 @@
 import {
   activeRideResponseSchema,
   myReviewResponseSchema,
+  type Payment,
+  paymentSchema,
   type Review,
   reviewSchema,
   type RideListQuery,
@@ -31,6 +33,11 @@ export async function getActiveRide(): Promise<Ride | null> {
 export async function getRide(rideId: string): Promise<Ride> {
   const response = await apiClient.get(`/rides/${rideId}`);
   return rideSchema.parse(response.data);
+}
+
+export async function getRidePayment(rideId: string): Promise<Payment> {
+  const response = await apiClient.get(`/rides/${rideId}/payment`);
+  return paymentSchema.parse(response.data);
 }
 
 export async function cancelRide(rideId: string): Promise<Ride> {

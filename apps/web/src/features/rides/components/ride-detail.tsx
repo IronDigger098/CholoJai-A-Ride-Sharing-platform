@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cancelRide, getRide } from '../api';
 
 import { RateRide } from './rate-ride';
+import { RidePayment } from './ride-payment';
 
 import type { ReactNode } from 'react';
 
@@ -120,6 +121,11 @@ export function RideDetail({ rideId }: { rideId: string }): ReactNode {
       {/* Only once the journey is over. A rating form on a ride in progress
           asks someone to judge something that has not happened yet, and the
           API would refuse it anyway. */}
+      {/* Shown at every stage, not only when complete: a rider who booked
+          with a card wants to see the hold exists, and one whose ride was
+          cancelled wants to see it released. */}
+      <RidePayment rideId={rideId} />
+
       {ride.status === RideStatus.COMPLETED && <RateRide rideId={rideId} />}
     </div>
   );

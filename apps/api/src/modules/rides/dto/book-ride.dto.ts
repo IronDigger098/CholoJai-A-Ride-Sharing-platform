@@ -2,6 +2,7 @@ import {
   activeRideResponseSchema,
   bookRideRequestSchema,
   cancelRideRequestSchema,
+  paymentSchema,
   rideIdParamSchema,
   rideListQuerySchema,
   rideOffersSchema,
@@ -29,3 +30,5 @@ export class ActiveRideResponseDto extends createZodDto(
 ) {}
 
 export class RideOffersDto extends createZodDto(rideOffersSchema) {}
+
+export class PaymentResponseDto extends createZodDto(paymentSchema) {}
