@@ -1,13 +1,17 @@
 # CholoJai — Database Design (Core ERD)
 
-> **Status:** Draft for review · **Last updated:** 2026-08-05
+> **Status:** Current as of M9b · **Last updated:** 2026-08-11
 >
-> Relational implementation of `domain-model.md`. This covers the **core
-> domain** (identity, drivers, rides, payments, reviews, growth). Content
-> tables (blog, careers, contact) are reserved and will be designed in M9;
-> auth token tables are included here because M3 needs them.
-> Implementation is Prisma; every change to this design ships as a reviewed
-> migration.
+> Relational implementation of `domain-model.md`, covering every table that
+> exists. Implementation is Prisma; every change to this design ships as a
+> reviewed migration.
+>
+> This document describes the schema as built, not as planned. Where the two
+> diverged — coupons and notifications shipped with different column names
+> than M0 drew, and `referrals` was drawn but never built — the diagram has
+> been corrected to match `schema.prisma` rather than the other way around.
+> A design document that quietly describes a different database than the one
+> running is worse than no document: it is read and believed.
 
 ---
 
@@ -44,9 +48,10 @@ erDiagram
     rides ||--o| payments : "settled by"
     rides ||--o{ reviews : "rated by (max 2)"
     coupons ||--o{ coupon_redemptions : "redeemed via"
+    coupons ||--o{ fare_quotes : "priced"
     rides ||--o| coupon_redemptions : "may apply"
     users ||--o{ coupon_redemptions : "redeems"
-    users ||--o{ referrals : "refers / referred"
+    users ||--o{ contact_messages : "may have written"
 
     users {
         text id PK
@@ -105,6 +110,7 @@ erDiagram
         integer distance_m
         integer duration_s
         jsonb options "price per vehicle type + breakdown"
+        text coupon_id FK "nullable, the campaign that priced it"
         timestamptz expires_at
         timestamptz created_at
     }
@@ -165,17 +171,20 @@ erDiagram
 
     coupons {
         text id PK
-        text code UK
-        enum discount_type "PERCENT | FIXED"
-        integer discount_value "percent x100 or paisa"
-        integer min_fare_paisa "nullable"
-        integer max_discount_paisa "nullable"
-        integer max_uses "nullable"
-        integer max_uses_per_user
+        text code UK "uppercase; the contract normalises"
+        enum kind "PERCENT | FIXED"
+        integer value "percent 1-100, or paisa off"
+        integer min_fare_paisa "NOT NULL, 0 means any"
+        integer max_discount_paisa "nullable, caps a percentage"
+        integer max_redemptions "nullable, null means unlimited"
+        integer per_user_limit
+        integer redeemed_count "the budget counter (N8)"
+        boolean first_ride_only
         timestamptz starts_at
-        timestamptz expires_at
+        timestamptz ends_at "nullable"
         boolean is_active
         timestamptz created_at
+        timestamptz updated_at
     }
 
     coupon_redemptions {
@@ -183,19 +192,8 @@ erDiagram
         text coupon_id FK
         text user_id FK
         text ride_id FK "UK - one coupon per ride"
-        integer discount_paisa "snapshot"
+        integer amount_paisa "snapshot of what came off"
         timestamptz created_at
-    }
-
-    referrals {
-        text id PK
-        text referrer_id FK "-> users"
-        text referee_id FK "UK - referred once"
-        text code
-        enum status "PENDING | COMPLETED"
-        integer credit_paisa
-        timestamptz created_at
-        timestamptz completed_at "nullable"
     }
 
     saved_places {
@@ -211,11 +209,22 @@ erDiagram
     notifications {
         text id PK
         text user_id FK
-        enum type "RIDE_EVENT | PROMO | SYSTEM | ACCOUNT"
+        enum kind "RIDE_ACCEPTED | RIDE_COMPLETED | RIDE_CANCELLED | DRIVER_APPLICATION_APPROVED | DRIVER_APPLICATION_REJECTED"
         text title
         text body
-        jsonb payload "nullable, e.g. ride id"
+        text href "nullable, where tapping leads"
         timestamptz read_at "nullable"
+        timestamptz created_at
+    }
+
+    contact_messages {
+        text id PK
+        text name "as typed, not joined from an account"
+        text email "as typed; proves nothing"
+        text subject
+        text message
+        text user_id FK "nullable, ON DELETE SET NULL (N9)"
+        timestamptz handled_at "nullable, reversible"
         timestamptz created_at
     }
 
@@ -317,8 +326,52 @@ presenting an already-rotated token revokes the whole family (ADR-008).
   PostGIS is the documented upgrade path if geo queries ever grow.
 - **No generic `addresses` table** — pickup/dropoff are denormalized text +
   coords on the ride (they're historical snapshots, same logic as fares).
-- **Content tables** (`blog_posts`, `career_listings`, `job_applications`,
-  `contact_messages`) — reserved, designed in M9.
+- **No `referrals` table yet.** It was drawn in this diagram at M0 and has
+  been removed from it: a diagram is a claim about what exists, and drawing
+  a table with no migration behind it is the kind of claim that costs
+  somebody an afternoon. Referrals are M9c.
+- **No content tables** (`blog_posts`, `career_listings`,
+  `job_applications`) — blog and careers are MDX files in the repo, decided
+  in M9b. Nothing queries them, so nothing stores them. `contact_messages`
+  shipped in M9b and is documented above.
+
+### N8 — `redeemed_count` is a column, not a `COUNT(*)`
+
+A campaign's budget could be enforced by counting `coupon_redemptions`. It
+is not, because the check and the write must be one statement: `UPDATE
+coupons SET redeemed_count = redeemed_count + 1 WHERE ... AND redeemed_count
+< max_redemptions`. Two riders spending the last redemption at the same
+moment both pass a preceding `SELECT COUNT(*)`; only one passes a predicate
+re-evaluated after the row lock. Same pattern as the partial unique indexes
+in N2 — the database decides, not the application.
+
+The counter is therefore derived data that must not drift, which is why the
+redemption row and the increment are written in one transaction. The
+per-rider limit _is_ a `COUNT(*)` over `coupon_redemptions`, because it is
+checked at quote time where being slightly stale is harmless: the budget
+check at redemption is what actually holds.
+
+`prisma-coupon.repository.int-spec.ts` races eight riders for one redemption
+and ten for five. It is one of the few properties in this codebase an
+in-memory fake genuinely cannot demonstrate.
+
+### N9 — Contact messages survive the account that wrote them
+
+`contact_messages.user_id` is `ON DELETE SET NULL` rather than the RESTRICT
+this schema defaults to, and nullable rather than required. Both follow from
+the same fact: most messages have no account behind them at all, because the
+endpoint is open to anyone. Somebody who cannot sign in is exactly the
+person who most needs to reach support.
+
+`name` and `email` are stored as typed and never joined from an account.
+They prove nothing — a stranger can type anybody's address — which is
+precisely why `user_id` comes from the caller's token and is never matched
+from the email. Deleting an account must not erase the complaint that
+preceded it.
+
+`handled_at` is a nullable timestamp rather than a boolean or a status
+enum. Handling records who still owes a reply; it is reversible, and a
+one-way flag turns a single misclick into a message nobody looks at again.
 
 ---
 
@@ -330,9 +383,13 @@ presenting an already-rotated token revokes the whole family (ADR-008).
 | `rides (driver_profile_id, requested_at DESC)` | driver history/earnings                   |
 | `rides (status)`                               | matching + admin live monitor             |
 | `rides (requested_at)`                         | analytics date ranges                     |
-| `notifications (user_id, read_at)`             | unread badge + inbox                      |
+| `notifications (user_id, created_at DESC)`     | the notification list, newest first       |
+| `notifications (user_id, read_at)`             | unread badge                              |
 | `reviews (target_id)`                          | driver rating recalculation               |
-| `coupon_redemptions (coupon_id)`, `(user_id)`  | usage-limit checks                        |
+| `coupon_redemptions (coupon_id, user_id)`      | the per-rider limit check                 |
+| `coupons (is_active, starts_at)`               | the admin campaign list                   |
+| `contact_messages (handled_at, created_at)`    | the support inbox, longest waiting first  |
+| `users (deleted_at, created_at DESC)`          | the admin user directory                  |
 | `refresh_tokens (user_id)`, `(family_id)`      | session listing, family revocation        |
 | every FK column                                | joins + RESTRICT checks (see Conventions) |
 
