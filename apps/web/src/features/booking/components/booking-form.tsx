@@ -3,7 +3,7 @@
 import { type Place, type VehicleType } from '@cholojai/shared';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 
 import { bookRide, requestQuote } from '../api';
 
@@ -12,7 +12,26 @@ import { MapPanel } from './map-panel';
 import { PlaceSearch } from './place-search';
 
 import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
 import { toApiError } from '@/lib/api-error';
+
+/**
+ * Every way a code can be refused.
+ *
+ * Listed so the message lands on the coupon field rather than in the banner
+ * above the form. A rider whose journey was priced fine and whose code was
+ * not needs to know which of the two the complaint is about — and the six
+ * server-side messages already say what to do, so the only thing missing is
+ * where to look.
+ */
+const COUPON_FAILURES = new Set([
+  'COUPON_NOT_FOUND',
+  'COUPON_NOT_RUNNING',
+  'COUPON_EXHAUSTED',
+  'COUPON_ALREADY_USED',
+  'COUPON_FIRST_RIDE_ONLY',
+  'FARE_BELOW_COUPON_MINIMUM',
+]);
 
 /**
  * Book a ride: pick two places, price them, choose a vehicle, confirm.
@@ -20,22 +39,40 @@ import { toApiError } from '@/lib/api-error';
  * Quoting is a mutation rather than a query. It writes — every quote is a
  * row with an expiry — and it must run when the rider asks, not whenever
  * React Query decides the inputs look stale.
+ *
+ * A refused code fails the whole quote rather than quietly pricing without
+ * it. Showing full prices to someone who believes a discount applied is the
+ * one outcome worth avoiding: they find out at the receipt, and by then the
+ * ride has happened.
  */
 export function BookingForm(): ReactNode {
   const router = useRouter();
+  const id = useId();
 
   const [pickup, setPickup] = useState<Place | null>(null);
   const [dropoff, setDropoff] = useState<Place | null>(null);
+  const [couponCode, setCouponCode] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   const quote = useMutation({
     mutationFn: requestQuote,
     onSuccess: () => {
       setError(null);
+      setCouponError(null);
     },
     onError: (cause: unknown) => {
-      setError(toApiError(cause).message);
+      const failure = toApiError(cause);
+
+      if (failure.code !== undefined && COUPON_FAILURES.has(failure.code)) {
+        setCouponError(failure.message);
+        setError(null);
+        return;
+      }
+
+      setError(failure.message);
+      setCouponError(null);
     },
   });
 
@@ -67,6 +104,10 @@ export function BookingForm(): ReactNode {
       pickupAddress: pickup.label,
       dropoff: dropoff.coordinates,
       dropoffAddress: dropoff.label,
+      /* Absent rather than empty. The contract's minimum length is three
+         characters, so a blank string would be a validation failure for a
+         rider who simply has no code. */
+      ...(couponCode.trim() === '' ? {} : { couponCode: couponCode.trim() }),
     });
   }
 
@@ -100,6 +141,20 @@ export function BookingForm(): ReactNode {
           if (pickup === null) setPickup(place);
           else setDropoff(place);
         }}
+      />
+
+      {/* Below the map, above the price button: it changes what the prices
+          are, so it belongs on the input side of that line rather than
+          appearing after the rider has already seen a number. */}
+      <Field
+        id={`${id}-coupon`}
+        label="Promo code"
+        hint="Optional."
+        value={couponCode}
+        onChange={(event) => {
+          setCouponCode(event.target.value);
+        }}
+        {...(couponError === null ? {} : { error: couponError })}
       />
 
       <Button

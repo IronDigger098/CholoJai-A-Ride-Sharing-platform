@@ -9,6 +9,7 @@ import { describe, expect, it } from '@jest/globals';
 import { InMemoryFareQuoteRepository } from '../../testing/in-memory-fare-quote.repository';
 import { InMemoryRideRepository } from '../../testing/in-memory-ride.repository';
 import { makeRecordingNotifications } from '../../testing/recording-notifications';
+import { type CouponsService } from '../coupons/coupons.service';
 import { type DriversService } from '../drivers/drivers.service';
 import { type VehiclesService } from '../vehicles/vehicles.service';
 
@@ -36,17 +37,61 @@ const OPTIONS: FareOption[] = VEHICLE_TYPE_ORDER.map((vehicleType, index) => ({
   },
 }));
 
-function makeService(): {
+/** Every discounted by a tenth, keeping the five columns consistent. */
+const DISCOUNTED: FareOption[] = OPTIONS.map(({ vehicleType, breakdown }) => {
+  const off = Math.floor(breakdown.total / 10);
+
+  return {
+    vehicleType,
+    breakdown: { ...breakdown, discount: off, total: breakdown.total - off },
+  };
+});
+
+/** What booking asked the campaign to spend. */
+interface RedeemCall {
+  couponId: string;
+  userId: string;
+  rideId: string;
+  amountPaisa: number;
+}
+
+/**
+ * A campaign that records what it was asked to spend.
+ *
+ * `spends` decides whether the budget was still there. False is not an
+ * error — it is the case where somebody else took the last one between the
+ * quote and the booking.
+ */
+function makeRecordingCoupons(spends = true): {
+  service: CouponsService;
+  redeemed: RedeemCall[];
+} {
+  const redeemed: RedeemCall[] = [];
+
+  return {
+    service: {
+      redeem: (input: RedeemCall) => {
+        redeemed.push(input);
+        return Promise.resolve(spends);
+      },
+    } as unknown as CouponsService,
+    redeemed,
+  };
+}
+
+function makeService(coupons = makeRecordingCoupons()): {
   service: RidesService;
   quotes: InMemoryFareQuoteRepository;
   rides: InMemoryRideRepository;
+  redeemed: RedeemCall[];
 } {
   const quotes = new InMemoryFareQuoteRepository();
   const rides = new InMemoryRideRepository();
   return {
-    service: makeRides(rides, quotes, stubVehicles()),
+    service: makeRides(rides, quotes, stubVehicles(), coupons.service),
     quotes,
     rides,
+    redeemed: coupons.redeemed,
   };
 }
 
@@ -61,6 +106,7 @@ function makeRides(
   rides: InMemoryRideRepository,
   quotes: InMemoryFareQuoteRepository,
   vehicles: VehiclesService,
+  coupons: CouponsService = makeRecordingCoupons().service,
 ): RidesService {
   return new RidesService(
     rides,
@@ -68,6 +114,7 @@ function makeRides(
     vehicles,
     stubDrivers(),
     makeRecordingNotifications().service,
+    coupons,
   );
 }
 
@@ -100,6 +147,25 @@ async function storeQuote(
     durationSeconds: 660,
     options: OPTIONS,
     expiresAt,
+  });
+
+  return record.id;
+}
+
+/** A quote a campaign priced, carrying the id booking must spend. */
+async function storeDiscountedQuote(
+  quotes: InMemoryFareQuoteRepository,
+): Promise<string> {
+  const record = await quotes.create({
+    pickup: { lat: 23.7461, lng: 90.376 },
+    pickupAddress: 'Dhanmondi 27',
+    dropoff: { lat: 23.7936, lng: 90.4043 },
+    dropoffAddress: 'Banani 11',
+    distanceMetres: 8400,
+    durationSeconds: 660,
+    options: DISCOUNTED,
+    couponId: 'coupon_1',
+    expiresAt: new Date(Date.now() + 300_000),
   });
 
   return record.id;
@@ -153,6 +219,68 @@ describe('RidesService.book', () => {
     expect(fare.total).toBe(
       fare.base + fare.distance + fare.time - fare.discount,
     );
+  });
+
+  it('spends the campaign the quote recorded, against the new ride', async () => {
+    /* The redemption carries a ride id, so it can only happen once the ride
+       row exists. Spent earlier, a booking that then lost the one-active-
+       ride index would have taken a discount off a ride nobody got. */
+    const { service, quotes, redeemed } = makeService();
+    const quoteId = await storeDiscountedQuote(quotes);
+
+    const ride = await service.book(RIDER, {
+      quoteId,
+      vehicleType: VehicleType.CNG,
+    });
+
+    expect(redeemed).toHaveLength(1);
+    expect(redeemed[0]?.couponId).toBe('coupon_1');
+    expect(redeemed[0]?.userId).toBe(RIDER);
+    expect(redeemed[0]?.rideId).toBe(ride.id);
+  });
+
+  it('spends the discount of the vehicle actually booked', async () => {
+    /* A percentage takes a different amount off each type. Recording the
+       cheapest option's discount against a car would understate what the
+       campaign cost, on every ride it ever prices. */
+    const { service, quotes, redeemed } = makeService();
+    const quoteId = await storeDiscountedQuote(quotes);
+
+    const car = DISCOUNTED.find(
+      (option) => option.vehicleType === VehicleType.CAR,
+    );
+    await service.book(RIDER, { quoteId, vehicleType: VehicleType.CAR });
+
+    expect(redeemed[0]?.amountPaisa).toBe(car?.breakdown.discount);
+  });
+
+  it('spends nothing when no campaign priced the quote', async () => {
+    const { service, quotes, redeemed } = makeService();
+    const quoteId = await storeQuote(quotes);
+
+    await service.book(RIDER, { quoteId, vehicleType: VehicleType.CNG });
+
+    expect(redeemed).toHaveLength(0);
+  });
+
+  it('books at the quoted price even when the budget ran out', async () => {
+    /* Somebody took the last redemption between the quote and the booking.
+       The rider accepted this price; refusing the ride to protect a
+       marketing budget is the more expensive mistake, so the campaign goes
+       one over and says so in the log. */
+    const { service, quotes } = makeService(makeRecordingCoupons(false));
+    const quoteId = await storeDiscountedQuote(quotes);
+
+    const cng = DISCOUNTED.find(
+      (option) => option.vehicleType === VehicleType.CNG,
+    );
+    const ride = await service.book(RIDER, {
+      quoteId,
+      vehicleType: VehicleType.CNG,
+    });
+
+    expect(ride.status).toBe(RideStatus.REQUESTED);
+    expect(ride.fare).toEqual(cng?.breakdown);
   });
 
   it('rejects a quote id that was never issued', async () => {

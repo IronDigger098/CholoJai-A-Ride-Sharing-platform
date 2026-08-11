@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { CouponsModule } from '../coupons/coupons.module';
 import { DriversModule } from '../drivers/drivers.module';
 import { FaresModule } from '../fares/fares.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -34,6 +35,9 @@ import { RidesService } from './rides.service';
     VehiclesModule,
     DriversModule,
     NotificationsModule,
+    /* To spend a code, never to price one. Fares imports it for the other
+       half; the two directions do not meet, so there is no cycle. */
+    CouponsModule,
   ],
   controllers: [RidesController],
   providers: [

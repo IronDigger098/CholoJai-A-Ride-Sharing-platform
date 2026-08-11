@@ -10,6 +10,7 @@ import { type Env } from './config/env.schema';
 import { AdminModule } from './modules/admin/admin.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ContactModule } from './modules/contact/contact.module';
 import { DriversModule } from './modules/drivers/drivers.module';
 import { FaresModule } from './modules/fares/fares.module';
 import { GeoModule } from './modules/geo/geo.module';
@@ -59,6 +60,7 @@ export class AppModule {
         VehiclesModule,
         TrackingModule,
         ReviewsModule,
+        ContactModule,
       ],
     };
   }

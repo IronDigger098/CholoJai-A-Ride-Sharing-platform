@@ -16,6 +16,14 @@ export interface CreateFareQuoteInput {
   readonly distanceMetres: number;
   readonly durationSeconds: number;
   readonly options: readonly FareOption[];
+  /**
+   * The campaign whose discount is already inside `options`.
+   *
+   * Carried so booking redeems the coupon the rider was quoted rather than
+   * re-evaluating the code, which in the seconds between could reach a
+   * different answer (D2).
+   */
+  readonly couponId?: string | undefined;
   readonly expiresAt: Date;
 }
 

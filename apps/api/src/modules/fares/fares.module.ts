@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { CouponsModule } from '../coupons/coupons.module';
 import { GeoModule } from '../geo/geo.module';
 
 import { FARE_QUOTE_REPOSITORY } from './fare-quote-repository.port';
@@ -21,7 +22,7 @@ import { PrismaFareQuoteRepository } from './prisma-fare-quote.repository';
  * module needs to read a stored offer, not to make a new one.
  */
 @Module({
-  imports: [AuthModule, GeoModule],
+  imports: [AuthModule, GeoModule, CouponsModule],
   controllers: [FaresController],
   providers: [
     FaresService,

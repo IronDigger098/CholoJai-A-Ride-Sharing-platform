@@ -94,6 +94,16 @@ enum VerificationPurpose {
   @@map("verification_purpose")
 }
 
+/// How a coupon reduces a fare.
+enum CouponKind {
+  /// `value` is a percentage, 1–100.
+  PERCENT
+  /// `value` is paisa off.
+  FIXED
+
+  @@map("coupon_kind")
+}
+
 /// What a notification is about.
 ///
 /// An enum rather than free text, because the kind is what a client filters
@@ -136,6 +146,7 @@ model User {
   roleGrants         RoleGrant[]
   driverProfile      DriverProfile?
   notifications      Notification[]
+  couponRedemptions  CouponRedemption[]
   savedPlaces        SavedPlace[]
   refreshTokens      RefreshToken[]
   verificationTokens VerificationToken[]
@@ -143,6 +154,7 @@ model User {
   payments           Payment[]
   reviewsAuthored    Review[]            @relation("ReviewAuthor")
   reviewsReceived    Review[]            @relation("ReviewTarget")
+  contactMessages    ContactMessage[]
 
   /// Composite rather than `deletedAt` alone. The admin directory reads
   /// active users newest first, and a leading `deletedAt` still serves every
@@ -249,6 +261,19 @@ model FareQuote {
   /// Priced options per vehicle type, with the full breakdown.
   options Json
 
+  /// Which campaign, if any, produced the discount already inside `options`.
+  ///
+  /// Carried so booking can record the redemption against the same coupon
+  /// the rider was quoted, rather than re-evaluating the code at booking
+  /// time and possibly reaching a different answer — the campaign may have
+  /// been retired, or its last redemption spent, in the seconds between.
+  /// The price the rider accepted is the price they get (D2).
+  ///
+  /// A plain column rather than a foreign key: quotes expire and are
+  /// disposable, and a reference from ephemeral rows would make a campaign
+  /// undeletable for the lifetime of every quote that mentioned it.
+  couponId String? @map("coupon_id")
+
   expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
@@ -309,8 +334,9 @@ model Ride {
   vehicle       Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   fareQuote     FareQuote      @relation(fields: [fareQuoteId], references: [id], onDelete: Restrict)
 
-  payment Payment?
-  reviews Review[]
+  payment          Payment?
+  reviews          Review[]
+  couponRedemption CouponRedemption?
 
   @@index([riderId, requestedAt(sort: Desc)])
   @@index([driverProfileId, requestedAt(sort: Desc)])
@@ -426,6 +452,121 @@ model Notification {
   /// The unread count, which every page asks for on load.
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+/// Someone writing to support.
+///
+/// The one table an unauthenticated caller can insert into. That is the
+/// point — a person who cannot sign in is exactly the person who needs to
+/// reach support — and it is why `name` and `email` are stored as typed
+/// rather than joined from an account: for most rows there is no account,
+/// and for the rest the typed values are what the sender chose to be
+/// reached at.
+///
+/// `user_id` is set only when the sender was signed in, and never derived
+/// from the email. Matching an unverified string to an account would attach
+/// a real person to a message a stranger wrote.
+model ContactMessage {
+  id String @id @default(cuid())
+
+  name    String
+  email   String
+  subject String
+  message String
+
+  /// The account the sender held at the time, when they held one.
+  userId String? @map("user_id")
+
+  /// When an administrator marked it dealt with. Reversible: this records
+  /// who still owes a reply, not a transition with consequences.
+  handledAt DateTime? @map("handled_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  /// `SetNull` rather than `Cascade`. A deleted account must not erase the
+  /// complaint that preceded it — the message stands on its own, and the
+  /// name and email on the row are what it was always going to be read by.
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// The queue: unhandled first, oldest first within it. Oldest rather than
+  /// newest so an unanswered message rises instead of sinking — with a
+  /// newest-first inbox and pagination, the messages waiting longest are the
+  /// ones nobody ever scrolls to.
+  @@index([handledAt, createdAt])
+  @@map("contact_messages")
+}
+
+/// A discount campaign.
+///
+/// Every limit is a column rather than a rule in code, because an
+/// administrator changes campaigns and nobody deploys for it. The columns
+/// are also what makes the limits enforceable: `redeemed_count` is
+/// incremented by a conditional UPDATE that carries `max_redemptions` in its
+/// WHERE clause, so two riders spending the last redemption at the same
+/// moment resolve to exactly one winner — the same pattern the ride state
+/// machine uses (note N2).
+model Coupon {
+  id   String @id @default(cuid())
+  code String @unique
+
+  kind  CouponKind
+  /// Percent (1–100) or paisa off, depending on `kind`.
+  value Int
+
+  /// Ceiling on a percentage discount. Null means uncapped.
+  maxDiscountPaisa Int? @map("max_discount_paisa")
+  /// The smallest fare this applies to. Zero means any.
+  minFarePaisa     Int  @default(0) @map("min_fare_paisa")
+
+  /// Null means unlimited. `redeemedCount` is the counter it is checked against.
+  maxRedemptions Int? @map("max_redemptions")
+  perUserLimit   Int  @default(1) @map("per_user_limit")
+  redeemedCount  Int  @default(0) @map("redeemed_count")
+
+  firstRideOnly Boolean @default(false) @map("first_ride_only")
+
+  startsAt DateTime  @map("starts_at") @db.Timestamptz(3)
+  /// Null means it runs until deactivated.
+  endsAt   DateTime? @map("ends_at") @db.Timestamptz(3)
+
+  /// The off switch. Retiring a campaign must not delete its redemptions,
+  /// which are financial history.
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  redemptions CouponRedemption[]
+
+  @@index([isActive, startsAt])
+  @@map("coupons")
+}
+
+/// One coupon, spent once, on one ride.
+///
+/// `ride_id` is unique on its own: a ride carries a single fare snapshot
+/// with a single discount, so two coupons on one ride is not a thing the
+/// fare columns can represent. The per-user limit is counted from these
+/// rows rather than cached on the user, because a count that can drift is a
+/// limit that can be exceeded.
+model CouponRedemption {
+  id       String @id @default(cuid())
+  couponId String @map("coupon_id")
+  userId   String @map("user_id")
+  rideId   String @unique @map("ride_id")
+
+  /// What it actually took off, in paisa. Stored because the campaign's
+  /// terms may change afterwards and this number must not.
+  amountPaisa Int @map("amount_paisa")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  ride   Ride   @relation(fields: [rideId], references: [id], onDelete: Restrict)
+
+  @@index([couponId, userId])
+  @@map("coupon_redemptions")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

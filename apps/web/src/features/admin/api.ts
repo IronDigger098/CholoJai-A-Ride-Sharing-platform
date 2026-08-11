@@ -1,4 +1,8 @@
 import {
+  type Coupon,
+  couponListSchema,
+  couponSchema,
+  type CreateCouponRequest,
   type DriverApplication,
   driverApplicationListSchema,
   type DriverApplicationStatus,
@@ -7,6 +11,7 @@ import {
   type PlatformMetrics,
   platformMetricsSchema,
   roleChangeResponseSchema,
+  type UpdateCouponRequest,
   type UserListQuery,
   type UserPage,
   userPageSchema,
@@ -103,4 +108,33 @@ export async function getPlatformMetrics(
   });
 
   return platformMetricsSchema.parse(response.data);
+}
+
+export async function listCoupons(): Promise<readonly Coupon[]> {
+  const response = await apiClient.get('/admin/coupons');
+
+  return couponListSchema.parse(response.data).coupons;
+}
+
+export async function createCoupon(
+  request: CreateCouponRequest,
+): Promise<Coupon> {
+  const response = await apiClient.post('/admin/coupons', request);
+
+  return couponSchema.parse(response.data);
+}
+
+/** One argument, because that is what a React Query mutation passes. */
+export interface UpdateCouponInput {
+  readonly couponId: string;
+  readonly changes: UpdateCouponRequest;
+}
+
+export async function updateCoupon({
+  couponId,
+  changes,
+}: UpdateCouponInput): Promise<Coupon> {
+  const response = await apiClient.patch(`/admin/coupons/${couponId}`, changes);
+
+  return couponSchema.parse(response.data);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  CouponKind,
   type FareQuoteResponse,
   formatTaka,
   type Paisa,
@@ -66,6 +67,18 @@ export function FareOptions({
           </label>
         );
       })}
+
+      {/* Named rather than left as a number that is simply lower than
+          expected. The amount is already inside each option's total; this
+          says which offer moved it, and that the rider's code was used. */}
+      {quote.appliedCoupon !== null && (
+        <p className="text-accent pt-1 text-xs font-medium">
+          {quote.appliedCoupon.code} applied ·{' '}
+          {quote.appliedCoupon.kind === CouponKind.PERCENT
+            ? `${quote.appliedCoupon.value}% off`
+            : `${formatTaka(quote.appliedCoupon.value as Paisa)} off`}
+        </p>
+      )}
 
       <p className="text-content-subtle pt-1 text-xs">
         {(quote.distanceMetres / 1000).toFixed(1)} km ·{' '}

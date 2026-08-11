@@ -18,7 +18,8 @@
 | M7  | Driver Side & Live Tracking     | Driver applications, vehicle management, ride acceptance flow, Socket.IO driver-location tracking                                                                                     | ✅     |
 | M8  | Admin & Analytics               | Admin dashboard, user/driver management, analytics                                                                                                                                    | ✅     |
 | M9a | Reviews & Notifications         | Post-ride ratings with a driver rating rollup, in-app notifications delivered over the existing socket                                                                                | ✅     |
-| M9b | Content & Growth                | Blog and careers as MDX in the repo, contact, coupons, referrals                                                                                                                      | 🔲     |
+| M9b | Coupons & Contact               | Discount campaigns priced into the quote and spent at booking, contact form with an admin support inbox                                                                               | ✅     |
+| M9c | Content & Referrals             | Blog and careers as MDX in the repo, referral codes and rewards                                                                                                                       | 🔲     |
 | M10 | Payments & Polish               | Mock payment integration, settings, search, i18n-ready architecture                                                                                                                   | 🔲     |
 | M11 | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                                      | 🔲     |
 | M12 | Production Deployment           | Vercel + Railway, GitHub Actions pipelines, release process                                                                                                                           | 🔲     |
@@ -32,6 +33,20 @@ already had tables designed for them in M0, so they went first as M9a; the
 marketing and growth features are M9b. The split is about reviewability —
 one branch carrying seven unrelated features produces a pull request nobody
 can read, and any failing check in it blocks all seven.
+
+**M9b was split again, for the same reason it was split the first time.** Its
+original scope was blog, careers, contact, coupons and referrals. Coupons
+alone turned out to be a campaign model, a pricing path, a redemption path
+with real concurrency, an admin surface and a rider control — and it shares
+nothing with an MDX blog but the word "growth". Coupons and contact shipped
+as M9b; blog, careers and referrals became M9c rather than being quietly
+dropped from a milestone marked complete.
+
+Referrals sit after M10 in spirit even though they are numbered before it. A
+referral reward is a discount, and it will reuse the coupon machinery M9b
+built; whether it is also a payment credit is a question that only has an
+answer once payments exist. Building it first would mean guessing, and then
+rewriting the guess.
 
 **Schema evolves per feature, not up front.** The core domain (users, roles,
 drivers, vehicles, rides) is designed in M0; every later feature adds its own
