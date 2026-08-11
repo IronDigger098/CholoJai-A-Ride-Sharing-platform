@@ -17,6 +17,7 @@ import {
   type FareQuoteRepository,
 } from '../fares/fare-quote-repository.port';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaymentsService } from '../payments/payments.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 
 import {
@@ -62,6 +63,7 @@ export class RidesService {
        evaluates one: the price was agreed when the quote was made, and
        re-checking here could refuse a discount the rider was shown. */
     private readonly coupons: CouponsService,
+    private readonly payments: PaymentsService,
   ) {}
 
   public async book(riderId: string, request: BookRideRequest): Promise<Ride> {
@@ -86,21 +88,50 @@ export class RidesService {
       throw new VehicleTypeNotQuotedError(request.vehicleType);
     }
 
-    const ride = await this.rides.create({
-      riderId,
-      fareQuoteId: quote.id,
-      vehicleType: request.vehicleType,
-      pickup: quote.pickup,
-      pickupAddress: quote.pickupAddress,
-      dropoff: quote.dropoff,
-      dropoffAddress: quote.dropoffAddress,
-      distanceMetres: quote.distanceMetres,
-      durationSeconds: quote.durationSeconds,
-      /* Copied, not referenced. Rates change; a completed ride's receipt
-         must not (D2). The database verifies the arithmetic survived the
-         copy with a CHECK constraint (N3). */
-      fare: option.breakdown,
+    /* Money before the ride. A declined card must leave nothing behind —
+       no ride, no row, no slot taken in the one-active-ride index — and the
+       only way to guarantee that is to find out before creating anything.
+       Throws `PaymentDeclinedError`, which the rider sees beside the
+       payment picker while they are still standing on the pavement. */
+    const authorisation = await this.payments.authorise({
+      /* The quote is the idempotency key: one quote becomes at most one
+         ride, so a retried booking reserves the fare once. */
+      reference: quote.id,
+      payerId: riderId,
+      method: request.paymentMethod,
+      amountPaisa: option.breakdown.total,
     });
+
+    let ride: RideRecord;
+
+    try {
+      ride = await this.rides.create({
+        riderId,
+        fareQuoteId: quote.id,
+        vehicleType: request.vehicleType,
+        pickup: quote.pickup,
+        pickupAddress: quote.pickupAddress,
+        dropoff: quote.dropoff,
+        dropoffAddress: quote.dropoffAddress,
+        distanceMetres: quote.distanceMetres,
+        durationSeconds: quote.durationSeconds,
+        /* Copied, not referenced. Rates change; a completed ride's receipt
+           must not (D2). The database verifies the arithmetic survived the
+           copy with a CHECK constraint (N3). */
+        fare: option.breakdown,
+      });
+    } catch (cause) {
+      /* The ride could not be created — most likely the rider already has
+         an active one. Give the reservation back, or they hold a charge
+         for a journey that will never exist and cannot explain it. */
+      await this.payments.release(authorisation);
+      throw cause;
+    }
+
+    /* The ride exists, so the payment row finally can. Recorded with the
+       amount that was authorised rather than a fresh reading, so the row
+       cannot disagree with what the gateway was told. */
+    await this.payments.record(ride.id, riderId, authorisation);
 
     /* After the ride row exists, and never before: redemption records a
        ride id, and a budget spent on a booking that then failed the
@@ -286,6 +317,14 @@ export class RidesService {
     const updated = await this.rides.findById(rideId);
     if (updated === null) throw new RideNotFoundError(rideId);
 
+    /* The journey is over; take the money. `capture` never throws — the
+       rider has been driven and the driver has driven, and no payment
+       failure can undo either. A failed capture is a debt to chase, not a
+       reason to refuse to mark a finished ride finished. */
+    if (action === 'complete') {
+      await this.payments.capture(rideId);
+    }
+
     await this.announce(action, updated);
 
     return toRide(updated);
@@ -378,6 +417,11 @@ export class RidesService {
        deletes rides. Guarded rather than asserted, because a non-null
        assertion here would be a promise the type system cannot keep. */
     if (cancelled === null) throw new RideNotFoundError(rideId);
+
+    /* Release the hold. `CANCELLED` rather than `FAILED`, because nothing
+       refused it — and this never throws, since refusing to cancel a ride
+       over a reservation would trap the rider in a journey they called off. */
+    await this.payments.cancel(rideId);
 
     /* Only when someone was already on their way. A ride cancelled before
        any driver accepted it has nobody to tell. */

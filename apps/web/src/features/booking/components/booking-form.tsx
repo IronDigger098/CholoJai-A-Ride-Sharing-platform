@@ -1,6 +1,12 @@
 'use client';
 
-import { type Place, type VehicleType } from '@cholojai/shared';
+import {
+  PAYMENT_METHOD_LABEL,
+  PAYMENT_METHOD_ORDER,
+  PaymentMethod,
+  type Place,
+  type VehicleType,
+} from '@cholojai/shared';
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useId, useState } from 'react';
@@ -53,6 +59,12 @@ export function BookingForm(): ReactNode {
   const [dropoff, setDropoff] = useState<Place | null>(null);
   const [couponCode, setCouponCode] = useState('');
   const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
+  /* Cash by default, which is the one method that cannot decline and the
+     one most riders in Dhaka use. A default is safe here in a way it would
+     not be for the vehicle: every method costs the same. */
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    PaymentMethod.CASH,
+  );
   const [error, setError] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
 
@@ -114,7 +126,7 @@ export function BookingForm(): ReactNode {
   function onConfirm(): void {
     if (quote.data === undefined || vehicleType === null) return;
 
-    booking.mutate({ quoteId: quote.data.id, vehicleType });
+    booking.mutate({ quoteId: quote.data.id, vehicleType, paymentMethod });
   }
 
   return (
@@ -172,6 +184,38 @@ export function BookingForm(): ReactNode {
             selected={vehicleType}
             onSelect={setVehicleType}
           />
+
+          {/* After the vehicle, before the confirm. A card is authorised
+              the moment Confirm is pressed, so this is the last thing the
+              rider decides and the thing a decline sends them back to. */}
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-medium">Pay with</legend>
+
+            <div className="flex gap-2">
+              {PAYMENT_METHOD_ORDER.map((method) => (
+                <label
+                  key={method}
+                  className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                    paymentMethod === method
+                      ? 'border-accent bg-surface-raised font-medium'
+                      : 'border-border-strong'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value={method}
+                    checked={paymentMethod === method}
+                    onChange={() => {
+                      setPaymentMethod(method);
+                    }}
+                    className="accent-accent"
+                  />
+                  {PAYMENT_METHOD_LABEL[method]}
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <Button
             variant="accent"

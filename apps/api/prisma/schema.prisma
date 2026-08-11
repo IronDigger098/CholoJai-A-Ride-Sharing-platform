@@ -83,6 +83,11 @@ enum PaymentStatus {
   PENDING
   SUCCEEDED
   FAILED
+  /// The ride was cancelled before capture. Distinct from FAILED, which
+  /// means the gateway refused: nothing refused this one, it was called off.
+  /// Collapsing the two would make "how often do cards decline?" a question
+  /// the data cannot answer.
+  CANCELLED
 
   @@map("payment_status")
 }
