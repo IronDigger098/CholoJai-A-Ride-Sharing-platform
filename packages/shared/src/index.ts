@@ -9,6 +9,7 @@
 export * from './api/admin.contracts';
 export * from './api/analytics.contracts';
 export * from './api/auth.contracts';
+export * from './api/contact.contracts';
 export * from './api/coupons.contracts';
 export * from './api/drivers.contracts';
 export * from './api/fares.contracts';

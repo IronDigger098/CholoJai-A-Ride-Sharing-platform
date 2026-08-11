@@ -37,3 +37,21 @@ export const CurrentUser = createParamDecorator(
     return request.user;
   },
 );
+
+/**
+ * The caller, or null when nobody is signed in.
+ *
+ * Only for routes behind `@OptionalAuth()`. The nullable type is doing the
+ * work: a handler cannot forget that the anonymous case exists, because it
+ * will not compile until it says what happens then.
+ *
+ * Anything reached this way is a *fact about the caller*, never a
+ * permission. A route that grants something on the strength of a value that
+ * is null for every stranger has an authorisation check that passes by
+ * accident — which is why this is a second decorator rather than an option
+ * on the first.
+ */
+export const CurrentUserOrNull = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): AuthenticatedUser | null =>
+    context.switchToHttp().getRequest<AuthenticatedRequest>().user ?? null,
+);

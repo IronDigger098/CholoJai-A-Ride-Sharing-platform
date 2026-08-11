@@ -154,6 +154,7 @@ model User {
   payments           Payment[]
   reviewsAuthored    Review[]            @relation("ReviewAuthor")
   reviewsReceived    Review[]            @relation("ReviewTarget")
+  contactMessages    ContactMessage[]
 
   /// Composite rather than `deletedAt` alone. The admin directory reads
   /// active users newest first, and a leading `deletedAt` still serves every
@@ -451,6 +452,48 @@ model Notification {
   /// The unread count, which every page asks for on load.
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+/// Someone writing to support.
+///
+/// The one table an unauthenticated caller can insert into. That is the
+/// point — a person who cannot sign in is exactly the person who needs to
+/// reach support — and it is why `name` and `email` are stored as typed
+/// rather than joined from an account: for most rows there is no account,
+/// and for the rest the typed values are what the sender chose to be
+/// reached at.
+///
+/// `user_id` is set only when the sender was signed in, and never derived
+/// from the email. Matching an unverified string to an account would attach
+/// a real person to a message a stranger wrote.
+model ContactMessage {
+  id String @id @default(cuid())
+
+  name    String
+  email   String
+  subject String
+  message String
+
+  /// The account the sender held at the time, when they held one.
+  userId String? @map("user_id")
+
+  /// When an administrator marked it dealt with. Reversible: this records
+  /// who still owes a reply, not a transition with consequences.
+  handledAt DateTime? @map("handled_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  /// `SetNull` rather than `Cascade`. A deleted account must not erase the
+  /// complaint that preceded it — the message stands on its own, and the
+  /// name and email on the row are what it was always going to be read by.
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// The queue: unhandled first, oldest first within it. Oldest rather than
+  /// newest so an unanswered message rises instead of sinking — with a
+  /// newest-first inbox and pagination, the messages waiting longest are the
+  /// ones nobody ever scrolls to.
+  @@index([handledAt, createdAt])
+  @@map("contact_messages")
 }
 
 /// A discount campaign.
