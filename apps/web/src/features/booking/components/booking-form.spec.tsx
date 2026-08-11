@@ -1,4 +1,5 @@
 import {
+  CouponKind,
   type FareQuoteResponse,
   type Place,
   VehicleType,
@@ -32,8 +33,8 @@ const QUOTE: FareQuoteResponse = {
   distanceMetres: 8400,
   durationSeconds: 660,
   expiresAt: new Date(Date.now() + 300_000).toISOString(),
-  /* No campaign priced this one. The booking form's own behaviour is the
-     same either way; the coupon field arrives in its own slice. */
+  /* No campaign priced this one. The tests that are about a code build
+     their own quote. */
   appliedCoupon: null,
   options: [
     {
@@ -65,8 +66,11 @@ const mockBookRide = jest.fn();
 
 jest.mock('../api', () => ({
   searchPlaces: (query: string) => mockSearchPlaces(query),
-  requestQuote: () => mockRequestQuote(),
-  bookRide: () => mockBookRide(),
+  /* The request is forwarded, not swallowed. What the form puts in it —
+     whether a code is present, and in what form — is the thing several of
+     these tests are actually about. */
+  requestQuote: (request: unknown) => mockRequestQuote(request),
+  bookRide: (request: unknown) => mockBookRide(request),
   reverseGeocode: () => Promise.resolve(null),
 }));
 
@@ -81,6 +85,16 @@ jest.mock('./map-panel', () => ({
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
+
+function couponError(code: string, detail: string): ApiError {
+  return new ApiError({
+    type: `https://cholojai.app/errors/${code.toLowerCase()}`,
+    title: 'That code did not apply',
+    status: 422,
+    code,
+    detail,
+  });
+}
 
 function expiredQuoteError(): ApiError {
   return new ApiError({
@@ -180,6 +194,100 @@ describe('BookingForm', () => {
         screen.queryByRole('button', { name: 'Confirm booking' }),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it('leaves the code out of the request when none was typed', async () => {
+    /* The contract's minimum is three characters, so an empty string would
+       be a validation failure for a rider who simply has no code. */
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<BookingForm />);
+
+    await quoteAJourney(user);
+
+    await waitFor(() => {
+      expect(mockRequestQuote).toHaveBeenCalledTimes(1);
+    });
+    expect(mockRequestQuote.mock.calls[0]?.[0]).not.toHaveProperty(
+      'couponCode',
+    );
+  });
+
+  it('sends a typed code with the journey it prices', async () => {
+    /* One request, not two. A rider told their code is valid and then
+       quoted without it has been told two different things. */
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<BookingForm />);
+
+    await user.type(screen.getByLabelText('Promo code'), 'welcome10');
+    await quoteAJourney(user);
+
+    await waitFor(() => {
+      expect(mockRequestQuote).toHaveBeenCalledTimes(1);
+    });
+    expect(mockRequestQuote.mock.calls[0]?.[0]).toMatchObject({
+      couponCode: 'welcome10',
+    });
+  });
+
+  it('names the campaign that priced the quote', async () => {
+    mockRequestQuote.mockResolvedValue({
+      ...QUOTE,
+      appliedCoupon: {
+        code: 'WELCOME10',
+        kind: CouponKind.PERCENT,
+        value: 10,
+      },
+    } satisfies FareQuoteResponse);
+
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<BookingForm />);
+
+    await quoteAJourney(user);
+
+    expect(await screen.findByText(/WELCOME10 applied/u)).toBeVisible();
+  });
+
+  it('puts a refused code on the field rather than in the banner', async () => {
+    /* The journey priced fine and the code did not. A message in the banner
+       above the form leaves the rider guessing which of the two inputs the
+       complaint is about. */
+    mockRequestQuote.mockRejectedValue(
+      couponError('COUPON_NOT_FOUND', 'That code does not exist.'),
+    );
+
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<BookingForm />);
+
+    await user.type(screen.getByLabelText('Promo code'), 'nope');
+    await quoteAJourney(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /does not exist/u,
+    );
+    expect(screen.getByLabelText('Promo code')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+  });
+
+  it('offers no prices when the code was refused', async () => {
+    /* Pricing without the code would show full prices to somebody who
+       believes a discount applied. They would find out at the receipt, and
+       by then the ride has happened. */
+    mockRequestQuote.mockRejectedValue(
+      couponError('COUPON_EXHAUSTED', 'This code has reached its limit.'),
+    );
+
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<BookingForm />);
+
+    await user.type(screen.getByLabelText('Promo code'), 'welcome10');
+    await quoteAJourney(user);
+
+    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Confirm booking' }),
+    ).not.toBeInTheDocument();
   });
 
   it('reports a pricing failure without offering options', async () => {
