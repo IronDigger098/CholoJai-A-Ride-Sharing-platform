@@ -79,18 +79,40 @@ export function createTestPrisma(): PrismaService {
 /**
  * Empty every table.
  *
- * `TRUNCATE users CASCADE` reaches everything: `TRUNCATE` cascades along
- * foreign keys regardless of their `ON DELETE` behaviour, so one statement
- * clears role grants, tokens, driver profiles, vehicles, rides, and
- * payments. Listing tables individually would mean this helper silently
- * stops clearing whatever gets added next.
+ * This used to be `TRUNCATE users CASCADE`, on the reasoning that cascading
+ * from one root reaches everything and never goes stale. The first half was
+ * wrong. `TRUNCATE ... CASCADE` follows foreign keys *downwards*, to the
+ * tables that reference the one named — so it clears role grants, rides and
+ * redemptions, and does not clear `coupons`, which nothing in the users
+ * graph points at. A campaign created in one test was still there in the
+ * next, and the failure surfaced as a duplicate-code error in a test that
+ * had nothing to do with codes.
  *
- * Called before each test rather than after: a test that fails midway
- * leaves its rows behind for inspection, and the next test still starts
- * clean.
+ * So: every table, discovered from the catalog rather than listed. The
+ * original instinct — that a hand-written list stops clearing whatever gets
+ * added next — was right, and asking PostgreSQL what exists satisfies it
+ * properly. `_prisma_migrations` is excluded because emptying it would make
+ * the schema look unmigrated.
+ *
+ * Called before each test rather than after: a test that fails midway leaves
+ * its rows behind for inspection, and the next test still starts clean.
  */
 export async function resetDatabase(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "users" CASCADE');
+  const tables = await prisma.$queryRaw<{ tablename: string }[]>`
+    SELECT tablename
+      FROM pg_tables
+     WHERE schemaname = 'public'
+       AND tablename <> '_prisma_migrations'
+  `;
+
+  if (tables.length === 0) return;
+
+  /* One statement, not one per table. TRUNCATE takes an ACCESS EXCLUSIVE
+     lock on each; naming them together means a single lock acquisition and
+     no ordering to get wrong. */
+  const quoted = tables.map((table) => `"${table.tablename}"`).join(', ');
+
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${quoted} CASCADE`);
 }
 
 /**
