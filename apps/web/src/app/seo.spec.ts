@@ -50,7 +50,21 @@ describe('sitemap', () => {
 
     expect(sitemap().map((entry) => entry.url)).toEqual([
       'https://cholojai.app/',
+      'https://cholojai.app/contact',
     ]);
+  });
+
+  it('omits everything behind a session', () => {
+    /* A crawler reaching `/book` or `/admin` sees a sign-in redirect, not a
+       page. Listing them would spend crawl budget on nothing and advertise
+       the shape of the admin surface to anyone reading the file. */
+    process.env['NEXT_PUBLIC_SITE_URL'] = 'https://cholojai.app';
+
+    const urls = sitemap().map((entry) => entry.url);
+
+    for (const gated of ['/book', '/rides', '/drive', '/admin', '/login']) {
+      expect(urls).not.toContain(`https://cholojai.app${gated}`);
+    }
   });
 });
 
