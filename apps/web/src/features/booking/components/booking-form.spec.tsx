@@ -32,6 +32,9 @@ const QUOTE: FareQuoteResponse = {
   distanceMetres: 8400,
   durationSeconds: 660,
   expiresAt: new Date(Date.now() + 300_000).toISOString(),
+  /* No campaign priced this one. The booking form's own behaviour is the
+     same either way; the coupon field arrives in its own slice. */
+  appliedCoupon: null,
   options: [
     {
       vehicleType: VehicleType.BIKE,

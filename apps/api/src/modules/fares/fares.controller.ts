@@ -8,6 +8,8 @@ import {
 } from '@nestjs/swagger';
 
 import { RateLimit } from '../../common/rate-limit/rate-limit.decorator';
+import { type AuthenticatedUser } from '../auth/authenticated-request';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { Auth } from '../auth/roles.decorator';
 
 import { FareQuoteRequestDto, FareQuoteResponseDto } from './dto/quote.dto';
@@ -69,7 +71,11 @@ export class FaresController {
   })
   public async quote(
     @Body() body: FareQuoteRequestDto,
+    @CurrentUser() rider: AuthenticatedUser,
   ): Promise<FareQuoteResponseDto> {
-    return this.faresService.quote(body);
+    /* The rider's id is needed even without a code — the per-rider and
+       first-ride limits are questions about *them*, and a quote priced for
+       nobody in particular could not answer either. */
+    return this.faresService.quote(rider.id, body);
   }
 }

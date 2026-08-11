@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { VehicleType } from '../domain/vehicle';
 
+import { appliedCouponSchema, couponCodeSchema } from './coupons.contracts';
 import { coordinatesSchema } from './geo.contracts';
 
 /**
@@ -28,6 +29,15 @@ export const fareQuoteRequestSchema = z.object({
   pickupAddress: z.string().min(1).max(500),
   dropoff: coordinatesSchema,
   dropoffAddress: z.string().min(1).max(500),
+  /**
+   * A discount code, applied while pricing rather than at booking.
+   *
+   * Optional because most quotes have none. Sent here rather than to a
+   * separate "validate this code" endpoint so there is one moment where a
+   * price is decided — a rider who is told a code is valid and then quoted
+   * without it has been told two different things.
+   */
+  couponCode: couponCodeSchema.optional(),
 });
 
 export type FareQuoteRequest = z.infer<typeof fareQuoteRequestSchema>;
@@ -74,6 +84,14 @@ export const fareQuoteResponseSchema = z.object({
   durationSeconds: z.number().int().nonnegative(),
   expiresAt: z.string().datetime(),
   options: z.array(fareOptionSchema).min(1),
+  /**
+   * The campaign that priced this quote, or null.
+   *
+   * What it took off is already in each option's `discount`. This says which
+   * offer did it, so the picker can name it rather than leaving a rider to
+   * work out why the number moved.
+   */
+  appliedCoupon: appliedCouponSchema.nullable(),
 });
 
 export type FareQuoteResponse = z.infer<typeof fareQuoteResponseSchema>;

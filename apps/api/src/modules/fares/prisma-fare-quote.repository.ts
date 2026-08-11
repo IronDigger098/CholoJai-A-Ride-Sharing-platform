@@ -33,6 +33,7 @@ interface QuoteRow {
   distanceM: number;
   durationS: number;
   options: unknown;
+  couponId: string | null;
   expiresAt: Date;
 }
 
@@ -58,6 +59,7 @@ export class PrismaFareQuoteRepository implements FareQuoteRepository {
            accepts this shape — and everything read back out of it goes
            through `optionsSchema` before anything prices from it. */
         options: input.options,
+        couponId: input.couponId ?? null,
         expiresAt: input.expiresAt,
       },
     });
@@ -94,6 +96,10 @@ export class PrismaFareQuoteRepository implements FareQuoteRepository {
       distanceMetres: row.distanceM,
       durationSeconds: row.durationS,
       options: options.data,
+      /* Back to `undefined`, because the port's field is optional rather
+         than nullable — "no campaign" is an absent value in the domain and
+         a NULL in the column, and the boundary is where they meet. */
+      ...(row.couponId === null ? {} : { couponId: row.couponId }),
       expiresAt: row.expiresAt,
     };
   }
