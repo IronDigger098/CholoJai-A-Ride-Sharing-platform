@@ -3,6 +3,7 @@ import {
   CancelledBy,
   canTransition,
   NotificationKind,
+  type Payment,
   type Ride,
   type RideListQuery,
   type RidePage,
@@ -199,6 +200,32 @@ export class RidesService {
     }
 
     return toRide(ride);
+  }
+
+  /**
+   * How a ride the caller owns was paid for.
+   *
+   * The ownership check comes first and is the same one `findForRider`
+   * applies: a ride that is not yours reads as not found, and so must its
+   * payment — otherwise the payment endpoint becomes a way to confirm which
+   * ride ids are real, which is exactly what the 404-not-403 rule exists to
+   * prevent.
+   *
+   * A ride with no payment is also a 404 rather than null. Every ride
+   * booked since M10a has one; a ride without one is either older than
+   * payments or evidence of a bug, and neither is something to render.
+   */
+  public async findPaymentForRider(
+    riderId: string,
+    rideId: string,
+  ): Promise<Payment> {
+    await this.findForRider(riderId, rideId);
+
+    const payment = await this.payments.findForRide(rideId);
+
+    if (payment === null) throw new RideNotFoundError(rideId);
+
+    return payment;
   }
 
   /**
