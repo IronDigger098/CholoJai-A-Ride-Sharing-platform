@@ -22,6 +22,7 @@ const SECTIONS = [
   { href: '/admin', label: 'Overview' },
   { href: '/admin/applications', label: 'Driver applications' },
   { href: '/admin/users', label: 'Users' },
+  { href: '/admin/campaigns', label: 'Campaigns' },
 ] as const;
 
 export default function AdminLayout({
