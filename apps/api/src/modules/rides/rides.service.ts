@@ -10,6 +10,7 @@ import {
 } from '@cholojai/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { CouponsService } from '../coupons/coupons.service';
 import { DriversService } from '../drivers/drivers.service';
 import {
   FARE_QUOTE_REPOSITORY,
@@ -57,6 +58,10 @@ export class RidesService {
        a cancelled ride can reach the driver who was on their way to it. */
     private readonly drivers: DriversService,
     private readonly notifications: NotificationsService,
+    /* Only to spend a code the quote already recorded. Booking never
+       evaluates one: the price was agreed when the quote was made, and
+       re-checking here could refuse a discount the rider was shown. */
+    private readonly coupons: CouponsService,
   ) {}
 
   public async book(riderId: string, request: BookRideRequest): Promise<Ride> {
@@ -96,6 +101,27 @@ export class RidesService {
          copy with a CHECK constraint (N3). */
       fare: option.breakdown,
     });
+
+    /* After the ride row exists, and never before: redemption records a
+       ride id, and a budget spent on a booking that then failed the
+       one-active-ride index would be spent on nothing.
+
+       The discount comes from the option the rider chose, not from
+       re-evaluating the campaign — a percentage takes a different amount off
+       each vehicle type, and only one of them was booked.
+
+       Not awaited for its answer. `redeem` returns false when the budget ran
+       out in between and logs it; the ride is already created at the quoted
+       price, and unwinding it to protect a marketing budget would cost the
+       rider a ride they have accepted. */
+    if (quote.couponId !== undefined && option.breakdown.discount > 0) {
+      await this.coupons.redeem({
+        couponId: quote.couponId,
+        userId: riderId,
+        rideId: ride.id,
+        amountPaisa: option.breakdown.discount,
+      });
+    }
 
     return toRide(ride);
   }
