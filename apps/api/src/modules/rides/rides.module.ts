@@ -5,6 +5,7 @@ import { CouponsModule } from '../coupons/coupons.module';
 import { DriversModule } from '../drivers/drivers.module';
 import { FaresModule } from '../fares/fares.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 
 import { PrismaRideRepository } from './prisma-ride.repository';
@@ -38,6 +39,10 @@ import { RidesService } from './rides.service';
     /* To spend a code, never to price one. Fares imports it for the other
        half; the two directions do not meet, so there is no cycle. */
     CouponsModule,
+    /* Booking authorises, completion captures, cancellation releases. The
+       amount always comes from the fare snapshot on this side — payments
+       never reads a ride, which is what keeps the dependency one-way. */
+    PaymentsModule,
   ],
   controllers: [RidesController],
   providers: [

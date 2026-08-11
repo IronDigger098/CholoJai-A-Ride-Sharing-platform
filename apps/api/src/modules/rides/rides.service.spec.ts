@@ -1,5 +1,6 @@
 import {
   type FareOption,
+  PaymentMethod,
   RideStatus,
   VehicleType,
   VEHICLE_TYPE_ORDER,
@@ -7,10 +8,13 @@ import {
 import { describe, expect, it } from '@jest/globals';
 
 import { InMemoryFareQuoteRepository } from '../../testing/in-memory-fare-quote.repository';
+import { InMemoryPaymentRepository } from '../../testing/in-memory-payment.repository';
 import { InMemoryRideRepository } from '../../testing/in-memory-ride.repository';
 import { makeRecordingNotifications } from '../../testing/recording-notifications';
 import { type CouponsService } from '../coupons/coupons.service';
 import { type DriversService } from '../drivers/drivers.service';
+import { MockPaymentGateway } from '../payments/mock-payment.gateway';
+import { PaymentsService } from '../payments/payments.service';
 import { type VehiclesService } from '../vehicles/vehicles.service';
 
 import {
@@ -107,6 +111,7 @@ function makeRides(
   quotes: InMemoryFareQuoteRepository,
   vehicles: VehiclesService,
   coupons: CouponsService = makeRecordingCoupons().service,
+  payments: PaymentsService = makePayments(),
 ): RidesService {
   return new RidesService(
     rides,
@@ -115,6 +120,21 @@ function makeRides(
     stubDrivers(),
     makeRecordingNotifications().service,
     coupons,
+    payments,
+  );
+}
+
+/**
+ * A real `PaymentsService` over in-memory parts.
+ *
+ * Not a stub: booking now depends on authorisation *succeeding*, and a stub
+ * that always succeeds would hide the one behaviour worth checking here —
+ * that a decline leaves no ride behind.
+ */
+function makePayments(): PaymentsService {
+  return new PaymentsService(
+    new InMemoryPaymentRepository(),
+    new MockPaymentGateway(),
   );
 }
 
@@ -179,6 +199,7 @@ describe('RidesService.book', () => {
     const ride = await service.book(RIDER, {
       quoteId,
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     expect(ride.status).toBe(RideStatus.REQUESTED);
@@ -199,6 +220,7 @@ describe('RidesService.book', () => {
     const ride = await service.book(RIDER, {
       quoteId,
       vehicleType: VehicleType.CAR,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     expect(ride.fare).toEqual(chosen?.breakdown);
@@ -214,6 +236,7 @@ describe('RidesService.book', () => {
     const { fare } = await service.book(RIDER, {
       quoteId,
       vehicleType: VehicleType.BIKE,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     expect(fare.total).toBe(
@@ -231,6 +254,7 @@ describe('RidesService.book', () => {
     const ride = await service.book(RIDER, {
       quoteId,
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     expect(redeemed).toHaveLength(1);
@@ -249,7 +273,11 @@ describe('RidesService.book', () => {
     const car = DISCOUNTED.find(
       (option) => option.vehicleType === VehicleType.CAR,
     );
-    await service.book(RIDER, { quoteId, vehicleType: VehicleType.CAR });
+    await service.book(RIDER, {
+      quoteId,
+      vehicleType: VehicleType.CAR,
+      paymentMethod: PaymentMethod.CASH,
+    });
 
     expect(redeemed[0]?.amountPaisa).toBe(car?.breakdown.discount);
   });
@@ -258,7 +286,11 @@ describe('RidesService.book', () => {
     const { service, quotes, redeemed } = makeService();
     const quoteId = await storeQuote(quotes);
 
-    await service.book(RIDER, { quoteId, vehicleType: VehicleType.CNG });
+    await service.book(RIDER, {
+      quoteId,
+      vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
+    });
 
     expect(redeemed).toHaveLength(0);
   });
@@ -277,6 +309,7 @@ describe('RidesService.book', () => {
     const ride = await service.book(RIDER, {
       quoteId,
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     expect(ride.status).toBe(RideStatus.REQUESTED);
@@ -290,6 +323,7 @@ describe('RidesService.book', () => {
       service.book(RIDER, {
         quoteId: 'quote_nope',
         vehicleType: VehicleType.CNG,
+        paymentMethod: PaymentMethod.CASH,
       }),
     ).rejects.toThrow(QuoteNotFoundError);
   });
@@ -302,7 +336,11 @@ describe('RidesService.book', () => {
     const quoteId = await storeQuote(quotes, new Date(Date.now() - 1000));
 
     await expect(
-      service.book(RIDER, { quoteId, vehicleType: VehicleType.CNG }),
+      service.book(RIDER, {
+        quoteId,
+        vehicleType: VehicleType.CNG,
+        paymentMethod: PaymentMethod.CASH,
+      }),
     ).rejects.toThrow(QuoteExpiredError);
   });
 
@@ -311,7 +349,11 @@ describe('RidesService.book', () => {
     const quoteId = await storeQuote(quotes, new Date(Date.now() - 1000));
 
     await expect(
-      service.book(RIDER, { quoteId, vehicleType: VehicleType.CNG }),
+      service.book(RIDER, {
+        quoteId,
+        vehicleType: VehicleType.CNG,
+        paymentMethod: PaymentMethod.CASH,
+      }),
     ).rejects.toThrow(QuoteExpiredError);
     expect(rides.size).toBe(0);
   });
@@ -338,6 +380,7 @@ describe('RidesService.book', () => {
       service.book(RIDER, {
         quoteId: record.id,
         vehicleType: VehicleType.CAR,
+        paymentMethod: PaymentMethod.CASH,
       }),
     ).rejects.toThrow(VehicleTypeNotQuotedError);
   });
@@ -351,12 +394,14 @@ describe('RidesService.book', () => {
     await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     await expect(
       service.book(RIDER, {
         quoteId: await storeQuote(quotes),
         vehicleType: VehicleType.CNG,
+        paymentMethod: PaymentMethod.CASH,
       }),
     ).rejects.toThrow(RiderAlreadyOnRideError);
   });
@@ -367,10 +412,12 @@ describe('RidesService.book', () => {
     await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
     await service.book('user_rider_2', {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.BIKE,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     expect(rides.size).toBe(2);
@@ -387,6 +434,7 @@ describe('RidesService.cancel', () => {
     const ride = await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     return { service, rides, rideId: ride.id };
@@ -486,6 +534,7 @@ describe('RidesService driver actions', () => {
     const ride = await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     return { service, rides, rideId: ride.id };
@@ -557,12 +606,14 @@ describe('RidesService driver actions', () => {
     const first = await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
     await service.driverAction(DRIVER_USER, first.id, 'accept');
 
     const second = await service.book('user_rider_2', {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     await expect(
@@ -610,6 +661,7 @@ describe('RidesService driver actions', () => {
     const next = await service2.book('user_rider_3', {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     await expect(
@@ -629,6 +681,7 @@ describe('RidesService.list', () => {
       const ride = await service.book(RIDER, {
         quoteId: await storeQuote(quotes),
         vehicleType: VehicleType.CNG,
+        paymentMethod: PaymentMethod.CASH,
       });
       await service.cancel(RIDER, ride.id);
     }
@@ -687,6 +740,7 @@ describe('RidesService.list', () => {
     await service.book('user_rider_2', {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.BIKE,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     const page = await service.list(RIDER, { limit: 50 });
@@ -710,6 +764,7 @@ describe('RidesService.findForRider', () => {
     const booked = await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     expect((await service.findForRider(RIDER, booked.id)).id).toBe(booked.id);
@@ -720,6 +775,7 @@ describe('RidesService.findForRider', () => {
     const booked = await service.book(RIDER, {
       quoteId: await storeQuote(quotes),
       vehicleType: VehicleType.CNG,
+      paymentMethod: PaymentMethod.CASH,
     });
 
     await expect(

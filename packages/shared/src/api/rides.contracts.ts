@@ -10,6 +10,7 @@ import {
   cursorPageQuerySchema,
   pageInfoSchema,
 } from './pagination.contracts';
+import { PaymentMethod } from './payments.contracts';
 
 /**
  * Ride contracts — `docs/api-design.md` §Rides.
@@ -26,6 +27,15 @@ import {
 export const bookRideRequestSchema = z.object({
   quoteId: z.string().min(1).max(64),
   vehicleType: z.nativeEnum(VehicleType),
+  /**
+   * How the fare will be paid.
+   *
+   * Part of booking rather than a later step, because a card is authorised
+   * before the ride is created — a decline must reach the rider while they
+   * are still choosing, not after they have been driven somewhere. A ride
+   * with no decided method is a state nothing downstream has an answer for.
+   */
+  paymentMethod: z.nativeEnum(PaymentMethod),
 });
 
 export type BookRideRequest = z.infer<typeof bookRideRequestSchema>;
