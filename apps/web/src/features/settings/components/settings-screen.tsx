@@ -8,13 +8,14 @@ import { ProfileForm } from './profile-form';
 
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useSession } from '@/features/auth/session';
+import { SavedPlaces } from '@/features/places/components/saved-places';
 
 /**
  * Everything a person changes about their own account, on one page.
  *
- * Four unrelated things sharing a screen because that is where people look
- * for them, separated by rules rather than headings alone — each section is
- * its own form with its own submit, so saving a name cannot fail because a
+ * Unrelated things sharing a screen because that is where people look for
+ * them, separated by rules rather than headings alone — each section is its
+ * own form with its own submit, so saving a name cannot fail because a
  * password field is empty.
  */
 export function SettingsScreen(): ReactNode {
@@ -45,6 +46,10 @@ export function SettingsScreen(): ReactNode {
           <ThemeToggle />
         </div>
       </section>
+
+      <hr className="border-border" />
+
+      <SavedPlaces />
 
       <hr className="border-border" />
 

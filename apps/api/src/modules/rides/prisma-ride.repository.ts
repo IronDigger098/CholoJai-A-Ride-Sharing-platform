@@ -154,6 +154,33 @@ export class PrismaRideRepository implements RideRepository {
     };
   }
 
+  /**
+   * The search section, not a browsable list.
+   *
+   * Newest first and capped. The `(riderId, requestedAt DESC)` index still
+   * serves the ordering; the address predicate is evaluated on the rows that
+   * index returns, which for one rider's history is a small set.
+   */
+  public async searchForRider(
+    riderId: string,
+    query: string,
+    limit: number,
+  ): Promise<readonly RideRecord[]> {
+    const rows: RideRow[] = await this.prisma.ride.findMany({
+      where: {
+        riderId,
+        OR: [
+          { pickupAddress: { contains: query, mode: 'insensitive' } },
+          { dropoffAddress: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+      take: limit,
+    });
+
+    return rows.map(toRecord);
+  }
+
   public async listOpenOffers(limit: number): Promise<readonly RideRecord[]> {
     const rows: RideRow[] = await this.prisma.ride.findMany({
       /* driverProfileId null as well as status REQUESTED. The two should

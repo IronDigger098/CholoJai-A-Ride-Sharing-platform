@@ -87,6 +87,25 @@ export interface RideRepository {
   listForRider(riderId: string, page: RidePageQuery): Promise<RidePageResult>;
 
   /**
+   * A rider's rides whose pickup or dropoff address contains `query`.
+   *
+   * Newest first and capped, because this feeds one section of a search
+   * screen rather than a browsable list — somebody searching "banani" wants
+   * the recent ones, and the rest is what history is for.
+   *
+   * `contains` on two text columns, unindexed and knowingly so. It is the
+   * same trade the admin directory makes: matching a fragment anywhere is
+   * what people mean by search, and the honest fix when a rider has ten
+   * thousand rides is a text-search index rather than a prefix match that
+   * stops finding things.
+   */
+  searchForRider(
+    riderId: string,
+    query: string,
+    limit: number,
+  ): Promise<readonly RideRecord[]>;
+
+  /**
    * Rides waiting for a driver, oldest first.
    *
    * Not paginated and deliberately capped. An offer list is a working set,

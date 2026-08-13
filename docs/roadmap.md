@@ -21,7 +21,7 @@
 | M9b  | Coupons & Contact               | Discount campaigns priced into the quote and spent at booking, contact form with an admin support inbox                                                                               | ✅     |
 | M9c  | Content & Referrals             | Blog and careers as MDX in the repo, referral codes and rewards                                                                                                                       | 🔲     |
 | M10a | Payments                        | Mock gateway behind a port, authorise at booking, capture at completion, method picker and receipt                                                                                    | ✅     |
-| M10b | Polish                          | Settings, search, i18n-ready architecture                                                                                                                                             | 🔲     |
+| M10b | Polish                          | Account settings, saved places, global search over places/rides/help, English and Bangla                                                                                              | 🔲     |
 | M11  | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                                      | 🔲     |
 | M12  | Production Deployment           | Vercel + Railway, GitHub Actions pipelines, release process                                                                                                                           | 🔲     |
 
@@ -48,6 +48,22 @@ referral reward is a discount, and it will reuse the coupon machinery M9b
 built; whether it is also a payment credit is a question that only has an
 answer once payments exist. Building it first would mean guessing, and then
 rewriting the guess.
+
+**Search has no relevance score, and that is a design decision rather than
+an omission.** M10b puts one box over three unrelated things: a rider's
+saved places, their past rides, and the help articles. Merging them into a
+single ranked list would mean scoring a journey against an answer about
+promo codes — a number with no unit and nothing to calibrate against, which
+would look principled and behave arbitrarily. The results are grouped by
+kind in a fixed order instead, each group ranked by a rule that means
+something inside it. If search ever needs to rank across sources, that needs
+a real signal — click-through, recency weighting, an actual index — not a
+constant multiplied by a guess.
+
+**Saved places arrived before search, because the alternative was a lie.**
+The `saved_places` table has existed since M0 and nothing wrote to it. A
+search category that can only ever return nothing is a promise the interface
+makes and cannot keep, so the write path shipped first in the same slice.
 
 **Schema evolves per feature, not up front.** The core domain (users, roles,
 drivers, vehicles, rides) is designed in M0; every later feature adds its own

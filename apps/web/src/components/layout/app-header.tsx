@@ -38,6 +38,12 @@ export function AppHeader(): ReactNode {
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
+          <Link
+            href="/search"
+            className="text-content-muted hover:text-content rounded-xs text-sm no-underline"
+          >
+            Search
+          </Link>
           <NotificationBell />
           <Link
             href="/settings"
