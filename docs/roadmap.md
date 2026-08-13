@@ -21,7 +21,7 @@
 | M9b  | Coupons & Contact               | Discount campaigns priced into the quote and spent at booking, contact form with an admin support inbox                                                                               | ✅     |
 | M9c  | Content & Referrals             | Blog and careers as MDX in the repo, referral codes and rewards                                                                                                                       | 🔲     |
 | M10a | Payments                        | Mock gateway behind a port, authorise at booking, capture at completion, method picker and receipt                                                                                    | ✅     |
-| M10b | Polish                          | Account settings, saved places, global search over places/rides/help, next-intl with English and Bangla                                                                               | 🔲     |
+| M10b | Polish                          | Account settings, saved places, global search over places/rides/help, next-intl with English and Bangla                                                                               | ✅     |
 | M10c | Bangla Coverage                 | Booking, ride history, contact and auth screens onto the message catalogues; native review of the Bangla copy                                                                         | 🔲     |
 | M11  | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                                      | 🔲     |
 | M12  | Production Deployment           | Vercel + Railway, GitHub Actions pipelines, release process                                                                                                                           | 🔲     |
@@ -83,6 +83,15 @@ can review, and a milestone marked complete over a half-translated app is
 the worse of the two failures. The Bangla itself is written without a
 native reviewer and is marked as needing one — a translation nobody has
 checked is a draft, whatever the file extension says.
+
+**M12 runs before M11, and the numbering is what is wrong rather than the
+order.** M11 measures Lighthouse scores and audits accessibility — against
+a _running_ site. Measured on localhost those numbers are not the ones
+users get: no CDN, no Brotli, different caching, a dev-shaped bundle. Doing
+M11 first would mean measuring the wrong thing and then measuring it again.
+The cost of this order is honest and worth naming: the accessibility audit
+happens after the site is public, so whatever faults exist ship for a while
+before they are found.
 
 **Schema evolves per feature, not up front.** The core domain (users, roles,
 drivers, vehicles, rides) is designed in M0; every later feature adds its own
