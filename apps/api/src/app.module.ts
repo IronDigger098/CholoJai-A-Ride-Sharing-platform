@@ -18,6 +18,7 @@ import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { RidesModule } from './modules/rides/rides.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
@@ -50,6 +51,10 @@ export class AppModule {
         AuthModule,
         AdminModule,
         AnalyticsModule,
+        /* Before notifications, which asks it whether a category is muted
+           before sending. Settings knows nothing about notifications going
+           out, so the dependency runs one way. */
+        SettingsModule,
         /* Before the modules that raise notifications, so its service is in
            the container by the time they ask for it. */
         NotificationsModule,

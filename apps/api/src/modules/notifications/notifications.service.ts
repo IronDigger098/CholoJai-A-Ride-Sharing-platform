@@ -7,6 +7,11 @@ import {
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import {
+  NOTIFICATION_MUTE_REPOSITORY,
+  type NotificationMuteRepository,
+} from '../settings/notification-mute-repository.port';
+
+import {
   NOTIFICATION_REPOSITORY,
   type NotificationRecord,
   type NotificationRepository,
@@ -37,6 +42,8 @@ export class NotificationsService {
   public constructor(
     @Inject(NOTIFICATION_REPOSITORY)
     private readonly notifications: NotificationRepository,
+    @Inject(NOTIFICATION_MUTE_REPOSITORY)
+    private readonly mutes: NotificationMuteRepository,
     private readonly gateway: NotificationsGateway,
   ) {}
 
@@ -55,6 +62,16 @@ export class NotificationsService {
    */
   public async notify(input: NotifyInput): Promise<void> {
     try {
+      /* Checked here rather than at each call site. A publisher that has to
+         remember to ask is a publisher that will eventually forget, and the
+         symptom — a rider still receiving something they switched off — is
+         one nobody reports as a bug, they just stop trusting the setting.
+
+         Nothing is stored for a muted kind. Writing the row and hiding it
+         would leave a notification list that disagrees with the unread
+         count, and "off" that still accumulates is not off. */
+      if (await this.mutes.isMuted(input.userId, input.kind)) return;
+
       const record = await this.notifications.create(input);
 
       this.gateway.deliver(input.userId, toNotification(record));

@@ -19,6 +19,7 @@ export * from './api/pagination.contracts';
 export * from './api/payments.contracts';
 export * from './api/problem-details';
 export * from './api/reviews.contracts';
+export * from './api/settings.contracts';
 export * from './api/rides.contracts';
 export * from './api/tracking.contracts';
 export * from './api/vehicles.contracts';

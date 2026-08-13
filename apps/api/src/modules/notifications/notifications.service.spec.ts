@@ -2,6 +2,7 @@ import { type Notification, NotificationKind } from '@cholojai/shared';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
 
+import { InMemoryNotificationMuteRepository } from '../../testing/in-memory-notification-mute.repository';
 import { InMemoryNotificationRepository } from '../../testing/in-memory-notification.repository';
 
 import { type NotificationRepository } from './notification-repository.port';
@@ -35,13 +36,15 @@ function makeGateway(): {
 
 describe('NotificationsService', () => {
   let notifications: InMemoryNotificationRepository;
+  let mutes: InMemoryNotificationMuteRepository;
   let gateway: ReturnType<typeof makeGateway>;
   let service: NotificationsService;
 
   beforeEach(() => {
     notifications = new InMemoryNotificationRepository();
+    mutes = new InMemoryNotificationMuteRepository();
     gateway = makeGateway();
-    service = new NotificationsService(notifications, gateway.gateway);
+    service = new NotificationsService(notifications, mutes, gateway.gateway);
   });
 
   describe('notify', () => {
@@ -77,7 +80,7 @@ describe('NotificationsService', () => {
       } as unknown as NotificationRepository;
 
       await expect(
-        new NotificationsService(broken, gateway.gateway).notify({
+        new NotificationsService(broken, mutes, gateway.gateway).notify({
           userId: RIDER,
           ...RIDE_ACCEPTED,
         }),
@@ -85,6 +88,63 @@ describe('NotificationsService', () => {
 
       expect(gateway.delivered).toEqual([]);
       jest.restoreAllMocks();
+    });
+
+    it('sends nothing for a category the user switched off', async () => {
+      await mutes.replace(RIDER, [
+        NotificationKind.DRIVER_APPLICATION_APPROVED,
+      ]);
+
+      await service.notify({
+        userId: RIDER,
+        kind: NotificationKind.DRIVER_APPLICATION_APPROVED,
+        title: 'You are approved',
+        body: 'You can start driving.',
+      });
+
+      expect(gateway.delivered).toEqual([]);
+    });
+
+    it('stores nothing for a muted category, rather than hiding it', async () => {
+      /* A row written and then filtered would leave the list disagreeing
+         with the unread count. "Off" that still accumulates is not off. */
+      await mutes.replace(RIDER, [
+        NotificationKind.DRIVER_APPLICATION_APPROVED,
+      ]);
+
+      await service.notify({
+        userId: RIDER,
+        kind: NotificationKind.DRIVER_APPLICATION_APPROVED,
+        title: 'You are approved',
+        body: 'You can start driving.',
+      });
+
+      expect(await service.countUnread(RIDER)).toBe(0);
+    });
+
+    it('still sends a category the user left alone', async () => {
+      await mutes.replace(RIDER, [
+        NotificationKind.DRIVER_APPLICATION_APPROVED,
+      ]);
+
+      await service.notify({ userId: RIDER, ...RIDE_ACCEPTED });
+
+      expect(gateway.delivered).toHaveLength(1);
+    });
+
+    it('mutes one person without muting anybody else', async () => {
+      await mutes.replace(RIDER, [
+        NotificationKind.DRIVER_APPLICATION_APPROVED,
+      ]);
+
+      await service.notify({
+        userId: OTHER,
+        kind: NotificationKind.DRIVER_APPLICATION_APPROVED,
+        title: 'You are approved',
+        body: 'You can start driving.',
+      });
+
+      expect(gateway.delivered).toHaveLength(1);
     });
   });
 
