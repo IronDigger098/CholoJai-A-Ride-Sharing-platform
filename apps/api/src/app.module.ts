@@ -16,8 +16,10 @@ import { FaresModule } from './modules/fares/fares.module';
 import { GeoModule } from './modules/geo/geo.module';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PlacesModule } from './modules/places/places.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { RidesModule } from './modules/rides/rides.module';
+import { SearchModule } from './modules/search/search.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { TrackingModule } from './modules/tracking/tracking.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
@@ -66,6 +68,10 @@ export class AppModule {
         TrackingModule,
         ReviewsModule,
         ContactModule,
+        PlacesModule,
+        /* Last of the features: it reads from places and rides and nothing
+           reads from it. */
+        SearchModule,
       ],
     };
   }

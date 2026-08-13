@@ -167,6 +167,33 @@ export class InMemoryRideRepository implements RideRepository {
     };
   }
 
+  public async searchForRider(
+    riderId: string,
+    query: string,
+    limit: number,
+  ): Promise<readonly RideRecord[]> {
+    /* Case-insensitive, because the adapter passes `mode: 'insensitive'`.
+       A fake that only matched exact case would let a test prove a
+       case-sensitive search the real one does not have. */
+    const needle = query.toLowerCase();
+
+    return this.rows
+      .map((row, index) => ({ row, index }))
+      .filter(
+        (entry) =>
+          entry.row.riderId === riderId &&
+          (entry.row.pickupAddress.toLowerCase().includes(needle) ||
+            entry.row.dropoffAddress.toLowerCase().includes(needle)),
+      )
+      .sort(
+        (a, b) =>
+          b.row.requestedAt.getTime() - a.row.requestedAt.getTime() ||
+          b.index - a.index,
+      )
+      .slice(0, limit)
+      .map((entry) => entry.row);
+  }
+
   public get size(): number {
     return this.rows.length;
   }

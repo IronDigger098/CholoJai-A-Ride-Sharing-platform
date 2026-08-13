@@ -49,6 +49,12 @@ import { RidesService } from './rides.service';
     RidesService,
     { provide: RIDE_REPOSITORY, useClass: PrismaRideRepository },
   ],
-  exports: [RidesService],
+  /* The repository is exported as well as the service, for search. Search
+     wants a scoped read — "this rider's rides matching this text" — and the
+     service has no such method and should not grow one: its methods are
+     about acting on a single ride and each enforces ownership per call.
+     Exporting the port lets search read through the same adapter without
+     RidesModule gaining a reason to know that search exists. */
+  exports: [RidesService, RIDE_REPOSITORY],
 })
 export class RidesModule {}

@@ -366,6 +366,22 @@ Full CRUD scoped to the calling driver · `PATCH /:id/activate`
 `GET /notifications` 🔒 · `PATCH /notifications/:id/read` 🔒 ·
 `POST /notifications/read-all` 🔒
 
+### Settings, Places, Search — the signed-in rider's own data 🔒
+
+`PATCH /settings/profile` · `POST /settings/password` ·
+`GET|PUT /settings/notifications` ·
+`GET|POST /places` · `DELETE /places/:id` · `GET /search?q=`
+
+No route in this group takes a user id. The caller is the subject by
+construction, so there is no way to express "read somebody else's" and
+therefore no ownership check anyone can forget. `DELETE /places/:id` answers
+404 for a place belonging to another rider — the same answer as one that
+never existed, so a probe cannot use the difference to discover which ids
+are real.
+
+`GET /search` returns results grouped by kind in a fixed order, not merged
+by a relevance score. See `roadmap.md` for why there is no score.
+
 ### Admin — `/api/v1/admin` 🛡
 
 `GET /users` · `PATCH /users/:id/status` ·
