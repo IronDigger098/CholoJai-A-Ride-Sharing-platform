@@ -39,3 +39,44 @@ import { configure } from '@testing-library/react';
  * regression gets waved through.
  */
 configure({ asyncUtilTimeout: 5000 });
+
+/**
+ * A stand-in for the App Router.
+ *
+ * `useRouter` throws "invariant expected app router to be mounted" outside
+ * a Next render, because the router is supplied by the framework and not by
+ * React. Any component that can navigate therefore cannot be rendered in
+ * jsdom without one — since M10b that includes `LocaleSwitcher`, and
+ * through it the site header and every page that renders it.
+ *
+ * Mocked here rather than in each spec because it is a property of the
+ * environment, not of any one test: nothing in jsdom has an App Router, and
+ * repeating the same six stubs in eight files is eight places for them to
+ * drift. A spec that wants to *assert* on navigation mocks
+ * `@/i18n/navigation` itself and overrides this — `locale-switcher.spec.tsx`
+ * does exactly that.
+ *
+ * `requireActual` is spread first so the parts that need no router —
+ * `notFound`, `redirect`, the types — keep working.
+ */
+jest.mock('next/navigation', () => {
+  /* Annotated rather than spread inline. `requireActual` is typed `any`,
+     and spreading it straight into the returned object makes the whole
+     factory an unsafe return — `no-unsafe-return` is right to refuse it,
+     because everything downstream would silently lose its types. */
+  const actual = jest.requireActual<Record<string, unknown>>('next/navigation');
+
+  return {
+    ...actual,
+    useRouter: () => ({
+      push: jest.fn(),
+      replace: jest.fn(),
+      refresh: jest.fn(),
+      back: jest.fn(),
+      forward: jest.fn(),
+      prefetch: jest.fn(),
+    }),
+    usePathname: () => '/',
+    useSearchParams: () => new URLSearchParams(),
+  };
+});

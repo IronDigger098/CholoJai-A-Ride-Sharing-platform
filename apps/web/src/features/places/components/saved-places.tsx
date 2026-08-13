@@ -2,6 +2,7 @@
 
 import { MAX_SAVED_PLACES, type Place } from '@cholojai/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { PlaceSearch } from '../../booking/components/place-search';
@@ -24,6 +25,8 @@ const SAVED_PLACES_KEY = ['saved-places'];
  */
 export function SavedPlaces(): ReactNode {
   const labelId = useId();
+  const t = useTranslations('places');
+  const common = useTranslations('common');
   const queryClient = useQueryClient();
 
   const [label, setLabel] = useState('');
@@ -68,16 +71,13 @@ export function SavedPlaces(): ReactNode {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-medium">Saved places</h2>
+      <h2 className="text-lg font-medium">{t('title')}</h2>
 
-      <p className="text-content-muted text-sm">
-        Somewhere you go often. Saved places appear in search, so you can find
-        them by whatever you called them.
-      </p>
+      <p className="text-content-muted text-sm">{t('intro')}</p>
 
       {isPending && (
         <p role="status" className="text-content-muted text-sm">
-          Loading…
+          {common('loading')}
         </p>
       )}
 
@@ -109,7 +109,7 @@ export function SavedPlaces(): ReactNode {
                   remove.mutate(saved.id);
                 }}
               >
-                Remove
+                {common('remove')}
               </Button>
             </li>
           ))}
@@ -117,7 +117,7 @@ export function SavedPlaces(): ReactNode {
       )}
 
       {!isPending && places.length === 0 && (
-        <p className="text-content-muted text-sm">Nothing saved yet.</p>
+        <p className="text-content-muted text-sm">{t('none')}</p>
       )}
 
       {remove.error !== null && (
@@ -131,23 +131,26 @@ export function SavedPlaces(): ReactNode {
           says why it is gone. */}
       {full ? (
         <p className="text-content-muted text-sm">
-          You have saved {String(MAX_SAVED_PLACES)} places, which is the most we
-          keep. Remove one to add another.
+          {t('full', { max: MAX_SAVED_PLACES })}
         </p>
       ) : (
         <form onSubmit={onSubmit} className="space-y-3">
           <Field
             id={labelId}
-            label="What do you call it?"
+            label={t('labelField')}
             value={label}
             maxLength={60}
-            placeholder="Home, Office, Ma's place"
+            placeholder={t('labelPlaceholder')}
             onChange={(event) => {
               setLabel(event.target.value);
             }}
           />
 
-          <PlaceSearch label="Which place?" value={place} onSelect={setPlace} />
+          <PlaceSearch
+            label={t('placeField')}
+            value={place}
+            onSelect={setPlace}
+          />
 
           {add.error !== null && (
             <p role="alert" className="text-danger text-sm">
@@ -156,7 +159,7 @@ export function SavedPlaces(): ReactNode {
           )}
 
           <Button type="submit" disabled={!ready || add.isPending}>
-            {add.isPending ? 'Saving…' : 'Save place'}
+            {add.isPending ? common('saving') : t('submit')}
           </Button>
         </form>
       )}

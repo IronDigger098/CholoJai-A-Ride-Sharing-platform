@@ -1,3 +1,5 @@
+import createNextIntlPlugin from 'next-intl/plugin';
+
 import type { NextConfig } from 'next';
 
 /**
@@ -24,4 +26,13 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
 };
 
-export default nextConfig;
+/**
+ * The plugin's only job is to tell the bundler where `getRequestConfig`
+ * lives, so server components can read messages without every one of them
+ * being handed a locale. Pointed at the file explicitly rather than relying
+ * on the convention, because the convention is a path in someone else's
+ * documentation and this is a path in ours.
+ */
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+
+export default withNextIntl(nextConfig);

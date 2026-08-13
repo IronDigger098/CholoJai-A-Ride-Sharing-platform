@@ -1,0 +1,128 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "remove": "Remove",
+    "close": "Close",
+    "retry": "Try again",
+    "skipToContent": "Skip to content"
+  },
+  "nav": {
+    "brand": "CholoJai",
+    "search": "Search",
+    "settings": "Settings",
+    "book": "Book a ride",
+    "rides": "Your rides",
+    "drive": "Drive",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "language": "Language"
+  },
+  "site": {
+    "tagline": "চলো যাই",
+    "sectionsNav": "Sections",
+    "sections": {
+      "howItWorks": "How it works",
+      "fares": "Fares",
+      "safety": "Safety",
+      "drive": "Drive with us"
+    },
+    "footer": {
+      "about": "A portfolio project: a ride-sharing platform for Bangladesh's urban market, built to production engineering standards. Inspired by the publicly observable experience of ride-sharing products; all code, branding, copy, and architecture here are original work.",
+      "source": "Source on GitHub",
+      "disclaimer": "© 2026 CholoJai. Not a real transport service."
+    }
+  },
+  "hero": {
+    "eyebrow": "চলো যাই — let's go",
+    "headline": "Book a verified ride with an upfront fare in under 30 seconds.",
+    "body": "No haggling at the kerb and no surprises at the end. See the price before you book, know who is picking you up, and let someone follow your journey while you take it.",
+    "book": "Book a ride",
+    "learn": "See how it works",
+    "promises": {
+      "fareTitle": "Upfront fares",
+      "fareDetail": "One price, shown before you book.",
+      "driversTitle": "Verified drivers",
+      "driversDetail": "Identity and vehicle checked.",
+      "trackingTitle": "Live tracking",
+      "trackingDetail": "Share your journey as it happens."
+    }
+  },
+  "howItWorks": {
+    "heading": "Three steps, no phone calls",
+    "whereTitle": "Tell us where",
+    "whereDetail": "Pickup and destination, typed or dropped on the map. Saved places for the trips you make every day.",
+    "fareTitle": "See the fare first",
+    "fareDetail": "One number, worked out from distance, time and vehicle type — with the breakdown shown, not hidden behind a total.",
+    "trackTitle": "Track every minute",
+    "trackDetail": "Watch your driver approach, see their name and vehicle before they arrive, and share the ride with someone at home."
+  },
+  "fares": {
+    "heading": "The price you are shown is the price you pay",
+    "body1": "Fares are worked out from distance, time and vehicle type before you book, and they do not move while you ride. If traffic turns a twenty-minute trip into forty, that is our problem, not a surcharge on your receipt.",
+    "body2": "Money is handled in whole paisa end to end — never a floating point number — so a receipt's lines always add up to its total. The figures beside this paragraph are not illustrations: they come from the same pricing engine that quotes a real ride.",
+    "example": "Example — {route}",
+    "route": "Dhanmondi to Banani",
+    "total": "Total",
+    "baseLabel": "Base fare",
+    "baseDetail": "Covers pickup and the first kilometre",
+    "distanceLabel": "Distance",
+    "distanceDetail": "8.4 km across the city",
+    "timeLabel": "Time",
+    "timeDetail": "11 minutes, including two signals"
+  },
+  "safety": {
+    "heading": "Trust is a feature, not an afterthought",
+    "intro": "Most of a ride happens with a stranger, often after dark. These are the things we do about that.",
+    "checksTitle": "Drivers are checked before they drive",
+    "checksDetail": "Identity and vehicle documents are reviewed by a person, and a driver cannot accept a ride until that review passes.",
+    "shareTitle": "Someone can follow your ride",
+    "shareDetail": "Share a live link with a friend or family member. They see the route and the driver without needing the app.",
+    "ratingsTitle": "Every trip is rated, both ways",
+    "ratingsDetail": "Ratings feed the matching that decides who drives, and a pattern of complaints removes a driver from it."
+  },
+  "drive": {
+    "heading": "Drive with CholoJai",
+    "intro": "Built with drivers in mind as much as riders — because a platform drivers resent is a platform riders cannot rely on.",
+    "cta": "Become a driver",
+    "earningsTitle": "Earnings you can check",
+    "earningsDetail": "What you made today and this week, with the commission shown as a number rather than implied by a gap.",
+    "acceptTitle": "Accept in one tap",
+    "acceptDetail": "Requests show the pickup, the destination and the fare before you decide, so you decide once.",
+    "onboardingTitle": "Onboarding that answers back",
+    "onboardingDetail": "If an application is rejected you are told which document failed and can replace it, rather than starting again."
+  },
+  "search": {
+    "title": "Search",
+    "label": "What are you looking for?",
+    "placeholder": "A place, a journey, or a question",
+    "minLength": "Type at least {min} characters.",
+    "searching": "Searching…",
+    "empty": "Nothing matched “{query}”.",
+    "kind": {
+      "PLACE": "Saved places",
+      "RIDE": "Your rides",
+      "HELP": "Help"
+    }
+  },
+  "places": {
+    "title": "Saved places",
+    "intro": "Somewhere you go often. Saved places appear in search, so you can find them by whatever you called them.",
+    "none": "Nothing saved yet.",
+    "labelField": "What do you call it?",
+    "labelPlaceholder": "Home, Office, Ma's place",
+    "placeField": "Which place?",
+    "submit": "Save place",
+    "full": "You have saved {max} places, which is the most we keep. Remove one to add another."
+  },
+  "settings": {
+    "title": "Settings",
+    "intro": "Your profile, how the app looks, what it tells you about, and your password.",
+    "appearance": "Appearance",
+    "appearanceHint": "Light or dark. Follows your device unless you choose.",
+    "notifications": "Notifications",
+    "notificationsHint": "Ride updates always arrive — that is how you know your driver is on the way. Everything below is yours to choose."
+  }
+}

@@ -1,3 +1,5 @@
+import { useTranslations } from 'next-intl';
+
 import type { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -11,43 +13,46 @@ import { Button } from '@/components/ui/button';
  * was specified against is how marketing and product drift apart.
  */
 
-const PROMISES = [
-  { title: 'Upfront fares', detail: 'One price, shown before you book.' },
-  { title: 'Verified drivers', detail: 'Identity and vehicle checked.' },
-  { title: 'Live tracking', detail: 'Share your journey as it happens.' },
-] as const;
+/**
+ * The three claims, as message-key stems.
+ *
+ * Keys rather than the strings themselves, because the strings now live in
+ * the catalogues. Keeping the array is what preserves the order and the
+ * `dl` markup below; only the source of the words changed.
+ */
+const PROMISES = ['fare', 'drivers', 'tracking'] as const;
 
 export function Hero(): ReactNode {
+  const t = useTranslations('hero');
+
   return (
     <section className="mx-auto max-w-5xl px-6 pt-16 pb-14 sm:pt-24">
       <p className="text-accent text-sm font-medium tracking-widest uppercase">
-        চলো যাই — let&rsquo;s go
+        {t('eyebrow')}
       </p>
 
       <h1 className="mt-4 max-w-3xl text-4xl font-semibold text-balance sm:text-5xl">
-        Book a verified ride with an upfront fare in under 30 seconds.
+        {t('headline')}
       </h1>
 
       <p className="text-content-muted mt-6 max-w-2xl text-lg text-pretty">
-        No haggling at the kerb and no surprises at the end. See the price
-        before you book, know who is picking you up, and let someone follow your
-        journey while you take it.
+        {t('body')}
       </p>
 
       <div className="mt-9 flex flex-wrap gap-3">
-        <Button>Book a ride</Button>
-        <Button variant="ghost">See how it works</Button>
+        <Button>{t('book')}</Button>
+        <Button variant="ghost">{t('learn')}</Button>
       </div>
 
       <dl className="mt-14 grid gap-6 sm:grid-cols-3">
         {PROMISES.map((promise) => (
-          <div key={promise.title}>
+          <div key={promise}>
             {/* A description list, not three divs. The pairing of a claim
                 and its explanation is exactly what dl/dt/dd describes, and
                 it is what a screen reader will announce. */}
-            <dt className="font-semibold">{promise.title}</dt>
+            <dt className="font-semibold">{t(`promises.${promise}Title`)}</dt>
             <dd className="text-content-muted mt-1 text-sm">
-              {promise.detail}
+              {t(`promises.${promise}Detail`)}
             </dd>
           </div>
         ))}

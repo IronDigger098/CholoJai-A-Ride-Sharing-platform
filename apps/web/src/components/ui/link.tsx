@@ -1,14 +1,17 @@
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 
+import { LocaleLink } from '@/i18n/navigation';
+
 /**
  * A link.
  *
- * A plain anchor today, and deliberately not a `next/link` wrapper. Every
- * link that currently exists is either an in-page fragment or an external
- * URL, and `next/link` adds nothing to either — while `typedRoutes` would
- * reject a fragment-only href outright. It becomes a `next/link` wrapper
- * the moment there is a second route to navigate to, which is a change to
- * this file and to nothing that uses it. That is the point of a primitive.
+ * Once a plain anchor throughout, on the reasoning that every link was
+ * either a fragment or an external URL and `next/link` added nothing. That
+ * stopped being true twice over: there are real routes now, and since M10b
+ * there are two languages, so an internal href has to carry a locale
+ * prefix. Internal links therefore go through next-intl's `Link` and the
+ * other two cases stay anchors — a change to this file and to nothing that
+ * uses it, which is what the primitive was for.
  *
  * The reason it exists at all is the external case. An `<a target="_blank">`
  * without `rel="noopener"` hands the opened page a `window.opener`
@@ -42,8 +45,22 @@ export function Link({
     ? ({ target: '_blank', rel: 'noopener noreferrer' } as const)
     : {};
 
+  /*
+   * Internal links go through next-intl's Link, which prefixes the locale.
+   * External ones and bare fragments stay plain anchors: prefixing
+   * `https://github.com/...` or `#how-it-works` with `/bn` would produce an
+   * address that does not exist.
+   *
+   * This is why the primitive is worth having. The rule is one condition in
+   * one file rather than a judgement every author makes at every call site
+   * — and the version of this bug where somebody links `/rides` directly is
+   * invisible in review, because the markup looks perfectly ordinary and
+   * only misbehaves for readers in the other language.
+   */
+  const Anchor = external || href.startsWith('#') ? 'a' : LocaleLink;
+
   return (
-    <a
+    <Anchor
       href={href}
       className={`${BASE} ${className}`.trim()}
       {...externalProps}
@@ -56,6 +73,6 @@ export function Link({
            leave the site entirely. */
         <span className="sr-only"> (opens in a new tab)</span>
       ) : null}
-    </a>
+    </Anchor>
   );
 }

@@ -3,13 +3,13 @@
 import {
   formatTaka,
   type Paisa,
-  SEARCH_KIND_LABEL,
   SEARCH_KIND_ORDER,
   type SearchResult,
   type SearchResultKind,
   SearchResultKind as Kind,
 } from '@cholojai/shared';
 import { useQuery } from '@tanstack/react-query';
+import { useFormatter, useTranslations } from 'next-intl';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 
 import { search } from '../api';
@@ -35,6 +35,7 @@ const MIN_QUERY_LENGTH = 2;
  */
 export function SearchScreen(): ReactNode {
   const id = useId();
+  const t = useTranslations('search');
   const [text, setText] = useState('');
   const [debounced, setDebounced] = useState('');
 
@@ -64,15 +65,15 @@ export function SearchScreen(): ReactNode {
        and a second set would inset this screen further than every other one
        under the same shell. */
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Search</h1>
+      <h1 className="text-2xl font-semibold">{t('title')}</h1>
 
       <Field
         id={id}
-        label="What are you looking for?"
+        label={t('label')}
         type="search"
         value={text}
         autoComplete="off"
-        placeholder="A place, a journey, or a question"
+        placeholder={t('placeholder')}
         onChange={(event) => {
           setText(event.target.value);
         }}
@@ -88,19 +89,19 @@ export function SearchScreen(): ReactNode {
           does nothing for one character reads as broken. */}
       {!enabled && (
         <p className="text-content-muted text-sm">
-          Type at least {String(MIN_QUERY_LENGTH)} characters.
+          {t('minLength', { min: MIN_QUERY_LENGTH })}
         </p>
       )}
 
       {enabled && isFetching && (
         <p role="status" className="text-content-muted text-sm">
-          Searching…
+          {t('searching')}
         </p>
       )}
 
       {enabled && !isFetching && results.length === 0 && (
         <p role="status" className="text-content-muted text-sm">
-          Nothing matched “{query}”.
+          {t('empty', { query })}
         </p>
       )}
 
@@ -111,8 +112,14 @@ export function SearchScreen(): ReactNode {
 
         return (
           <section key={kind} className="space-y-2">
+            {/* From the catalogue, not `SEARCH_KIND_LABEL`. The shared
+                constant still names the groups for anything without a
+                translator — the API docs, a future export — but a screen
+                that reads it would print English headings above Bangla
+                results. The order still comes from the shared constant;
+                only the words are local. */}
             <h2 className="text-content-muted text-sm font-medium">
-              {SEARCH_KIND_LABEL[kind]}
+              {t(`kind.${kind}`)}
             </h2>
 
             <ul className="space-y-2">
@@ -141,6 +148,13 @@ export function SearchScreen(): ReactNode {
  * throw away the part that makes each one useful.
  */
 function ResultRow({ result }: { readonly result: SearchResult }): ReactNode {
+  /* `useFormatter`, not `toLocaleDateString`. The browser's locale is
+     whatever the device is set to, which for a Bangla reader on an
+     English phone is the wrong one — and it would disagree with every
+     other string on the screen. This formats against the locale the page
+     is actually in, in the Dhaka time zone set in `request.ts`. */
+  const format = useFormatter();
+
   switch (result.kind) {
     case Kind.PLACE:
       return (
@@ -159,8 +173,10 @@ function ResultRow({ result }: { readonly result: SearchResult }): ReactNode {
             {result.pickupAddress} → {result.dropoffAddress}
           </span>
           <span className="text-content-muted block text-sm">
-            {new Date(result.requestedAt).toLocaleDateString()} ·{' '}
-            {formatTaka(result.farePaisa as Paisa)}
+            {format.dateTime(new Date(result.requestedAt), {
+              dateStyle: 'medium',
+            })}{' '}
+            · {formatTaka(result.farePaisa as Paisa)}
           </span>
         </Link>
       );

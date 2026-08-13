@@ -5,6 +5,7 @@ import {
   type Paisa,
   VehicleType,
 } from '@cholojai/shared';
+import { useTranslations } from 'next-intl';
 
 import type { ReactNode } from 'react';
 
@@ -26,8 +27,10 @@ import { Card } from '@/components/ui/card';
  * lines sum to the total, the displayed figures have to sum too.
  */
 
+/* The route is priced, not described, so it holds no copy — the name a
+   reader sees comes from the catalogue, because "Dhanmondi to Banani" is
+   written differently in Bangla. */
 const ROUTE = {
-  label: 'Dhanmondi to Banani',
   vehicleType: VehicleType.CNG,
   distanceMetres: 8400,
   durationSeconds: 660,
@@ -37,25 +40,16 @@ const FARE: Breakdown = estimateFare(ROUTE);
 
 const EXACT = { withDecimals: true } as const;
 
-const LINES: readonly { label: string; detail: string; amount: Paisa }[] = [
-  {
-    label: 'Base fare',
-    detail: 'Covers pickup and the first kilometre',
-    amount: FARE.base,
-  },
-  {
-    label: 'Distance',
-    detail: '8.4 km across the city',
-    amount: FARE.distance,
-  },
-  {
-    label: 'Time',
-    detail: '11 minutes, including two signals',
-    amount: FARE.time,
-  },
+/** Which line takes which amount. The words are in the catalogues. */
+const LINES: readonly { key: string; amount: Paisa }[] = [
+  { key: 'base', amount: FARE.base },
+  { key: 'distance', amount: FARE.distance },
+  { key: 'time', amount: FARE.time },
 ];
 
 export function FareBreakdown(): ReactNode {
+  const t = useTranslations('fares');
+
   return (
     <section
       id="fares"
@@ -65,21 +59,15 @@ export function FareBreakdown(): ReactNode {
       <div className="grid gap-10 md:grid-cols-2 md:items-center">
         <div>
           <h2 id="fares-heading" className="text-3xl font-semibold">
-            The price you are shown is the price you pay
+            {t('heading')}
           </h2>
 
           <p className="text-content-muted mt-4 max-w-prose text-pretty">
-            Fares are worked out from distance, time and vehicle type before you
-            book, and they do not move while you ride. If traffic turns a
-            twenty-minute trip into forty, that is our problem, not a surcharge
-            on your receipt.
+            {t('body1')}
           </p>
 
           <p className="text-content-muted mt-4 max-w-prose text-pretty">
-            Money is handled in whole paisa end to end — never a floating point
-            number — so a receipt&rsquo;s lines always add up to its total. The
-            figures beside this paragraph are not illustrations: they come from
-            the same pricing engine that quotes a real ride.
+            {t('body2')}
           </p>
         </div>
 
@@ -88,19 +76,19 @@ export function FareBreakdown(): ReactNode {
             id="example-fare-heading"
             className="text-content-subtle text-xs font-semibold tracking-widest uppercase"
           >
-            Example — {ROUTE.label}
+            {t('example', { route: t('route') })}
           </h3>
 
           <dl className="mt-5 space-y-4">
             {LINES.map((line) => (
               <div
-                key={line.label}
+                key={line.key}
                 className="flex items-baseline justify-between gap-4"
               >
                 <dt>
-                  <span className="font-medium">{line.label}</span>
+                  <span className="font-medium">{t(`${line.key}Label`)}</span>
                   <span className="text-content-subtle block text-xs">
-                    {line.detail}
+                    {t(`${line.key}Detail`)}
                   </span>
                 </dt>
                 <dd className="tabular-nums">
@@ -111,7 +99,7 @@ export function FareBreakdown(): ReactNode {
           </dl>
 
           <div className="border-border mt-5 flex items-baseline justify-between border-t pt-5">
-            <span className="font-semibold">Total</span>
+            <span className="font-semibold">{t('total')}</span>
             <span className="text-xl font-semibold tabular-nums">
               {formatTaka(FARE.total, EXACT)}
             </span>

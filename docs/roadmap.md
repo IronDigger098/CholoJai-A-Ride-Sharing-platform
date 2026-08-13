@@ -21,7 +21,8 @@
 | M9b  | Coupons & Contact               | Discount campaigns priced into the quote and spent at booking, contact form with an admin support inbox                                                                               | ✅     |
 | M9c  | Content & Referrals             | Blog and careers as MDX in the repo, referral codes and rewards                                                                                                                       | 🔲     |
 | M10a | Payments                        | Mock gateway behind a port, authorise at booking, capture at completion, method picker and receipt                                                                                    | ✅     |
-| M10b | Polish                          | Account settings, saved places, global search over places/rides/help, English and Bangla                                                                                              | 🔲     |
+| M10b | Polish                          | Account settings, saved places, global search over places/rides/help, next-intl with English and Bangla                                                                               | 🔲     |
+| M10c | Bangla Coverage                 | Booking, ride history, contact and auth screens onto the message catalogues; native review of the Bangla copy                                                                         | 🔲     |
 | M11  | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                                      | 🔲     |
 | M12  | Production Deployment           | Vercel + Railway, GitHub Actions pipelines, release process                                                                                                                           | 🔲     |
 
@@ -64,6 +65,24 @@ constant multiplied by a guess.
 The `saved_places` table has existed since M0 and nothing wrote to it. A
 search category that can only ever return nothing is a promise the interface
 makes and cannot keep, so the write path shipped first in the same slice.
+
+**The locale is in the URL, not only in a cookie.** A cookie-only scheme
+serves two languages from one address, and three things break at once: a
+shared link shows the sender's language rather than the reader's, a CDN
+caches whichever version arrived first, and a crawler indexes one language
+while the other is invisible. `localePrefix: 'as-needed'` keeps English at
+the bare path, so every URL already shared still resolves and only Bangla
+gains a prefix.
+
+**M10b.3 converts the public surface, and says so rather than claiming the
+app is bilingual.** The architecture, the marketing pages, search, saved
+places and the shared chrome are translated; booking, ride history, the
+contact form and the auth screens are not, and become M10c. Converting
+roughly forty components in one pull request would produce a diff nobody
+can review, and a milestone marked complete over a half-translated app is
+the worse of the two failures. The Bangla itself is written without a
+native reviewer and is marked as needing one — a translation nobody has
+checked is a draft, whatever the file extension says.
 
 **Schema evolves per feature, not up front.** The core domain (users, roles,
 drivers, vehicles, rides) is designed in M0; every later feature adds its own
