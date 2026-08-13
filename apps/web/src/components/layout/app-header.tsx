@@ -37,8 +37,14 @@ export function AppHeader(): ReactNode {
           CholoJai
         </Link>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
           <NotificationBell />
+          <Link
+            href="/settings"
+            className="text-content-muted hover:text-content rounded-xs text-sm no-underline"
+          >
+            Settings
+          </Link>
           <ThemeToggle />
         </div>
       </div>

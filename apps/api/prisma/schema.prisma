@@ -160,6 +160,7 @@ model User {
   reviewsAuthored    Review[]            @relation("ReviewAuthor")
   reviewsReceived    Review[]            @relation("ReviewTarget")
   contactMessages    ContactMessage[]
+  notificationMutes  NotificationMute[]
 
   /// Composite rather than `deletedAt` alone. The admin directory reads
   /// active users newest first, and a leading `deletedAt` still serves every
@@ -457,6 +458,36 @@ model Notification {
   /// The unread count, which every page asks for on load.
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+/// A notification category one person has switched off.
+///
+/// A *mute* rather than a preference: the row's presence means "do not send
+/// me this", and its absence means send. That asymmetry is the whole design.
+/// A preferences table storing a boolean per kind has to answer "what about
+/// the kinds that were added after this row was written?" — and the honest
+/// answer is a migration for every new kind, or a default that silently
+/// decides for people. Storing only the exceptions means a new kind is on
+/// for everybody, which is the right default for something nobody has had
+/// the chance to ask for yet.
+///
+/// Turning a category off is an insert; turning it back on is a delete. No
+/// row is ever updated, so there is no state to get wrong.
+model NotificationMute {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+
+  kind NotificationKind
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Doubles as "the same category cannot be muted twice", which makes
+  /// muting idempotent at the database rather than in every caller.
+  @@unique([userId, kind])
+  @@index([userId])
+  @@map("notification_mutes")
 }
 
 /// Someone writing to support.

@@ -71,6 +71,34 @@ export class InMemoryUserRepository implements UserRepository {
     this.patch(userId, (row) => ({ ...row, passwordHash }));
   }
 
+  /**
+   * Apply only the named fields.
+   *
+   * The `undefined` checks mirror the adapter's spread guards rather than
+   * being defensive noise: `{ phone: undefined }` must leave a number
+   * alone, and a fake that overwrote it with `undefined` would let a test
+   * pass against a service that silently wipes data.
+   */
+  public async updateProfile(
+    userId: string,
+    input: {
+      readonly fullName?: string | undefined;
+      readonly phone?: string | null | undefined;
+      readonly avatarUrl?: string | null | undefined;
+    },
+  ): Promise<UserRecord | null> {
+    if (!this.rows.some((row) => row.id === userId)) return null;
+
+    this.patch(userId, (row) => ({
+      ...row,
+      ...(input.fullName === undefined ? {} : { fullName: input.fullName }),
+      ...(input.phone === undefined ? {} : { phone: input.phone }),
+      ...(input.avatarUrl === undefined ? {} : { avatarUrl: input.avatarUrl }),
+    }));
+
+    return this.findById(userId);
+  }
+
   public async markEmailVerified(userId: string): Promise<void> {
     this.patch(userId, (row) => ({ ...row, emailVerifiedAt: new Date() }));
   }

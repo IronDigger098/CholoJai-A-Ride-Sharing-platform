@@ -94,6 +94,42 @@ export class PrismaUserRepository implements UserRepository {
     });
   }
 
+  /**
+   * Write only the fields the caller named.
+   *
+   * The spread guards are load-bearing. `data: { phone: undefined }` and
+   * omitting `phone` mean the same thing to Prisma, but building the object
+   * unconditionally would put `avatarUrl: undefined` in a request meant to
+   * clear it — and the difference between "leave it" and "clear it" is the
+   * whole point of the nullable-optional pair.
+   *
+   * `updateMany` so a soft-deleted or unknown id is zero rows rather than
+   * an exception, matching every other write in this codebase.
+   */
+  public async updateProfile(
+    userId: string,
+    input: {
+      readonly fullName?: string | undefined;
+      readonly phone?: string | null | undefined;
+      readonly avatarUrl?: string | null | undefined;
+    },
+  ): Promise<UserRecord | null> {
+    const changed = await this.prisma.user.updateMany({
+      where: { id: userId, deletedAt: null },
+      data: {
+        ...(input.fullName === undefined ? {} : { fullName: input.fullName }),
+        ...(input.phone === undefined ? {} : { phone: input.phone }),
+        ...(input.avatarUrl === undefined
+          ? {}
+          : { avatarUrl: input.avatarUrl }),
+      },
+    });
+
+    if (changed.count === 0) return null;
+
+    return this.findById(userId);
+  }
+
   public async markEmailVerified(userId: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },

@@ -91,6 +91,29 @@ export interface UserRepository {
   /** Replace a stored hash — used by the transparent rehash on login. */
   updatePasswordHash(userId: string, passwordHash: string): Promise<void>;
 
+  /**
+   * Change the parts of a profile a person owns.
+   *
+   * Every field is optional and `undefined` means "leave alone", which is
+   * why `phone` and `avatarUrl` are separately nullable: clearing a number
+   * and not mentioning it are different intentions, and one optional field
+   * cannot express both.
+   *
+   * Email is deliberately not here. Changing it requires re-verification,
+   * and a repository method that could quietly rewrite the column would
+   * make that flow optional.
+   *
+   * Returns null when no active user has that id.
+   */
+  updateProfile(
+    userId: string,
+    input: {
+      readonly fullName?: string | undefined;
+      readonly phone?: string | null | undefined;
+      readonly avatarUrl?: string | null | undefined;
+    },
+  ): Promise<UserRecord | null>;
+
   markEmailVerified(userId: string): Promise<void>;
 
   /**
