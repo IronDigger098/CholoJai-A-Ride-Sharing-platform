@@ -1,3 +1,5 @@
+import { setRequestLocale } from 'next-intl/server';
+
 import type { ReactNode } from 'react';
 
 import { SiteFooter } from '@/components/layout/site-footer';
@@ -21,7 +23,17 @@ import { StructuredData } from '@/features/marketing/components/structured-data'
  * theme toggle, so that is the only JavaScript a visitor downloads to make
  * it interactive.
  */
-export default function HomePage(): ReactNode {
+export default async function HomePage({
+  params,
+}: Readonly<{ params: Promise<{ locale: string }> }>): Promise<ReactNode> {
+  const { locale } = await params;
+
+  /* Repeated from the layout, and necessarily so: `setRequestLocale` is
+     per-render-tree, and a page that omits it opts *itself* back into
+     dynamic rendering even though its layout did not. Every page under
+     `[locale]` that renders a translation needs this line. */
+  setRequestLocale(locale);
+
   return (
     <>
       <StructuredData />

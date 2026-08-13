@@ -1,8 +1,23 @@
 import { describe, expect, it } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { type RenderResult, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import HomePage from './page';
+
+import type { ReactElement } from 'react';
+
+import { renderWithProviders } from '@/testing/render-with-providers';
+
+/**
+ * `setRequestLocale` reads the request store, which does not exist outside
+ * a Next server render. It is an optimisation hint — it opts the tree into
+ * static rendering — so a no-op here changes nothing this file asserts.
+ * The alternative is standing up a request context to make one function
+ * call succeed.
+ */
+jest.mock('next-intl/server', () => ({
+  setRequestLocale: () => undefined,
+}));
 
 /**
  * Structural and accessibility assertions for the landing page.
@@ -13,9 +28,28 @@ import HomePage from './page';
  * landmarks, one first-level heading, an unbroken heading order, and a
  * working skip link.
  */
+
+/**
+ * Render the page.
+ *
+ * The page became an async Server Component in M10b — it awaits `params`
+ * to learn its locale — and Testing Library renders elements, not
+ * promises. Calling it and awaiting the element it returns is the whole
+ * adaptation; every assertion below is unchanged.
+ */
+async function renderHome(locale = 'en'): Promise<RenderResult> {
+  /* `ReactNode` includes `undefined` and `render` wants an element. The
+     page always returns a fragment, so the assertion states what the
+     signature is too loose to. */
+  const page = (await HomePage({
+    params: Promise.resolve({ locale }),
+  })) as ReactElement;
+
+  return renderWithProviders(page, locale);
+}
 describe('the landing page', () => {
-  it('provides the landmarks assistive technology navigates by', () => {
-    render(<HomePage />);
+  it('provides the landmarks assistive technology navigates by', async () => {
+    await renderHome();
 
     expect(screen.getByRole('banner')).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
@@ -23,20 +57,20 @@ describe('the landing page', () => {
     expect(screen.getByRole('navigation', { name: 'Sections' })).toBeVisible();
   });
 
-  it('has exactly one first-level heading', () => {
+  it('has exactly one first-level heading', async () => {
     /* Screen reader users jump between headings to understand a page.
        Two h1s means two claims about what the page is about; none means
        the page has no title in that outline at all. */
-    render(<HomePage />);
+    await renderHome();
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
-  it('never skips a heading level', () => {
+  it('never skips a heading level', async () => {
     /* An h2 followed by an h4 tells a screen reader there is a missing
        section between them. It is invisible on screen — the h4 is simply
        styled smaller — and it is the most common heading fault there is. */
-    const { container } = render(<HomePage />);
+    const { container } = await renderHome();
 
     const levels = [...container.querySelectorAll('h1,h2,h3,h4,h5,h6')].map(
       (heading) => Number(heading.tagName[1]),
@@ -55,7 +89,7 @@ describe('the landing page', () => {
        it. This also checks the target can actually receive focus — a skip
        link pointing at a non-focusable element moves the scroll position
        and leaves the keyboard exactly where it was. */
-    render(<HomePage />);
+    await renderHome();
 
     await userEvent.tab();
 
@@ -65,11 +99,11 @@ describe('the landing page', () => {
     expect(screen.getByRole('main')).toHaveAttribute('tabindex', '-1');
   });
 
-  it('labels every section by its own heading', () => {
+  it('labels every section by its own heading', async () => {
     /* `aria-labelledby` is what turns a <section> into a landmark a
        screen reader can list and jump to. Without it the element is
        announced as a generic region, or not at all. */
-    const { container } = render(<HomePage />);
+    const { container } = await renderHome();
 
     const sections = [...container.querySelectorAll('section[id]')];
     expect(sections.length).toBeGreaterThan(0);
@@ -81,7 +115,7 @@ describe('the landing page', () => {
     expect(unlabelled).toEqual([]);
   });
 
-  it('displays a fare total equal to the sum of its displayed lines', () => {
+  it('displays a fare total equal to the sum of its displayed lines', async () => {
     /* Not "does the arithmetic work" — the engine's own tests cover that
        across hundreds of inputs. This checks the *rendered* figures, which
        round independently of each other: `formatTaka` defaults to whole
@@ -94,7 +128,7 @@ describe('the landing page', () => {
        assertion alone would not have caught the fault. It guards the page
        against a future route where they do not cancel; the general rule
        is pinned in `fare.test.ts`, which carries a worked counterexample. */
-    const { container } = render(<HomePage />);
+    const { container } = await renderHome();
 
     const card = container.querySelector('#fares [aria-labelledby]');
     const amounts = [...(card?.querySelectorAll('dd') ?? [])].map((cell) =>
@@ -112,8 +146,8 @@ describe('the landing page', () => {
     );
   });
 
-  it('opens external links safely', () => {
-    render(<HomePage />);
+  it('opens external links safely', async () => {
+    await renderHome();
 
     const repository = screen.getByRole('link', { name: /Source on GitHub/u });
 

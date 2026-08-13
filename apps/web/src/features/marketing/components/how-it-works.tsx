@@ -1,26 +1,15 @@
+import { useTranslations } from 'next-intl';
+
 import type { ReactNode } from 'react';
 
 import { Card } from '@/components/ui/card';
 
-const STEPS = [
-  {
-    title: 'Tell us where',
-    detail:
-      'Pickup and destination, typed or dropped on the map. Saved places for the trips you make every day.',
-  },
-  {
-    title: 'See the fare first',
-    detail:
-      'One number, worked out from distance, time and vehicle type — with the breakdown shown, not hidden behind a total.',
-  },
-  {
-    title: 'Track every minute',
-    detail:
-      'Watch your driver approach, see their name and vehicle before they arrive, and share the ride with someone at home.',
-  },
-] as const;
+/** Step order, as message-key stems. The words are in the catalogues. */
+const STEPS = ['where', 'fare', 'track'] as const;
 
 export function HowItWorks(): ReactNode {
+  const t = useTranslations('howItWorks');
+
   return (
     <section
       id="how-it-works"
@@ -28,7 +17,7 @@ export function HowItWorks(): ReactNode {
       className="mx-auto max-w-5xl scroll-mt-20 px-6 py-14"
     >
       <h2 id="how-it-works-heading" className="text-3xl font-semibold">
-        Three steps, no phone calls
+        {t('heading')}
       </h2>
 
       {/* An ordered list because the order is the meaning. A screen reader
@@ -36,7 +25,7 @@ export function HowItWorks(): ReactNode {
           information a grid of divs simply does not carry. */}
       <ol className="mt-8 grid gap-4 md:grid-cols-3">
         {STEPS.map((step, index) => (
-          <Card as="li" key={step.title}>
+          <Card as="li" key={step}>
             <span
               aria-hidden="true"
               className="bg-accent text-accent-content flex size-8 items-center justify-center rounded-full text-sm font-semibold"
@@ -44,9 +33,9 @@ export function HowItWorks(): ReactNode {
               {index + 1}
             </span>
 
-            <h3 className="mt-4 font-semibold">{step.title}</h3>
+            <h3 className="mt-4 font-semibold">{t(`${step}Title`)}</h3>
             <p className="text-content-muted mt-2 text-sm text-pretty">
-              {step.detail}
+              {t(`${step}Detail`)}
             </p>
           </Card>
         ))}
