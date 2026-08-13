@@ -21,6 +21,21 @@ const config = {
      configuration than it saves. */
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  /**
+   * Comfortably above `asyncUtilTimeout` in `jest.setup.ts`.
+   *
+   * These two are nested timers, and their *order* is what matters. When a
+   * query genuinely never resolves, whichever fires first writes the error
+   * message — and Testing Library's says "unable to find an element with
+   * the text …" and prints the DOM, while Jest's says only that five
+   * seconds passed.
+   *
+   * Setting them equal produced exactly that: three suites failing with an
+   * opaque timeout and no indication of what they were waiting for. The
+   * gap is not slack, it is the difference between a diagnosable failure
+   * and a stopwatch.
+   */
+  testTimeout: 20_000,
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.spec.ts', '**/*.spec.tsx'],
 };
