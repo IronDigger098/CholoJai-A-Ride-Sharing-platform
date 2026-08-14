@@ -69,10 +69,25 @@ import { VERIFICATION_TOKEN_REPOSITORY } from './verification-token-repository.p
   /* `JwtAuthGuard` and `AccessTokenService` are exported because every
      feature module from M4 onward protects its own routes with them. The
      repositories and the cookie service are not: how auth stores tokens
-     and where it puts them is nobody else's business. */
+     and where it puts them is nobody else's business.
+
+     `RefreshTokenService` joined them in M12, and only for one caller:
+     changing a password signs the account out everywhere, which means
+     revoking every session — a thing only auth can do. It is exported
+     rather than reimplemented so there is one place that knows what
+     "revoke" means.
+
+     Its absence is why the first production container refused to boot.
+     `SettingsService` had taken the dependency since M10b.1 and nothing
+     caught it: Nest resolves the graph at startup, and no test ever
+     started the whole graph — the settings specs construct the service
+     directly with a fake. A unit test cannot see a missing module import,
+     and this one wants an end-to-end boot to catch it. That test is worth
+     writing; it belongs with M11. */
   exports: [
     AuthService,
     AccessTokenService,
+    RefreshTokenService,
     JwtAuthGuard,
     OptionalAuthGuard,
     RolesGuard,
