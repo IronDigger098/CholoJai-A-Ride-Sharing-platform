@@ -59,12 +59,25 @@ export const envSchema = z
           value.startsWith('postgresql://') || value.startsWith('postgres://'),
         { message: 'must be a PostgreSQL connection string' },
       ),
+    /**
+     * `rediss://` as well as `redis://` — the extra `s` is TLS.
+     *
+     * Docker Compose serves plaintext on a private network, so development
+     * is `redis://`. Every managed provider terminates TLS and hands out a
+     * `rediss://` URL, and rejecting that scheme meant the schema refused
+     * the only kind of Redis a deployment can actually have. Found the
+     * first time this was pointed at a real one.
+     */
     REDIS_URL: z
       .string()
       .min(1)
-      .refine((value) => value.startsWith('redis://'), {
-        message: 'must be a Redis connection string',
-      }),
+      .refine(
+        (value) =>
+          value.startsWith('redis://') || value.startsWith('rediss://'),
+        {
+          message: 'must be a Redis connection string (redis:// or rediss://)',
+        },
+      ),
 
     // ─── Authentication ─────────────────────────────────────────────────
     /**

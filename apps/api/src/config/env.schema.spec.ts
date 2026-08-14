@@ -55,6 +55,16 @@ describe('parseEnv', () => {
       ).toThrow(/Redis/);
     });
 
+    it('accepts a TLS Redis URL', () => {
+      /* Every managed provider terminates TLS and hands out `rediss://`.
+         Accepting only the plaintext scheme meant the schema rejected the
+         only kind of Redis a deployment can actually have — found the
+         first time this was pointed at one. */
+      expect(() =>
+        parseEnv({ ...validEnv, REDIS_URL: 'rediss://user:pw@host:6379' }),
+      ).not.toThrow();
+    });
+
     it('rejects a port outside the valid range', () => {
       expect(() => parseEnv({ ...validEnv, PORT: '70000' })).toThrow(
         EnvValidationError,
