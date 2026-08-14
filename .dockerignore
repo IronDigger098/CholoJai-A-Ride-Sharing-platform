@@ -1,0 +1,40 @@
+# What never belongs in a build context.
+#
+# The context is the whole repository, and everything in it is sent to the
+# daemon before the first instruction runs. `node_modules` alone is
+# hundreds of megabytes that the image then discards and reinstalls, so
+# excluding it is most of the build time. It would also be *wrong* to
+# copy: a tree installed on Windows carries platform-specific binaries that
+# do not run on Alpine.
+
+node_modules
+**/node_modules
+
+# Build output. Regenerated inside the image; copying a local `dist` risks
+# shipping something compiled from uncommitted source.
+dist
+.next
+.turbo
+*.tsbuildinfo
+
+# Secrets. `.env` is gitignored and would still be picked up here, which is
+# how credentials end up baked into an image layer and stay there even
+# after a later instruction deletes the file.
+.env
+.env.*
+!.env.example
+
+# History and tooling — large, and none of it affects the build.
+.git
+.github
+.husky
+coverage
+playwright-report
+test-results
+
+# Documentation and editor state.
+docs
+*.md
+!README.md
+.vscode
+.idea
