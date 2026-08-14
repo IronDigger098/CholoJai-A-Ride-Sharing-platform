@@ -148,10 +148,30 @@ describe('parseEnv', () => {
       API_BASE_URL: 'https://api.cholojai.app',
       WEB_BASE_URL: 'https://cholojai.app',
       LOG_LEVEL: 'info',
+      SMTP_USER: 'resend',
+      SMTP_PASSWORD: 're_not_a_real_key',
     } as const;
 
     it('accepts a correct production environment', () => {
       expect(() => parseEnv(productionEnv)).not.toThrow();
+    });
+
+    it('rejects production SMTP with no credentials', () => {
+      /* The failure this prevents is invisible: an unauthenticated
+         connection to a real provider is refused, so registration succeeds
+         and the verification email simply never arrives. Nobody looks at
+         the mail configuration when the symptom is a user who cannot log
+         in. */
+      const { SMTP_USER: _user, ...withoutUser } = productionEnv;
+
+      expect(() => parseEnv(withoutUser)).toThrow(/SMTP_USER/u);
+    });
+
+    it('does not require SMTP credentials outside production', () => {
+      /* Mailpit accepts everything and authenticates nobody, so requiring
+         them locally would mean inventing a username to satisfy a
+         validator. */
+      expect(() => parseEnv(validEnv)).not.toThrow();
     });
 
     it('rejects plain http origins in production', () => {

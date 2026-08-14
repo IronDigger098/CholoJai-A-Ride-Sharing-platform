@@ -21,12 +21,17 @@ export class SmtpMailerService implements Mailer, OnModuleDestroy {
   private readonly from: string;
 
   public constructor(config: AppConfigService) {
-    const { host, port, from } = config.mail;
+    const { host, port, from, auth } = config.mail;
     this.from = from;
 
     this.transporter = createTransport({
       host,
       port,
+      /* Spread rather than passed as a possibly-undefined property.
+         Nodemailer reads the presence of `auth` as "authenticate", so an
+         object full of undefined values makes it attempt AUTH with an empty
+         username — which Mailpit, wanting none, refuses. */
+      ...(auth === undefined ? {} : { auth }),
       // Mailpit speaks plain SMTP on 1025 with no TLS and no auth. A real
       // provider on 465/587 negotiates TLS, which nodemailer derives from
       // the port — hence no hardcoded `secure` flag.

@@ -145,6 +145,20 @@ export const envSchema = z
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535),
     MAIL_FROM: z.string().min(1),
 
+    /**
+     * SMTP credentials, optional because local development has none.
+     *
+     * Mailpit accepts anything and authenticates nobody, so requiring these
+     * everywhere would mean inventing a username to satisfy a validator.
+     * Every real provider requires them, which is why production demands
+     * them below — an unauthenticated send to Resend or SES is not a
+     * degraded mode, it is a rejected connection, and the failure surfaces
+     * as "the verification email never arrived" rather than as a
+     * misconfiguration anyone would look for.
+     */
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+
     // ─── Geo / routing ──────────────────────────────────────────────────
     /**
      * OSRM instance used to measure routes.
@@ -339,6 +353,20 @@ export const envSchema = z
         path: ['JWT_ACCESS_SECRET'],
         message:
           'is still the placeholder from .env.example — generate a real secret',
+      });
+    }
+
+    /* Both or neither, and in production both. A host with no credentials
+       is the local Mailpit configuration pointed at a real provider, which
+       connects and is refused — so registration succeeds, the email never
+       arrives, and the account can never be verified. */
+    if (env.SMTP_USER === undefined || env.SMTP_PASSWORD === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SMTP_USER'],
+        message:
+          'SMTP_USER and SMTP_PASSWORD are both required in production — ' +
+          'a real mail provider refuses unauthenticated connections',
       });
     }
 

@@ -136,11 +136,26 @@ export class AppConfigService {
     };
   }
 
-  public get mail(): { host: string; port: number; from: string } {
+  public get mail(): {
+    host: string;
+    port: number;
+    from: string;
+    /** Undefined for Mailpit, which authenticates nobody. */
+    auth?: { user: string; pass: string };
+  } {
+    const { SMTP_USER, SMTP_PASSWORD } = this.env;
+
     return {
       host: this.env.SMTP_HOST,
       port: this.env.SMTP_PORT,
       from: this.env.MAIL_FROM,
+      /* Omitted rather than passed as undefined values. Nodemailer treats a
+         present `auth` object as an instruction to authenticate, so
+         `{ user: undefined }` makes it attempt AUTH with an empty username
+         against a server that never wanted one — which Mailpit rejects. */
+      ...(SMTP_USER === undefined || SMTP_PASSWORD === undefined
+        ? {}
+        : { auth: { user: SMTP_USER, pass: SMTP_PASSWORD } }),
     };
   }
 
