@@ -58,7 +58,11 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 # ─── Build ───────────────────────────────────────────────────────────────
 FROM deps AS build
 
-COPY tsconfig.json turbo.json ./
+# No root `tsconfig.json` and no `turbo.json`: the shared compiler options
+# live in `packages/tsconfig`, which each package extends by name, and
+# nothing in this image invokes turbo — the two builds below are named
+# explicitly. Copying files that do not exist fails the build, which is how
+# this was found.
 COPY packages ./packages
 COPY apps/api ./apps/api
 
@@ -76,7 +80,28 @@ RUN pnpm --filter @cholojai/api build
 # the tree without devDependencies; `deploy` flattens the workspace into a
 # single self-contained directory, which is what makes it copyable into a
 # stage that has no workspace root.
-RUN pnpm --filter @cholojai/api deploy --prod --legacy /app/pruned
+#
+# `--ignore-scripts` for the same reason as the install above, and one
+# more: `apps/api`'s postinstall is `node ../../scripts/…`, a path that
+# resolves relative to the *workspace*, and the deployed directory has no
+# workspace above it. Left on, the build fails with MODULE_NOT_FOUND on a
+# script that was never the point.
+RUN pnpm --filter @cholojai/api deploy --prod --legacy --ignore-scripts /app/pruned
+
+# Generate the client *into the pruned tree*, not before it.
+#
+# This is the non-obvious one. `pnpm deploy` builds a fresh `node_modules`
+# by re-linking from the content-addressable store, so it contains the
+# published `@prisma/client` — a stub that throws "did you forget to run
+# prisma generate" — rather than the generated one from the build above.
+# The image would build, start, and fail on its first query.
+#
+# Invoked as `node node_modules/prisma/build/index.js` rather than through
+# `.bin/prisma`. `pnpm deploy --legacy` produces the package directories but
+# not reliably the bin shims, so the shim path is a 127 waiting to happen —
+# it already was one. Calling the package entry point needs nothing linked.
+COPY apps/api/prisma /app/pruned/prisma
+RUN cd /app/pruned && node node_modules/prisma/build/index.js generate
 
 # ─── Runtime ─────────────────────────────────────────────────────────────
 FROM base AS runtime
@@ -97,8 +122,9 @@ COPY --from=build --chown=node:node /app/apps/api/package.json ./package.json
 # The migration files and schema travel with the image. `migrate deploy`
 # runs at container start (see `railway.json`), and it needs the migrations
 # folder — an image without it starts against whatever the database
-# happens to look like.
-COPY --from=build --chown=node:node /app/apps/api/prisma ./prisma
+# happens to look like. Taken from the pruned tree, where the client was
+# generated, so the schema here is the one that client was built from.
+COPY --from=build --chown=node:node /app/pruned/prisma ./prisma
 
 # Documentation, not a binding. The platform decides the real port through
 # PORT, which `env.schema.ts` reads; EXPOSE only tells a human — and
