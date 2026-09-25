@@ -25,12 +25,18 @@ const nominatimPlaceSchema = z.object({
 const searchResultsSchema = z.array(nominatimPlaceSchema);
 
 /**
- * Bias results toward Bangladesh without excluding anywhere.
+ * Search Bangladesh, and only Bangladesh.
  *
- * `countrycodes` filters rather than ranks, which would refuse a legitimate
- * cross-border address. A viewbox biases: the same query returns Dhaka's
- * Banani ahead of anywhere else called Banani, and still returns the others.
+ * This used to bias rather than filter — a viewbox around the country with
+ * `bounded=0` — on the theory that refusing a cross-border address was
+ * worse than ranking it lower. In practice the bias lost: "science lab"
+ * returned Kolkata's Science Lab above Dhaka's, a rider picked it, and the
+ * quote was refused at 311 km. Every trip is capped at 100 km inside the
+ * service area, so a result across the border can never be booked; showing
+ * it only offers the rider a mistake. The viewbox stays, to rank the
+ * domestic results toward the region.
  */
+const COUNTRY_CODES = 'bd';
 const BANGLADESH_VIEWBOX = '88.0,20.5,92.7,26.7';
 
 const RESULT_LIMIT = 8;
@@ -47,6 +53,7 @@ export class NominatimGeocodingProvider implements GeocodingProvider {
       format: 'jsonv2',
       addressdetails: '0',
       limit: String(RESULT_LIMIT),
+      countrycodes: COUNTRY_CODES,
       viewbox: BANGLADESH_VIEWBOX,
       bounded: '0',
     });
