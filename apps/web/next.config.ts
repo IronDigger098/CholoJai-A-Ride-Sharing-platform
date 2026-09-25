@@ -40,6 +40,34 @@ const nextConfig: NextConfig = {
   headers() {
     return Promise.resolve([{ source: '/:path*', headers: SECURITY_HEADERS }]);
   },
+
+  /* The API behind the web app's own origin, in production.
+   *
+   * The refresh token is an httpOnly `SameSite=Strict` cookie. Hosted on
+   * two different sites — the web app on Vercel, the API elsewhere — the
+   * browser treats every call from one to the other as cross-site and never
+   * attaches that cookie, so a page reload signs the user out. Routing
+   * `/api/v1/*` through the web app makes the cookie first-party without
+   * weakening it to `SameSite=None`, which browsers increasingly block as a
+   * third-party cookie anyway.
+   *
+   * `API_PROXY_TARGET` is read at build time and is not `NEXT_PUBLIC_`: the
+   * browser only ever sees the relative path. Unset — local development —
+   * there is no rewrite and the client calls the API directly. */
+  rewrites() {
+    const target = process.env['API_PROXY_TARGET']?.replace(/\/+$/u, '');
+
+    return Promise.resolve(
+      target === undefined || target === ''
+        ? []
+        : [
+            {
+              source: '/api/v1/:path*',
+              destination: `${target}/api/v1/:path*`,
+            },
+          ],
+    );
+  },
 };
 
 /**

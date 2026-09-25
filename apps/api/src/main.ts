@@ -9,6 +9,7 @@ import { Logger as PinoLogger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/filters/problem-details.filter';
+import { ConfiguredIoAdapter } from './common/realtime/configured-io.adapter';
 import { setupSwagger, SWAGGER_PATH } from './common/swagger/setup-swagger';
 import { ZodValidationPipe } from './common/validation/zod-validation.pipe';
 import { AppConfigService } from './config/app-config.service';
@@ -84,6 +85,11 @@ async function bootstrap(env: Env): Promise<void> {
     ],
     exposedHeaders: ['X-Request-Id'],
   });
+
+  /* The same allow-list for sockets. Without it Socket.IO answers with a
+     wildcard origin, which a browser rejects on a credentialed request —
+     see `ConfiguredIoAdapter` for how that broke every realtime feature. */
+  app.useWebSocketAdapter(new ConfiguredIoAdapter(app, config.corsOrigins));
 
   /* URI versioning (ADR-007). Declaring it now means a future v2 can
      coexist with v1 instead of breaking every existing client. */

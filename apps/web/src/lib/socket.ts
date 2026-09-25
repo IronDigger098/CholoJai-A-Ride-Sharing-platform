@@ -16,9 +16,33 @@ import { accessToken } from '@/lib/access-token';
  * reconnection after a refresh carries the new token rather than the dead one.
  */
 
-const BASE_URL = (
-  process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:4000/api/v1'
-).replace(/\/api\/v1$/u, '');
+/*
+ * Where sockets connect.
+ *
+ * In production the REST API is reached through the web app's own origin
+ * (`/api/v1`, proxied by a Next.js rewrite — see `next.config.ts`), but a
+ * rewrite cannot carry a WebSocket upgrade on Vercel. So sockets are told
+ * the API's real address separately. Authentication does not suffer for
+ * it: the socket carries the access token in its handshake, never a cookie.
+ *
+ * Unset, it falls back to the API base URL's origin when that is absolute,
+ * which is what local development uses.
+ */
+function socketBaseUrl(): string {
+  const explicit = process.env['NEXT_PUBLIC_SOCKET_URL'];
+  if (explicit !== undefined && explicit !== '') {
+    return explicit.replace(/\/+$/u, '');
+  }
+
+  const api =
+    process.env['NEXT_PUBLIC_API_BASE_URL'] ?? 'http://localhost:4000/api/v1';
+
+  return /^https?:\/\//u.test(api)
+    ? api.replace(/\/api\/v1\/?$/u, '')
+    : 'http://localhost:4000';
+}
+
+const BASE_URL = socketBaseUrl();
 
 const sockets = new Map<string, Socket>();
 

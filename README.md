@@ -30,7 +30,7 @@ production engineering standards.
 | Backend  | NestJS, TypeScript, Prisma, PostgreSQL, Redis, BullMQ, Socket.IO, Passport + JWT, Swagger                                        |
 | Tooling  | Turborepo, pnpm, ESLint, Prettier, Husky, Commitlint                                                                             |
 | Testing  | Jest, Supertest, Playwright                                                                                                      |
-| Infra    | Docker Compose (dev), GitHub Actions, Vercel (web), Railway (API)                                                                |
+| Infra    | Docker Compose (dev), GitHub Actions, Vercel (web), Render (API), Neon (Postgres), Upstash (Redis)                               |
 
 ## Repository layout
 
