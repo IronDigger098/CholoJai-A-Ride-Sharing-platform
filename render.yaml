@@ -60,7 +60,12 @@ services:
       # Upstash: the rediss:// URL.
       - key: REDIS_URL
         sync: false
-      # Any SMTP provider; production refuses to start without credentials.
+      # Brevo transactional-email API key. Render's free tier blocks
+      # outbound SMTP (ports 25/465/587), so mail goes over HTTPS instead.
+      # With this set, the SMTP_* values below are unused but still parsed.
+      - key: BREVO_API_KEY
+        sync: false
+      # SMTP: unused while BREVO_API_KEY is set, kept for hosts that allow it.
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT

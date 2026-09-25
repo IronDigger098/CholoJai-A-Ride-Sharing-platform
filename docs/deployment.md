@@ -63,12 +63,20 @@ Do these in order — each step needs a URL from the one before.
 1. upstash.com → create a Redis database, region closest to Singapore.
 2. Copy the `rediss://default:<password>@<host>:6379` URL.
 
-### 3. SMTP
+### 3. Email (Brevo)
 
-Production refuses to start without `SMTP_USER` and `SMTP_PASSWORD` (a
-provider that authenticates nobody is a provider that delivers nothing).
-Any SMTP service works — for example a Gmail account with an app password
-(`smtp.gmail.com`, port `587`), or a transactional provider's free tier.
+Render's free instances block outbound SMTP on ports 25, 465 and 587, so
+the API sends mail over Brevo's HTTPS API instead (`BrevoMailerService`,
+chosen whenever `BREVO_API_KEY` is set).
+
+1. brevo.com → sign up (free plan) → **Senders, Domains & Dedicated IPs →
+   Senders** → add the address you will send from and confirm the email
+   Brevo sends it. Any mailbox you own works; no domain is needed.
+2. **SMTP & API → API Keys → Generate a new API key**. Copy it.
+3. On Render set `BREVO_API_KEY` to that key and `MAIL_FROM` to
+   `CholoJai <the verified address>`.
+
+The `SMTP_*` variables are still parsed but unused while the key is set.
 
 ### 4. API on Render
 
