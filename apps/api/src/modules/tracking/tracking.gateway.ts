@@ -39,10 +39,9 @@ export interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   namespace: '/tracking',
-  /* Same allow-list as the HTTP API. A socket bypasses CORS preflight but
-     not the origin check, and leaving it open would let any page on the
-     internet open a connection with the user's token. */
-  cors: { credentials: true },
+  /* No `cors` here: the origin allow-list is applied to every gateway by
+     `ConfiguredIoAdapter`, from the same configuration as the HTTP API. A
+     decorator is evaluated before that configuration exists. */
 })
 export class TrackingGateway implements OnGatewayConnection {
   private readonly logger = new Logger(TrackingGateway.name);

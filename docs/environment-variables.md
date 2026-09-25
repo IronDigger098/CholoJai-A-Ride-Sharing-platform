@@ -35,48 +35,59 @@ mask a missing platform variable during a deploy.
 
 ## `apps/api`
 
-| Variable                         | Purpose                                             | Example / default          | Milestone |
-| -------------------------------- | --------------------------------------------------- | -------------------------- | --------- |
-| `NODE_ENV`                       | Runtime mode                                        | `development`              | M2        |
-| `PORT`                           | API listen port                                     | `4000`                     | M2        |
-| `API_BASE_URL`                   | Public API origin (links in emails)                 | `http://localhost:4000`    | M2        |
-| `WEB_BASE_URL`                   | Public web origin (CORS, email links)               | `http://localhost:3000`    | M2        |
-| `DATABASE_URL`                   | PostgreSQL connection string                        | `postgresql://…`           | M2        |
-| `DATABASE_TEST_URL`              | Integration-test database; name must contain `test` | —                          | M3        |
-| `REDIS_URL`                      | Redis connection string                             | `redis://localhost:6379`   | M2        |
-| `JWT_ACCESS_SECRET`              | Signs access tokens (HS256)                         | 32+ random bytes           | M3        |
-| `JWT_ACCESS_TTL_MINUTES`         | Access token lifetime, in minutes                   | `15`                       | M3        |
-| `REFRESH_TTL_DAYS`               | Refresh token sliding window, days                  | `7`                        | M3        |
-| `REFRESH_ABSOLUTE_TTL_DAYS`      | Hard ceiling on one sign-in, days                   | `30`                       | M3        |
-| `REFRESH_ROTATION_GRACE_SECONDS` | Replay window treated as concurrency                | `10`                       | M3        |
-| `COOKIE_DOMAIN`                  | Refresh cookie scope                                | `localhost`                | M3        |
-| `SMTP_HOST` / `SMTP_PORT`        | Mail transport (Mailpit in dev)                     | `localhost` / `1025`       | M3        |
-| `MAIL_FROM`                      | Sender identity                                     | `no-reply@cholojai.app`    | M3        |
-| `SMTP_USER` / `SMTP_PASSWORD`    | SMTP credentials — required in production           | unset (Mailpit needs none) | M12       |
-| `CLOUDINARY_URL`                 | Image storage                                       | —                          | M7        |
-| `NOMINATIM_BASE_URL`             | Geocoding upstream                                  | public instance            | M6        |
-| `NOMINATIM_TIMEOUT_MS`           | Give up on a geocode after this long                | `3000`                     | M6        |
-| `NOMINATIM_USER_AGENT`           | Required by Nominatim's usage policy                | `CholoJai/0.1`             | M6        |
-| `GEO_PLACE_CACHE_TTL_SECONDS`    | Place lookup cache lifetime                         | `86400`                    | M6        |
-| `OSRM_BASE_URL`                  | Routing upstream                                    | public instance            | M5        |
-| `OSRM_TIMEOUT_MS`                | Give up on a route after this long                  | `3000`                     | M5        |
-| `GEO_ROUTE_CACHE_TTL_SECONDS`    | Route cache lifetime                                | `3600`                     | M5        |
-| `FARE_QUOTE_TTL_SECONDS`         | How long a quote stays bookable                     | `300`                      | M5        |
-| `FARE_MAX_DISTANCE_METRES`       | Longest journey we will price                       | `100000`                   | M5        |
-| `RATE_LIMIT_GLOBAL_PER_MIN`      | Global per-IP throttle, per minute                  | `100`                      | M3        |
-| `RATE_LIMIT_ENABLED`             | Master switch; must be true in prod                 | `true`                     | M3        |
-| `TRUSTED_PROXY_HOPS`             | Reverse proxies to trust for XFF                    | `0` (1 on Railway)         | M3        |
-| `SWAGGER_ENABLED`                | Serve API docs at /api/docs                         | on unless production       | M2        |
-| `LOG_LEVEL`                      | pino level                                          | `info`                     | M2        |
+| Variable                         | Purpose                                             | Example / default              | Milestone |
+| -------------------------------- | --------------------------------------------------- | ------------------------------ | --------- |
+| `NODE_ENV`                       | Runtime mode                                        | `development`                  | M2        |
+| `PORT`                           | API listen port                                     | `4000`                         | M2        |
+| `API_BASE_URL`                   | Public API origin (links in emails)                 | `http://localhost:4000`        | M2        |
+| `WEB_BASE_URL`                   | Public web origin (CORS, email links)               | `http://localhost:3000`        | M2        |
+| `DATABASE_URL`                   | PostgreSQL connection string                        | `postgresql://…`               | M2        |
+| `DATABASE_TEST_URL`              | Integration-test database; name must contain `test` | —                              | M3        |
+| `REDIS_URL`                      | Redis connection string                             | `redis://localhost:6379`       | M2        |
+| `JWT_ACCESS_SECRET`              | Signs access tokens (HS256)                         | 32+ random bytes               | M3        |
+| `JWT_ACCESS_TTL_MINUTES`         | Access token lifetime, in minutes                   | `15`                           | M3        |
+| `REFRESH_TTL_DAYS`               | Refresh token sliding window, days                  | `7`                            | M3        |
+| `REFRESH_ABSOLUTE_TTL_DAYS`      | Hard ceiling on one sign-in, days                   | `30`                           | M3        |
+| `REFRESH_ROTATION_GRACE_SECONDS` | Replay window treated as concurrency                | `10`                           | M3        |
+| `COOKIE_DOMAIN`                  | Refresh cookie scope                                | `localhost` (web host in prod) | M3        |
+| `SMTP_HOST` / `SMTP_PORT`        | Mail transport (Mailpit in dev)                     | `localhost` / `1025`           | M3        |
+| `MAIL_FROM`                      | Sender identity                                     | `no-reply@cholojai.app`        | M3        |
+| `SMTP_USER` / `SMTP_PASSWORD`    | SMTP credentials — required in production           | unset (Mailpit needs none)     | M12       |
+| `CLOUDINARY_URL`                 | Image storage                                       | —                              | M7        |
+| `NOMINATIM_BASE_URL`             | Geocoding upstream                                  | public instance                | M6        |
+| `NOMINATIM_TIMEOUT_MS`           | Give up on a geocode after this long                | `3000`                         | M6        |
+| `NOMINATIM_USER_AGENT`           | Required by Nominatim's usage policy                | `CholoJai/0.1`                 | M6        |
+| `GEO_PLACE_CACHE_TTL_SECONDS`    | Place lookup cache lifetime                         | `86400`                        | M6        |
+| `OSRM_BASE_URL`                  | Routing upstream                                    | public instance                | M5        |
+| `OSRM_TIMEOUT_MS`                | Give up on a route after this long                  | `3000`                         | M5        |
+| `GEO_ROUTE_CACHE_TTL_SECONDS`    | Route cache lifetime                                | `3600`                         | M5        |
+| `FARE_QUOTE_TTL_SECONDS`         | How long a quote stays bookable                     | `300`                          | M5        |
+| `FARE_MAX_DISTANCE_METRES`       | Longest journey we will price                       | `100000`                       | M5        |
+| `RATE_LIMIT_GLOBAL_PER_MIN`      | Global per-IP throttle, per minute                  | `100`                          | M3        |
+| `RATE_LIMIT_ENABLED`             | Master switch; must be true in prod                 | `true`                         | M3        |
+| `TRUSTED_PROXY_HOPS`             | Reverse proxies to trust for XFF                    | `0` (2 via Vercel → Render)    | M3        |
+| `SWAGGER_ENABLED`                | Serve API docs at /api/docs                         | on unless production           | M2        |
+| `LOG_LEVEL`                      | pino level                                          | `info`                         | M2        |
 
 ## `apps/web`
 
-| Variable                   | Purpose                      | Example / default              | Milestone |
-| -------------------------- | ---------------------------- | ------------------------------ | --------- |
-| `NEXT_PUBLIC_API_BASE_URL` | Browser → API origin         | `http://localhost:4000/api/v1` | M2        |
-| `NEXT_PUBLIC_WS_URL`       | Socket.IO endpoint           | `http://localhost:4000/rt`     | M6        |
-| `NEXT_PUBLIC_SITE_URL`     | Canonical URL (SEO, sitemap) | `http://localhost:3000`        | M4        |
-| `NEXT_PUBLIC_MAP_TILE_URL` | OSM tile template            | OSM default                    | M6        |
+| Variable                   | Purpose                                               | Example / default                       | Milestone |
+| -------------------------- | ----------------------------------------------------- | --------------------------------------- | --------- |
+| `NEXT_PUBLIC_API_BASE_URL` | Browser → API origin                                  | `http://localhost:4000/api/v1`          | M2        |
+| `NEXT_PUBLIC_SOCKET_URL`   | Socket.IO origin (the API's real host)                | derived from `NEXT_PUBLIC_API_BASE_URL` | M12       |
+| `API_PROXY_TARGET`         | Build-time: where `/api/v1/*` is proxied (not public) | unset (no proxy)                        | M12       |
+| `NEXT_PUBLIC_SITE_URL`     | Canonical URL (SEO, sitemap)                          | `http://localhost:3000`                 | M4        |
+| `NEXT_PUBLIC_MAP_TILE_URL` | OSM tile template                                     | OSM default                             | M6        |
+
+### Production values for the web app
+
+`NEXT_PUBLIC_API_BASE_URL=/api/v1` (relative) together with
+`API_PROXY_TARGET=https://<api host>` routes REST calls through the web
+app's own origin, so the `SameSite=Strict` refresh cookie is first-party.
+`COOKIE_DOMAIN` on the API must then be the **web** host, because that is
+the host the browser sees setting it. Sockets cannot go through the proxy,
+so `NEXT_PUBLIC_SOCKET_URL=https://<api host>` points them at the API
+directly; they authenticate with the access token, not the cookie.
 
 ## Secrets management
 

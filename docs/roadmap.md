@@ -24,7 +24,7 @@
 | M10b | Polish                          | Account settings, saved places, global search over places/rides/help, next-intl with English and Bangla                                                                               | ✅     |
 | M10c | Bangla Coverage                 | Booking, ride history, contact and auth screens onto the message catalogues; native review of the Bangla copy                                                                         | 🔲     |
 | M11  | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                                      | 🔲     |
-| M12  | Production Deployment           | Vercel + Railway, GitHub Actions pipelines, release process                                                                                                                           | 🔲     |
+| M12  | Production Deployment           | Vercel + Render + Neon + Upstash (free tiers), release process                                                                                                                        | 🟡     |
 
 ## Sequencing rationale
 

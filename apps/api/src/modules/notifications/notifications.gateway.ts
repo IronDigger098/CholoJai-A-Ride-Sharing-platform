@@ -21,7 +21,8 @@ import { AccessTokenService } from '../../common/security/access-token.service';
  * One room per user, not per socket. Someone signed in on a phone and a
  * laptop is one person, and a notification belongs to the person.
  */
-@WebSocketGateway({ namespace: '/notifications', cors: { credentials: true } })
+/* Origins are enforced by `ConfiguredIoAdapter`, as for every gateway. */
+@WebSocketGateway({ namespace: '/notifications' })
 export class NotificationsGateway implements OnGatewayConnection {
   @WebSocketServer()
   private readonly server!: Server;

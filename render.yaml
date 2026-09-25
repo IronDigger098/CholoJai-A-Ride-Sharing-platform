@@ -1,0 +1,72 @@
+# CholoJai API on Render — a Blueprint.
+#
+# Render → New → Blueprint → pick this repository, and it creates the
+# service below. The web app is on Vercel, PostgreSQL on Neon and Redis on
+# Upstash; see docs/deployment.md for the whole walk-through.
+#
+# The same Dockerfile that Railway used. Nothing about the image is
+# Render-specific, which is the point: the host is replaceable.
+services:
+  - type: web
+    name: cholojai-api
+    runtime: docker
+    # Free instances spin down after a period without traffic and take
+    # roughly a minute to wake. Fine for a portfolio; not for real riders.
+    plan: free
+    # Closest region to Bangladesh.
+    region: singapore
+    # The build context is the repository root, not apps/api: the API
+    # imports @cholojai/shared and the lockfile lives at the root.
+    dockerContext: .
+    dockerfilePath: ./apps/api/Dockerfile
+    # Migrate, then serve. `exec` replaces the shell with node, so SIGTERM
+    # reaches the process and enableShutdownHooks() still runs — the same
+    # reason the Dockerfile's own CMD is in exec form.
+    dockerCommand: sh -c "node node_modules/prisma/build/index.js migrate deploy && exec node dist/main.js"
+    # Readiness, not liveness: an instance that cannot reach Postgres or
+    # Redis must not receive traffic.
+    healthCheckPath: /health/ready
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      # Render generates a long random value once and keeps it.
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: RATE_LIMIT_ENABLED
+        value: 'true'
+      # Browser → Vercel → Render's proxy → this process.
+      - key: TRUSTED_PROXY_HOPS
+        value: '2'
+
+      # ── Filled in by hand in the dashboard (sync: false) ──────────────
+      # https://<service>.onrender.com
+      - key: API_BASE_URL
+        sync: false
+      # https://<project>.vercel.app
+      - key: WEB_BASE_URL
+        sync: false
+      # The Vercel host WITHOUT https:// — the refresh cookie is set through
+      # the web app's /api/v1 proxy, so it belongs to that host.
+      - key: COOKIE_DOMAIN
+        sync: false
+      # Neon: the DIRECT connection string (not the -pooler one), with
+      # ?sslmode=require. `migrate deploy` does not work through PgBouncer.
+      - key: DATABASE_URL
+        sync: false
+      # Upstash: the rediss:// URL.
+      - key: REDIS_URL
+        sync: false
+      # Any SMTP provider; production refuses to start without credentials.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
