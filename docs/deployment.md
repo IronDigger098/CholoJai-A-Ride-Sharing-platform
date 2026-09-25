@@ -181,7 +181,8 @@ Merging to `main` triggers:
 
 - **Web:** Vercel production deploy.
 - **API:** Render builds the image and starts it with
-  `prisma migrate deploy && exec node dist/main.js` (`render.yaml`). Migrations therefore run
+  `sh docker-start.sh`, which runs `prisma migrate deploy` and then
+  `exec node dist/main.js`. Migrations therefore run
   _before_ the new process takes traffic, and a failed migration means the
   container never becomes healthy — the previous one keeps serving.
 

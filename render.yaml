@@ -19,10 +19,11 @@ services:
     # imports @cholojai/shared and the lockfile lives at the root.
     dockerContext: .
     dockerfilePath: ./apps/api/Dockerfile
-    # Migrate, then serve. `exec` replaces the shell with node, so SIGTERM
-    # reaches the process and enableShutdownHooks() still runs — the same
-    # reason the Dockerfile's own CMD is in exec form.
-    dockerCommand: sh -c "node node_modules/prisma/build/index.js migrate deploy && exec node dist/main.js"
+    # Migrate, then serve — see apps/api/docker-start.sh. Spelled out
+    # even though it is also the image's CMD, so a command saved on the
+    # service earlier is overwritten on the next sync. Plain words, no
+    # quotes or `&&`: Render does not re-parse a quoted `sh -c "…"`.
+    dockerCommand: sh docker-start.sh
     # Readiness, not liveness: an instance that cannot reach Postgres or
     # Redis must not receive traffic.
     healthCheckPath: /health/ready

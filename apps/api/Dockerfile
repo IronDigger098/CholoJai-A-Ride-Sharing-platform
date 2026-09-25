@@ -125,14 +125,19 @@ COPY --from=build --chown=node:node /app/apps/api/package.json ./package.json
 # happens to look like. Taken from the pruned tree, where the client was
 # generated, so the schema here is the one that client was built from.
 COPY --from=build --chown=node:node /app/pruned/prisma ./prisma
+COPY --chown=node:node apps/api/docker-start.sh ./docker-start.sh
 
 # Documentation, not a binding. The platform decides the real port through
 # PORT, which `env.schema.ts` reads; EXPOSE only tells a human — and
 # `docker run -P` — what to expect.
 EXPOSE 4000
 
-# Exec form, no shell. With the shell form the process runs as a child of
-# `/bin/sh`, which does not forward SIGTERM — so `enableShutdownHooks()` in
-# `main.ts` never fires, in-flight requests are severed, and every deploy
-# drops connections. This one line is what makes graceful shutdown real.
-CMD ["node", "dist/main.js"]
+# Exec form, and the script ends in `exec node`. The shell exists only long
+# enough to run `migrate deploy`; then node replaces it and becomes PID 1.
+# That matters: a node process left as a child of `/bin/sh` never sees
+# SIGTERM, so `enableShutdownHooks()` in `main.ts` never fires and every
+# deploy severs in-flight requests.
+#
+# Run through `sh` so the file needs no executable bit, which a Windows
+# checkout cannot be trusted to keep.
+CMD ["sh", "docker-start.sh"]
