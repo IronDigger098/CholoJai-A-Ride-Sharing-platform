@@ -136,6 +136,19 @@ export class AppConfigService {
     };
   }
 
+  /**
+   * Which transport sends mail. Brevo's HTTP API when a key is configured,
+   * SMTP otherwise — Mailpit locally, any provider that allows it elsewhere.
+   */
+  public get mailTransport():
+    { kind: 'brevo'; apiKey: string; from: string } | { kind: 'smtp' } {
+    const apiKey = this.env.BREVO_API_KEY;
+
+    return apiKey === undefined
+      ? { kind: 'smtp' }
+      : { kind: 'brevo', apiKey, from: this.env.MAIL_FROM };
+  }
+
   public get mail(): {
     host: string;
     port: number;

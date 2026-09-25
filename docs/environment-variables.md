@@ -52,7 +52,8 @@ mask a missing platform variable during a deploy.
 | `COOKIE_DOMAIN`                  | Refresh cookie scope                                | `localhost` (web host in prod) | M3        |
 | `SMTP_HOST` / `SMTP_PORT`        | Mail transport (Mailpit in dev)                     | `localhost` / `1025`           | M3        |
 | `MAIL_FROM`                      | Sender identity                                     | `no-reply@cholojai.app`        | M3        |
-| `SMTP_USER` / `SMTP_PASSWORD`    | SMTP credentials — required in production           | unset (Mailpit needs none)     | M12       |
+| `SMTP_USER` / `SMTP_PASSWORD`    | SMTP credentials — required in prod without Brevo   | unset (Mailpit needs none)     | M12       |
+| `BREVO_API_KEY`                  | Send mail over Brevo's HTTPS API instead of SMTP    | unset (SMTP)                   | M12       |
 | `CLOUDINARY_URL`                 | Image storage                                       | —                              | M7        |
 | `NOMINATIM_BASE_URL`             | Geocoding upstream                                  | public instance                | M6        |
 | `NOMINATIM_TIMEOUT_MS`           | Give up on a geocode after this long                | `3000`                         | M6        |

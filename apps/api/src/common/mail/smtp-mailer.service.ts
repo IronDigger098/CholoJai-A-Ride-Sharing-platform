@@ -5,6 +5,8 @@ import { AppConfigService } from '../../config/app-config.service';
 
 import { type EmailMessage, type Mailer } from './mailer.port';
 
+const SMTP_TIMEOUT_MS = 10_000;
+
 /**
  * SMTP adapter for {@link Mailer}.
  *
@@ -40,6 +42,13 @@ export class SmtpMailerService implements Mailer, OnModuleDestroy {
       // certificate. Production ports use real certificates and this has
       // no effect there.
       tls: { rejectUnauthorized: config.isProduction },
+      /* Nodemailer waits two minutes for a connection by default. Where a
+         host silently drops SMTP traffic that is two minutes of a
+         registration request hanging before it gives up; ten seconds is
+         ample for any provider that is actually reachable. */
+      connectionTimeout: SMTP_TIMEOUT_MS,
+      greetingTimeout: SMTP_TIMEOUT_MS,
+      socketTimeout: SMTP_TIMEOUT_MS,
     });
   }
 

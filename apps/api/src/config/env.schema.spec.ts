@@ -177,6 +177,20 @@ describe('parseEnv', () => {
       expect(() => parseEnv(withoutUser)).toThrow(/SMTP_USER/u);
     });
 
+    it('accepts a Brevo key in place of SMTP credentials', () => {
+      /* Hosts that block outbound SMTP (Render's free tier) send over
+         Brevo's HTTPS API instead, where SMTP credentials mean nothing. */
+      const {
+        SMTP_USER: _user,
+        SMTP_PASSWORD: _password,
+        ...withoutSmtp
+      } = productionEnv;
+
+      expect(() =>
+        parseEnv({ ...withoutSmtp, BREVO_API_KEY: 'xkeysib-test' }),
+      ).not.toThrow();
+    });
+
     it('does not require SMTP credentials outside production', () => {
       /* Mailpit accepts everything and authenticates nobody, so requiring
          them locally would mean inventing a username to satisfy a

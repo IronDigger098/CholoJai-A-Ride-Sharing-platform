@@ -172,6 +172,19 @@ export const envSchema = z
     SMTP_USER: z.string().min(1).optional(),
     SMTP_PASSWORD: z.string().min(1).optional(),
 
+    /**
+     * Brevo's transactional-email API key. When set, mail goes over HTTPS
+     * to Brevo instead of over SMTP, and the SMTP_* values are unused.
+     *
+     * It exists because some hosts block SMTP outright: Render's free
+     * instances refuse outbound connections on ports 25, 465 and 587. The
+     * symptom there was not an error but a *wait* — nodemailer's default
+     * connection timeout is two minutes, so every registration hung for two
+     * minutes and then sent nothing. An HTTP API on 443 is the one outbound
+     * route no host blocks.
+     */
+    BREVO_API_KEY: z.string().min(1).optional(),
+
     // ─── Geo / routing ──────────────────────────────────────────────────
     /**
      * OSRM instance used to measure routes.
@@ -373,13 +386,17 @@ export const envSchema = z
        is the local Mailpit configuration pointed at a real provider, which
        connects and is refused — so registration succeeds, the email never
        arrives, and the account can never be verified. */
-    if (env.SMTP_USER === undefined || env.SMTP_PASSWORD === undefined) {
+    if (
+      env.BREVO_API_KEY === undefined &&
+      (env.SMTP_USER === undefined || env.SMTP_PASSWORD === undefined)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['SMTP_USER'],
         message:
-          'SMTP_USER and SMTP_PASSWORD are both required in production — ' +
-          'a real mail provider refuses unauthenticated connections',
+          'SMTP_USER and SMTP_PASSWORD are both required in production ' +
+          'unless BREVO_API_KEY is set — a real mail provider refuses ' +
+          'unauthenticated connections',
       });
     }
 
