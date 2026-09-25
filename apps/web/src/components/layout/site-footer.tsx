@@ -20,7 +20,12 @@ export function SiteFooter(): ReactNode {
 
         <p className="mt-3 max-w-prose text-pretty">{t('footer.about')}</p>
 
-        <p className="mt-6">
+        {/* The contact page and its admin inbox shipped in M9b; this is
+            the first place on the site that links to it. */}
+        <p className="mt-6 flex flex-wrap gap-x-6 gap-y-2">
+          <Link href="/contact" className="font-medium">
+            {t('footer.contact')}
+          </Link>
           <Link href={REPOSITORY} external className="font-medium">
             {t('footer.source')}
           </Link>

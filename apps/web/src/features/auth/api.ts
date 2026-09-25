@@ -1,10 +1,15 @@
 import {
+  type ForgotPasswordRequest,
   type LoginRequest,
   type LoginResponse,
   loginResponseSchema,
   type RegisterRequest,
   type RegisterResponse,
   registerResponseSchema,
+  type ResetPasswordRequest,
+  type VerifyEmailRequest,
+  type VerifyEmailResponse,
+  verifyEmailResponseSchema,
 } from '@cholojai/shared';
 
 import { accessToken } from '@/lib/access-token';
@@ -69,4 +74,31 @@ export async function logout(): Promise<void> {
   } finally {
     accessToken.clear();
   }
+}
+
+/**
+ * Confirm an address with the token from the email link.
+ *
+ * The link opens a page, and the page posts the token — it never goes to
+ * the API in a URL, where logs and the Referer header would keep a copy.
+ */
+export async function verifyEmail(
+  request: VerifyEmailRequest,
+): Promise<VerifyEmailResponse> {
+  const response = await apiClient.post('/auth/verify-email', request);
+  return verifyEmailResponseSchema.parse(response.data);
+}
+
+/** Always succeeds for a well-formed address; the API never says whether it has an account. */
+export async function forgotPassword(
+  request: ForgotPasswordRequest,
+): Promise<void> {
+  await apiClient.post('/auth/forgot-password', request);
+}
+
+/** Sets a new password and, server-side, signs every other session out. */
+export async function resetPassword(
+  request: ResetPasswordRequest,
+): Promise<void> {
+  await apiClient.post('/auth/reset-password', request);
 }

@@ -2,7 +2,7 @@ import { useTranslations } from 'next-intl';
 
 import type { ReactNode } from 'react';
 
-import { Button } from '@/components/ui/button';
+import { LinkButton } from '@/components/ui/link-button';
 
 /**
  * The hero.
@@ -40,8 +40,13 @@ export function Hero(): ReactNode {
       </p>
 
       <div className="mt-9 flex flex-wrap gap-3">
-        <Button>{t('book')}</Button>
-        <Button variant="ghost">{t('learn')}</Button>
+        {/* Straight to booking. A signed-out visitor is sent on to sign in
+            by the booking page's own session gate, and comes back here
+            with nothing lost — the gate is the one place that decides. */}
+        <LinkButton href="/book">{t('book')}</LinkButton>
+        <LinkButton href="#how-it-works" variant="ghost">
+          {t('learn')}
+        </LinkButton>
       </div>
 
       <dl className="mt-14 grid gap-6 sm:grid-cols-3">

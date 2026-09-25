@@ -19,6 +19,18 @@ jest.mock('next-intl/server', () => ({
   setRequestLocale: () => undefined,
 }));
 
+/* The header asks whether somebody is signed in. A real SessionProvider
+   would restore the session over HTTP on mount; the landing page's
+   structure does not depend on the answer, so a visitor is enough. */
+jest.mock('../../features/auth/session', () => ({
+  useSession: () => ({
+    status: 'anonymous',
+    user: null,
+    signIn: () => Promise.resolve(),
+    signOut: () => Promise.resolve(),
+  }),
+}));
+
 /**
  * Structural and accessibility assertions for the landing page.
  *
@@ -144,6 +156,39 @@ describe('the landing page', () => {
       total,
       2,
     );
+  });
+
+  it('leads somewhere from every call to action', async () => {
+    /* These were once <button>s with no handler: they looked pressable and
+       did nothing, which is the whole landing page failing at its one job.
+       Each must be a link, to a real place. */
+    await renderHome();
+
+    expect(screen.getByRole('link', { name: 'Book a ride' })).toHaveAttribute(
+      'href',
+      '/book',
+    );
+    expect(
+      screen.getByRole('link', { name: 'See how it works' }),
+    ).toHaveAttribute('href', '#how-it-works');
+    expect(
+      screen.getByRole('link', { name: 'Become a driver' }),
+    ).toHaveAttribute('href', '/drive/apply');
+    expect(screen.queryAllByRole('button', { name: /Book a ride/u })).toEqual(
+      [],
+    );
+  });
+
+  it('offers a visitor a way to sign in or create an account', async () => {
+    await renderHome();
+
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+      'href',
+      '/login',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Create account' }),
+    ).toHaveAttribute('href', '/register');
   });
 
   it('opens external links safely', async () => {

@@ -2,7 +2,7 @@ import { useTranslations } from 'next-intl';
 
 import type { ReactNode } from 'react';
 
-import { Button } from '@/components/ui/button';
+import { LinkButton } from '@/components/ui/link-button';
 
 /** Reason order, as message-key stems. The words are in the catalogues. */
 const REASONS = ['earnings', 'accept', 'onboarding'] as const;
@@ -36,7 +36,9 @@ export function DriverInvitation(): ReactNode {
       </dl>
 
       <div className="mt-10">
-        <Button variant="accent">{t('cta')}</Button>
+        <LinkButton href="/drive/apply" variant="accent">
+          {t('cta')}
+        </LinkButton>
       </div>
     </section>
   );

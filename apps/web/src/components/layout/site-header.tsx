@@ -1,5 +1,7 @@
 import { useTranslations } from 'next-intl';
 
+import { SiteAccountNav } from './site-account-nav';
+
 import type { ReactNode } from 'react';
 
 import { Link } from '@/components/ui/link';
@@ -9,9 +11,9 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 /**
  * The site header.
  *
- * There is no "Sign in" link, and that is deliberate rather than an
- * oversight: the auth pages do not exist yet, and a link to a route that
- * 404s is worse than no link. It arrives with those pages.
+ * Section links for a visitor reading the page, then the way into the
+ * product — `SiteAccountNav`, the one client component here, because only
+ * it needs to know whether somebody is signed in.
  */
 
 /** Fragment targets paired with their message key. */
@@ -79,6 +81,7 @@ export function SiteHeader(): ReactNode {
         </nav>
 
         <div className="ml-auto flex items-center gap-3 md:ml-0">
+          <SiteAccountNav />
           <LocaleSwitcher />
           <ThemeToggle />
         </div>

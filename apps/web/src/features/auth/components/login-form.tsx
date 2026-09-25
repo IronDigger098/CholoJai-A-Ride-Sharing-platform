@@ -1,14 +1,32 @@
 'use client';
 
 import { loginRequestSchema } from '@cholojai/shared';
-import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { useSession } from '../session';
 
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
+import { useRouter } from '@/i18n/navigation';
 import { toApiError } from '@/lib/api-error';
+
+/**
+ * Where to go after signing in.
+ *
+ * `next` is set by `RequireSession` to the page that sent the visitor here.
+ * Only a same-site path is honoured: an unchecked redirect parameter turns
+ * the sign-in page into a trampoline to any site an attacker links to, with
+ * our domain in the address bar right up to the moment it bounces.
+ * `//evil.example` and `/\evil.example` are both read by browsers as
+ * another host, which is why a leading slash alone is not enough.
+ */
+export function safeNextPath(next: string | null): string {
+  if (!next?.startsWith('/')) return '/book';
+  if (next.startsWith('//') || next.startsWith('/\\')) return '/book';
+
+  return next;
+}
 
 /**
  * Sign in.
@@ -21,6 +39,7 @@ import { toApiError } from '@/lib/api-error';
 export function LoginForm(): ReactNode {
   const { signIn } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = useId();
 
   const [email, setEmail] = useState('');
@@ -52,7 +71,7 @@ export function LoginForm(): ReactNode {
 
     try {
       await signIn(parsed.data.email, parsed.data.password);
-      router.push('/');
+      router.push(safeNextPath(searchParams.get('next')));
     } catch (cause) {
       const error = toApiError(cause);
 

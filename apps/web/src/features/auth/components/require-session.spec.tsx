@@ -11,8 +11,10 @@ import { RequireSession } from './require-session';
 
 const mockReplace = jest.fn();
 
-jest.mock('next/navigation', () => ({
+/* Relative, not `@/i18n/navigation` — see locale-switcher.spec.tsx. */
+jest.mock('../../../i18n/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
+  usePathname: () => '/book',
 }));
 
 /* `mock` prefix required — jest.mock is hoisted above the imports and its
@@ -50,7 +52,7 @@ describe('RequireSession', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('sends an anonymous visitor to sign in', () => {
+  it('sends an anonymous visitor to sign in, remembering where they were going', () => {
     mockStatus = 'anonymous';
     render(
       <RequireSession>
@@ -58,7 +60,7 @@ describe('RequireSession', () => {
       </RequireSession>,
     );
 
-    expect(mockReplace).toHaveBeenCalledWith('/login');
+    expect(mockReplace).toHaveBeenCalledWith('/login?next=%2Fbook');
     expect(screen.queryByText('Booking form')).not.toBeInTheDocument();
   });
 

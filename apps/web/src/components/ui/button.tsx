@@ -44,6 +44,23 @@ const SIZES: Record<ButtonSize, string> = {
   md: 'h-11 px-5 text-sm',
 };
 
+/**
+ * The classes for a variant and size, for things that must *look* like a
+ * button without *being* one.
+ *
+ * A control that navigates is a link, whatever it looks like: a `<button>`
+ * with a click handler that changes the URL cannot be opened in a new tab,
+ * does not show its destination on hover, and is announced as a button to
+ * a screen reader that then watches the page change under it. `LinkButton`
+ * uses this so the two share one definition of each variant.
+ */
+export function buttonClassName(
+  variant: ButtonVariant = 'action',
+  size: ButtonSize = 'md',
+): string {
+  return `${BASE} ${VARIANTS[variant]} ${SIZES[size]}`;
+}
+
 export function Button({
   variant = 'action',
   size = 'md',
