@@ -1,13 +1,14 @@
 'use client';
 
 import { changePasswordRequestSchema } from '@cholojai/shared';
-import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { changePassword } from '../api';
 
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
+import { useRouter } from '@/i18n/navigation';
 import { toApiError } from '@/lib/api-error';
 
 /**
@@ -21,6 +22,7 @@ import { toApiError } from '@/lib/api-error';
 export function PasswordForm(): ReactNode {
   const router = useRouter();
   const id = useId();
+  const t = useTranslations('settings');
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -87,7 +89,7 @@ export function PasswordForm(): ReactNode {
       noValidate
       className="space-y-5"
     >
-      <h2 className="text-lg font-medium">Password</h2>
+      <h2 className="text-lg font-medium">{t('password')}</h2>
 
       {formError !== null && (
         <p
@@ -100,7 +102,7 @@ export function PasswordForm(): ReactNode {
 
       <Field
         id={`${id}-current`}
-        label="Current password"
+        label={t('currentPassword')}
         type="password"
         autoComplete="current-password"
         value={currentPassword}
@@ -114,10 +116,10 @@ export function PasswordForm(): ReactNode {
 
       <Field
         id={`${id}-new`}
-        label="New password"
+        label={t('newPassword')}
         type="password"
         autoComplete="new-password"
-        hint="At least 12 characters, with upper case, lower case and a number."
+        hint={t('newPasswordHint')}
         value={newPassword}
         onChange={(event) => {
           setNewPassword(event.target.value);
@@ -127,14 +129,10 @@ export function PasswordForm(): ReactNode {
           : { error: errors['newPassword'] })}
       />
 
-      <p className="text-content-muted text-sm">
-        Changing your password signs you out everywhere, including here. That is
-        what locks out anyone else still signed in. You will need to sign in
-        again.
-      </p>
+      <p className="text-content-muted text-sm">{t('signOutWarning')}</p>
 
       <Button type="submit" disabled={changing}>
-        {changing ? 'Changing…' : 'Change password'}
+        {changing ? t('changing') : t('changePassword')}
       </Button>
     </form>
   );

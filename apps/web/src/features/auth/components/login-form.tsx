@@ -2,6 +2,7 @@
 
 import { loginRequestSchema } from '@cholojai/shared';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { useSession } from '../session';
@@ -38,6 +39,7 @@ export function safeNextPath(next: string | null): string {
  */
 export function LoginForm(): ReactNode {
   const { signIn } = useSession();
+  const t = useTranslations('auth');
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = useId();
@@ -100,6 +102,18 @@ export function LoginForm(): ReactNode {
     >
       {/* `noValidate` turns off the browser's own bubbles so validation is
           announced once, by us, in a way a screen reader reaches. */}
+      {/* Where the password form sends someone after a change: every
+          session was revoked, including theirs, and without this line the
+          sign-in page gives no reason for having appeared. */}
+      {searchParams.get('passwordChanged') === '1' && formError === null && (
+        <p
+          role="status"
+          className="border-border-strong rounded-md border px-3 py-2 text-sm"
+        >
+          {t('login.passwordChanged')}
+        </p>
+      )}
+
       {formError !== null && (
         <p
           role="alert"
@@ -111,7 +125,7 @@ export function LoginForm(): ReactNode {
 
       <Field
         id={`${id}-email`}
-        label="Email address"
+        label={t('email')}
         type="email"
         autoComplete="email"
         value={email}
@@ -123,7 +137,7 @@ export function LoginForm(): ReactNode {
 
       <Field
         id={`${id}-password`}
-        label="Password"
+        label={t('password')}
         type="password"
         autoComplete="current-password"
         value={password}
@@ -136,7 +150,7 @@ export function LoginForm(): ReactNode {
       />
 
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? 'Signing in…' : 'Sign in'}
+        {submitting ? t('signingIn') : t('signIn')}
       </Button>
     </form>
   );

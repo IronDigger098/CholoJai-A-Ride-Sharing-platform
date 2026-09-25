@@ -22,9 +22,9 @@
 | M9c  | Content & Referrals             | Blog and careers as MDX in the repo, referral codes and rewards                                                                                                                       | 🔲     |
 | M10a | Payments                        | Mock gateway behind a port, authorise at booking, capture at completion, method picker and receipt                                                                                    | ✅     |
 | M10b | Polish                          | Account settings, saved places, global search over places/rides/help, next-intl with English and Bangla                                                                               | ✅     |
-| M10c | Bangla Coverage                 | Booking, ride history, contact and auth screens onto the message catalogues; native review of the Bangla copy                                                                         | 🔲     |
+| M10c | Bangla Coverage                 | Booking, ride history, contact and auth screens onto the message catalogues; native review of the Bangla copy                                                                         | ✅     |
 | M11  | Quality Hardening               | Test coverage push, Lighthouse optimization, accessibility audit                                                                                                                      | 🔲     |
-| M12  | Production Deployment           | Vercel + Render + Neon + Upstash (free tiers), release process                                                                                                                        | 🟡     |
+| M12  | Production Deployment           | Vercel + Render + Neon + Upstash (free tiers), release process                                                                                                                        | ✅     |
 
 ## Sequencing rationale
 
@@ -83,6 +83,14 @@ can review, and a milestone marked complete over a half-translated app is
 the worse of the two failures. The Bangla itself is written without a
 native reviewer and is marked as needing one — a translation nobody has
 checked is a draft, whatever the file extension says.
+
+**M10c took settings along with it.** Its scope named booking, ride
+history, contact and auth, and those are done. Settings was not on the list
+and had a catalogue namespace nobody read — four keys written in M10b and
+never wired in — so leaving it English would have left the one screen a
+rider visits to change the language as the one screen that ignores it. The
+Bangla is still machine-careful rather than native-reviewed, and says so:
+the milestone is complete as code, not as copy.
 
 **M12 runs before M11, and the numbering is what is wrong rather than the
 order.** M11 measures Lighthouse scores and audits accessibility — against

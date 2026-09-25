@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { type ReactNode } from 'react';
 
 import { NotificationPreferences } from './notification-preferences';
@@ -20,13 +21,14 @@ import { SavedPlaces } from '@/features/places/components/saved-places';
  */
 export function SettingsScreen(): ReactNode {
   const { user } = useSession();
+  const t = useTranslations('settings');
 
   /* The layout already gates on a session, so this is a render-order guard
      rather than an auth check: the provider resolves a tick after mount. */
   if (user === null) {
     return (
       <p role="status" className="text-content-muted text-sm">
-        Loading…
+        {t('loading')}
       </p>
     );
   }
@@ -38,11 +40,9 @@ export function SettingsScreen(): ReactNode {
       <hr className="border-border" />
 
       <section className="space-y-4">
-        <h2 className="text-lg font-medium">Appearance</h2>
+        <h2 className="text-lg font-medium">{t('appearance')}</h2>
         <div className="flex items-center justify-between gap-4">
-          <p className="text-content-muted text-sm">
-            Light or dark. Follows your device unless you choose.
-          </p>
+          <p className="text-content-muted text-sm">{t('appearanceHint')}</p>
           <ThemeToggle />
         </div>
       </section>

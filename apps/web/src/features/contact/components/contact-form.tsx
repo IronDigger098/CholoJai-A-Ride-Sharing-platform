@@ -1,6 +1,7 @@
 'use client';
 
 import { submitContactMessageRequestSchema } from '@cholojai/shared';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { submitContactMessage } from '../api';
@@ -22,6 +23,7 @@ import { toApiError } from '@/lib/api-error';
  */
 export function ContactForm(): ReactNode {
   const id = useId();
+  const t = useTranslations('contact');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -83,11 +85,8 @@ export function ContactForm(): ReactNode {
         role="status"
         className="border-border-strong rounded-md border px-4 py-6 text-sm"
       >
-        <p className="font-medium">Thanks — your message is with us.</p>
-        <p className="text-content-muted mt-1">
-          We read everything that arrives here. If a reply is needed, it will
-          come to {email}.
-        </p>
+        <p className="font-medium">{t('thanks')}</p>
+        <p className="text-content-muted mt-1">{t('replyTo', { email })}</p>
       </div>
     );
   }
@@ -111,7 +110,7 @@ export function ContactForm(): ReactNode {
 
       <Field
         id={`${id}-name`}
-        label="Your name"
+        label={t('name')}
         autoComplete="name"
         value={name}
         onChange={(event) => {
@@ -122,10 +121,10 @@ export function ContactForm(): ReactNode {
 
       <Field
         id={`${id}-email`}
-        label="Email address"
+        label={t('email')}
         type="email"
         autoComplete="email"
-        hint="Where a reply would go."
+        hint={t('emailHint')}
         value={email}
         onChange={(event) => {
           setEmail(event.target.value);
@@ -135,7 +134,7 @@ export function ContactForm(): ReactNode {
 
       <Field
         id={`${id}-subject`}
-        label="Subject"
+        label={t('subject')}
         value={subject}
         onChange={(event) => {
           setSubject(event.target.value);
@@ -147,7 +146,7 @@ export function ContactForm(): ReactNode {
 
       <div className="space-y-1.5">
         <label htmlFor={`${id}-message`} className="block text-sm font-medium">
-          Message
+          {t('message')}
         </label>
 
         {/* Not a `Field`: that component wraps an `input`, and a complaint
@@ -184,7 +183,7 @@ export function ContactForm(): ReactNode {
       </div>
 
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? 'Sending…' : 'Send message'}
+        {submitting ? t('sending') : t('send')}
       </Button>
     </form>
   );

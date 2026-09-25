@@ -2,6 +2,7 @@
 
 import { type Place } from '@cholojai/shared';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 
 import { searchPlaces } from '../api';
@@ -35,6 +36,7 @@ export function PlaceSearch({
   onSelect,
 }: PlaceSearchProps): ReactNode {
   const id = useId();
+  const t = useTranslations('booking');
   const [text, setText] = useState('');
   const [debounced, setDebounced] = useState('');
 
@@ -74,7 +76,7 @@ export function PlaceSearch({
         role="combobox"
         aria-expanded={showList}
         aria-controls={`${id}-listbox`}
-        placeholder="Search for a place"
+        placeholder={t('searchPlaceholder')}
         onChange={(event) => {
           setText(event.target.value);
         }}
@@ -84,12 +86,12 @@ export function PlaceSearch({
         <ul
           id={`${id}-listbox`}
           role="listbox"
-          aria-label={`${label} results`}
+          aria-label={t('results', { label })}
           className="border-border-strong bg-surface-raised absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border shadow-lg"
         >
           {places.length === 0 && (
             <li className="text-content-muted px-3 py-2 text-sm">
-              {isFetching ? 'Searching…' : 'No places found'}
+              {isFetching ? t('searching') : t('noPlaces')}
             </li>
           )}
 

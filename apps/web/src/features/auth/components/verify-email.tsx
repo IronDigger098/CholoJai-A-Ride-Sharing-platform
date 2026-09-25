@@ -1,6 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { verifyEmail } from '../api';
@@ -26,9 +27,10 @@ type State =
  */
 export function VerifyEmail(): ReactNode {
   const token = useSearchParams().get('token');
+  const t = useTranslations('auth.verify');
   const [state, setState] = useState<State>(
     token === null
-      ? { kind: 'failed', message: 'This link is missing its token.' }
+      ? { kind: 'failed', message: t('missingToken') }
       : { kind: 'verifying' },
   );
   const sent = useRef(false);
@@ -49,7 +51,7 @@ export function VerifyEmail(): ReactNode {
   if (state.kind === 'verifying') {
     return (
       <p role="status" className="text-content-muted text-sm">
-        Confirming your address…
+        {t('verifying')}
       </p>
     );
   }
@@ -57,10 +59,12 @@ export function VerifyEmail(): ReactNode {
   if (state.kind === 'verified') {
     return (
       <div role="status" className="space-y-4 text-sm">
-        <p>Your email address is confirmed.</p>
+        <p>{t('verified')}</p>
         <p>
-          <Link href="/book">Book a ride</Link> or{' '}
-          <Link href="/login">sign in</Link> if you are not already.
+          {t.rich('next', {
+            book: (chunks) => <Link href="/book">{chunks}</Link>,
+            login: (chunks) => <Link href="/login">{chunks}</Link>,
+          })}
         </p>
       </div>
     );
@@ -69,12 +73,9 @@ export function VerifyEmail(): ReactNode {
   return (
     <div role="alert" className="space-y-4 text-sm">
       <p className="text-danger">{state.message}</p>
-      <p className="text-content-muted">
-        Links expire after 24 hours and work once. You can still sign in and use
-        CholoJai while your address is unconfirmed.
-      </p>
+      <p className="text-content-muted">{t('expired')}</p>
       <p>
-        <Link href="/login">Go to sign in</Link>
+        <Link href="/login">{t('toSignIn')}</Link>
       </p>
     </div>
   );

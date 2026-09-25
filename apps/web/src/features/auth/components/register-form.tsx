@@ -1,6 +1,7 @@
 'use client';
 
 import { registerRequestSchema } from '@cholojai/shared';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { register } from '../api';
@@ -18,6 +19,7 @@ import { toApiError } from '@/lib/api-error';
  */
 export function RegisterForm(): ReactNode {
   const id = useId();
+  const t = useTranslations('auth');
 
   const [values, setValues] = useState({
     fullName: '',
@@ -73,8 +75,10 @@ export function RegisterForm(): ReactNode {
   if (registered) {
     return (
       <p role="status" className="text-sm">
-        Check your inbox — we have sent a link to{' '}
-        <strong>{values.email}</strong>. Verify your address, then sign in.
+        {t.rich('register.checkInbox', {
+          email: values.email,
+          strong: (chunks) => <strong>{chunks}</strong>,
+        })}
       </p>
     );
   }
@@ -98,7 +102,7 @@ export function RegisterForm(): ReactNode {
 
       <Field
         id={`${id}-name`}
-        label="Full name"
+        label={t('fullName')}
         autoComplete="name"
         value={values.fullName}
         onChange={(event) => {
@@ -111,7 +115,7 @@ export function RegisterForm(): ReactNode {
 
       <Field
         id={`${id}-email`}
-        label="Email address"
+        label={t('email')}
         type="email"
         autoComplete="email"
         value={values.email}
@@ -123,10 +127,10 @@ export function RegisterForm(): ReactNode {
 
       <Field
         id={`${id}-password`}
-        label="Password"
+        label={t('password')}
         type="password"
         autoComplete="new-password"
-        hint="At least 12 characters."
+        hint={t('passwordHint')}
         value={values.password}
         onChange={(event) => {
           update('password', event.target.value);
@@ -137,7 +141,7 @@ export function RegisterForm(): ReactNode {
       />
 
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? 'Creating account…' : 'Create account'}
+        {submitting ? t('creatingAccount') : t('createAccount')}
       </Button>
     </form>
   );

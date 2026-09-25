@@ -3,9 +3,9 @@
 import {
   MUTABLE_NOTIFICATION_KINDS,
   type NotificationKind,
-  NOTIFICATION_KIND_LABEL,
 } from '@cholojai/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { type ReactNode } from 'react';
 
 import { getNotificationSettings, updateNotificationSettings } from '../api';
@@ -26,6 +26,7 @@ import { toApiError } from '@/lib/api-error';
  * out says what is true — these are not optional.
  */
 export function NotificationPreferences(): ReactNode {
+  const t = useTranslations('settings');
   const queryClient = useQueryClient();
 
   const { data, error, isPending } = useQuery({
@@ -55,16 +56,13 @@ export function NotificationPreferences(): ReactNode {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-medium">Notifications</h2>
+      <h2 className="text-lg font-medium">{t('notifications')}</h2>
 
-      <p className="text-content-muted text-sm">
-        Ride updates always arrive — that is how you know your driver is on the
-        way. Everything below is yours to choose.
-      </p>
+      <p className="text-content-muted text-sm">{t('notificationsHint')}</p>
 
       {isPending && (
         <p role="status" className="text-content-muted text-sm">
-          Loading…
+          {t('loading')}
         </p>
       )}
 
@@ -88,7 +86,7 @@ export function NotificationPreferences(): ReactNode {
             return (
               <li key={kind}>
                 <label className="border-border-strong flex cursor-pointer items-center justify-between gap-4 rounded-md border px-4 py-3 text-sm">
-                  {NOTIFICATION_KIND_LABEL[kind]}
+                  {t(`kinds.${kind}`)}
 
                   <input
                     type="checkbox"
