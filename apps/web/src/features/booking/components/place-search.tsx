@@ -85,7 +85,7 @@ export function PlaceSearch({
           id={`${id}-listbox`}
           role="listbox"
           aria-label={`${label} results`}
-          className="border-border-strong bg-surface-raised absolute z-10 mt-1 w-full overflow-hidden rounded-md border"
+          className="border-border-strong bg-surface-raised absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border shadow-lg"
         >
           {places.length === 0 && (
             <li className="text-content-muted px-3 py-2 text-sm">

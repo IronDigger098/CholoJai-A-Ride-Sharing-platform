@@ -124,7 +124,11 @@ export default function RouteMap({
       center={DEFAULT_CENTRE}
       zoom={DEFAULT_ZOOM}
       scrollWheelZoom={false}
-      className="border-border-strong h-64 w-full rounded-md border"
+      /* `isolate` gives Leaflet its own stacking context. Its panes and
+         controls carry z-indexes from 400 up to 1000, and without a
+         boundary those compete with the rest of the page — the place
+         search's suggestion list, at z-10, rendered underneath the map. */
+      className="border-border-strong isolate h-64 w-full rounded-md border"
       /* Scroll-wheel zoom off: the map sits inside a scrolling form, and
          capturing the wheel there traps the page when someone scrolls past
          it. Pinch and the +/- controls still zoom. */
