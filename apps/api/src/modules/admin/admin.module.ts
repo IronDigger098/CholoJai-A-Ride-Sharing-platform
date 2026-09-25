@@ -14,9 +14,18 @@ import { AdminService } from './admin.service';
  * which is the point of module boundaries: reading these two lines tells
  * you that admin can reach identity and users, and nothing else.
  */
+/*
+ * Exports `AdminService` for exactly one caller. Approving a driver has to
+ * grant the DRIVER role, and role changes belong here — `DriversModule`
+ * already documents importing this module for `grantRole`, and this is the
+ * line that makes that true. Without it the import was decorative.
+ *
+ * The dependency runs one way: admin knows nothing about drivers.
+ */
 @Module({
   imports: [AuthModule, UsersModule],
   controllers: [AdminController],
   providers: [AdminService],
+  exports: [AdminService],
 })
 export class AdminModule {}
