@@ -3,6 +3,7 @@
 import { type Place } from '@cholojai/shared';
 import { useMutation } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
+import { useTranslations } from 'next-intl';
 
 import { reverseGeocode } from '../api';
 
@@ -30,16 +31,22 @@ const RouteMap: ComponentType<RouteMapProps> = dynamic(
   () => import('./route-map'),
   {
     ssr: false,
-    loading: () => (
-      <div
-        role="status"
-        className="border-border-strong bg-surface-raised text-content-muted flex h-64 w-full items-center justify-center rounded-md border text-sm"
-      >
-        Loading map…
-      </div>
-    ),
+    loading: () => <MapLoading />,
   },
 );
+
+function MapLoading(): ReactNode {
+  const t = useTranslations('booking');
+
+  return (
+    <div
+      role="status"
+      className="border-border-strong bg-surface-raised text-content-muted flex h-64 w-full items-center justify-center rounded-md border text-sm"
+    >
+      {t('loadingMap')}
+    </div>
+  );
+}
 
 export interface MapPanelProps {
   readonly pickup: Place | null;
@@ -52,6 +59,7 @@ export function MapPanel({
   dropoff,
   onPlace,
 }: MapPanelProps): ReactNode {
+  const t = useTranslations('booking');
   const lookup = useMutation({
     mutationFn: reverseGeocode,
     onSuccess: (place) => {
@@ -83,10 +91,10 @@ export function MapPanel({
 
       <p className="text-content-subtle text-xs">
         {lookup.isPending
-          ? 'Finding that place…'
+          ? t('findingPlace')
           : pickup === null
-            ? 'Tap the map to set your pickup.'
-            : 'Tap the map to set your destination.'}
+            ? t('tapPickup')
+            : t('tapDestination')}
       </p>
     </div>
   );

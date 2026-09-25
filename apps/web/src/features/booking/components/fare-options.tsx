@@ -7,6 +7,7 @@ import {
   type Paisa,
   type VehicleType,
 } from '@cholojai/shared';
+import { useFormatter, useTranslations } from 'next-intl';
 
 import type { ReactNode } from 'react';
 
@@ -31,9 +32,13 @@ export function FareOptions({
   selected,
   onSelect,
 }: FareOptionsProps): ReactNode {
+  const t = useTranslations('booking');
+  const vehicle = useTranslations('vehicle');
+  const format = useFormatter();
+
   return (
     <fieldset className="space-y-2">
-      <legend className="mb-2 text-sm font-medium">Choose a vehicle</legend>
+      <legend className="mb-2 text-sm font-medium">{t('chooseVehicle')}</legend>
 
       {quote.options.map((option) => {
         const isSelected = selected === option.vehicleType;
@@ -58,7 +63,9 @@ export function FareOptions({
                 }}
                 className="accent-accent"
               />
-              <span className="text-sm font-medium">{option.vehicleType}</span>
+              <span className="text-sm font-medium">
+                {vehicle(option.vehicleType)}
+              </span>
             </span>
 
             <span className="text-sm font-semibold tabular-nums">
@@ -73,17 +80,29 @@ export function FareOptions({
           says which offer moved it, and that the rider's code was used. */}
       {quote.appliedCoupon !== null && (
         <p className="text-accent pt-1 text-xs font-medium">
-          {quote.appliedCoupon.code} applied ·{' '}
-          {quote.appliedCoupon.kind === CouponKind.PERCENT
-            ? `${quote.appliedCoupon.value}% off`
-            : `${formatTaka(quote.appliedCoupon.value as Paisa)} off`}
+          {t('couponApplied', {
+            code: quote.appliedCoupon.code,
+            discount:
+              quote.appliedCoupon.kind === CouponKind.PERCENT
+                ? t('percentOff', { value: quote.appliedCoupon.value })
+                : t('amountOff', {
+                    amount: formatTaka(quote.appliedCoupon.value as Paisa),
+                  }),
+          })}
         </p>
       )}
 
       <p className="text-content-subtle pt-1 text-xs">
-        {(quote.distanceMetres / 1000).toFixed(1)} km ·{' '}
-        {Math.round(quote.durationSeconds / 60)} min · price held until{' '}
-        {new Date(quote.expiresAt).toLocaleTimeString()}
+        {t('summary', {
+          distance: (quote.distanceMetres / 1000).toFixed(1),
+          minutes: Math.round(quote.durationSeconds / 60),
+          /* The formatter, not `toLocaleTimeString`: that uses the
+             browser's locale and zone, not the page's language or Dhaka. */
+          time: format.dateTime(new Date(quote.expiresAt), {
+            hour: 'numeric',
+            minute: '2-digit',
+          }),
+        })}
       </p>
     </fieldset>
   );

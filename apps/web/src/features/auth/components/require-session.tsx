@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { type ReactNode, useEffect } from 'react';
 
 import { useSession } from '../session';
@@ -26,6 +27,7 @@ export function RequireSession({
   children: ReactNode;
 }): ReactNode {
   const { status } = useSession();
+  const t = useTranslations('auth');
   const router = useRouter();
   const pathname = usePathname();
 
@@ -42,7 +44,7 @@ export function RequireSession({
   if (status !== 'authenticated') {
     return (
       <p role="status" className="text-content-muted py-12 text-sm">
-        {status === 'loading' ? 'Loading…' : 'Redirecting to sign in…'}
+        {status === 'loading' ? t('loading') : t('redirecting')}
       </p>
     );
   }

@@ -2,6 +2,7 @@
 
 import { resetPasswordRequestSchema } from '@cholojai/shared';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { resetPassword } from '../api';
@@ -20,6 +21,7 @@ import { toApiError } from '@/lib/api-error';
 export function ResetPasswordForm(): ReactNode {
   const token = useSearchParams().get('token');
   const id = useId();
+  const t = useTranslations('auth');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -29,8 +31,8 @@ export function ResetPasswordForm(): ReactNode {
   if (token === null) {
     return (
       <p role="alert" className="text-danger text-sm">
-        This link is missing its token.{' '}
-        <Link href="/forgot-password">Ask for a new one.</Link>
+        {t('reset.missingToken')}{' '}
+        <Link href="/forgot-password">{t('reset.askNew')}</Link>
       </p>
     );
   }
@@ -49,7 +51,7 @@ export function ResetPasswordForm(): ReactNode {
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       if (issue?.path[0] === 'token') setFormError(issue.message);
-      else setError(issue?.message ?? 'Choose a password');
+      else setError(issue?.message ?? t('reset.choose'));
       return;
     }
 
@@ -69,8 +71,7 @@ export function ResetPasswordForm(): ReactNode {
   if (done) {
     return (
       <p role="status" className="text-sm">
-        Your password has been changed and every other session signed out.{' '}
-        <Link href="/login">Sign in with the new one.</Link>
+        {t('reset.done')} <Link href="/login">{t('reset.signInNew')}</Link>
       </p>
     );
   }
@@ -88,16 +89,17 @@ export function ResetPasswordForm(): ReactNode {
           role="alert"
           className="border-danger text-danger rounded-md border px-3 py-2 text-sm"
         >
-          {formError} <Link href="/forgot-password">Ask for a new link.</Link>
+          {formError}{' '}
+          <Link href="/forgot-password">{t('reset.askNewLink')}</Link>
         </p>
       )}
 
       <Field
         id={`${id}-password`}
-        label="New password"
+        label={t('newPassword')}
         type="password"
         autoComplete="new-password"
-        hint="At least 12 characters."
+        hint={t('passwordHint')}
         value={password}
         onChange={(event) => {
           setPassword(event.target.value);
@@ -106,7 +108,7 @@ export function ResetPasswordForm(): ReactNode {
       />
 
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? 'Saving…' : 'Set new password'}
+        {submitting ? t('reset.saving') : t('reset.save')}
       </Button>
     </form>
   );

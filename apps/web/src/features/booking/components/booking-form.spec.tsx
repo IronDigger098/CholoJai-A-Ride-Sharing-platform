@@ -82,7 +82,8 @@ jest.mock('./map-panel', () => ({
   MapPanel: () => null,
 }));
 
-jest.mock('next/navigation', () => ({
+/* Relative, not `@/i18n/navigation` — see locale-switcher.spec.tsx. */
+jest.mock('../../../i18n/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
@@ -143,7 +144,7 @@ describe('BookingForm', () => {
 
     await quoteAJourney(user);
 
-    expect(await screen.findByLabelText(/BIKE/u)).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Bike/u)).toBeInTheDocument();
     expect(screen.getByLabelText(/CNG/u)).toBeInTheDocument();
   });
 

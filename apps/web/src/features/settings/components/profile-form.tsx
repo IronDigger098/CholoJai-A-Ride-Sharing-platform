@@ -1,6 +1,7 @@
 'use client';
 
 import { updateProfileRequestSchema, type UserSummary } from '@cholojai/shared';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { updateProfile } from '../api';
@@ -24,6 +25,7 @@ import { toApiError } from '@/lib/api-error';
  */
 export function ProfileForm({ user }: { user: UserSummary }): ReactNode {
   const id = useId();
+  const t = useTranslations('settings');
 
   const [fullName, setFullName] = useState(user.fullName);
   const [phone, setPhone] = useState(user.phone ?? '');
@@ -83,7 +85,7 @@ export function ProfileForm({ user }: { user: UserSummary }): ReactNode {
       noValidate
       className="space-y-5"
     >
-      <h2 className="text-lg font-medium">Profile</h2>
+      <h2 className="text-lg font-medium">{t('profile')}</h2>
 
       {formError !== null && (
         <p
@@ -96,7 +98,7 @@ export function ProfileForm({ user }: { user: UserSummary }): ReactNode {
 
       <Field
         id={`${id}-name`}
-        label="Full name"
+        label={t('fullName')}
         autoComplete="name"
         value={fullName}
         onChange={(event) => {
@@ -109,8 +111,8 @@ export function ProfileForm({ user }: { user: UserSummary }): ReactNode {
 
       <Field
         id={`${id}-phone`}
-        label="Phone"
-        hint="11 digits starting 01. Leave blank to remove it."
+        label={t('phone')}
+        hint={t('phoneHint')}
         inputMode="numeric"
         autoComplete="tel"
         value={phone}
@@ -124,8 +126,8 @@ export function ProfileForm({ user }: { user: UserSummary }): ReactNode {
           because changing it is a verification flow rather than an edit. */}
       <Field
         id={`${id}-email`}
-        label="Email address"
-        hint="Contact support to change this."
+        label={t('email')}
+        hint={t('emailHint')}
         value={user.email}
         readOnly
         disabled
@@ -133,12 +135,12 @@ export function ProfileForm({ user }: { user: UserSummary }): ReactNode {
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={saving}>
-          {saving ? 'Saving…' : 'Save profile'}
+          {saving ? t('saving') : t('saveProfile')}
         </Button>
 
         {saved && (
           <p role="status" className="text-content-muted text-sm">
-            Saved.
+            {t('saved')}
           </p>
         )}
       </div>

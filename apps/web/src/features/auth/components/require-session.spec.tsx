@@ -3,11 +3,13 @@
    and it cannot be hoisted above the import that would define `jest` — so
    importing it silently leaves the real module in place. */
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 
 import { type Session, type SessionStatus } from '../session';
 
 import { RequireSession } from './require-session';
+
+import { renderWithProviders as render } from '@/testing/render-with-providers';
 
 const mockReplace = jest.fn();
 

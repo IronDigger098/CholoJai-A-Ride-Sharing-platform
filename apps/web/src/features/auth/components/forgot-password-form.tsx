@@ -1,6 +1,7 @@
 'use client';
 
 import { forgotPasswordRequestSchema } from '@cholojai/shared';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { forgotPassword } from '../api';
@@ -19,6 +20,7 @@ import { toApiError } from '@/lib/api-error';
  */
 export function ForgotPasswordForm(): ReactNode {
   const id = useId();
+  const t = useTranslations('auth');
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -29,7 +31,7 @@ export function ForgotPasswordForm(): ReactNode {
 
     const parsed = forgotPasswordRequestSchema.safeParse({ email });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Enter your email address');
+      setError(parsed.error.issues[0]?.message ?? t('forgot.enterEmail'));
       return;
     }
 
@@ -49,8 +51,10 @@ export function ForgotPasswordForm(): ReactNode {
   if (sent) {
     return (
       <p role="status" className="text-sm">
-        If <strong>{email}</strong> has an account, a reset link is on its way.
-        It works once and expires in an hour.
+        {t.rich('forgot.sent', {
+          email,
+          strong: (chunks) => <strong>{chunks}</strong>,
+        })}
       </p>
     );
   }
@@ -65,7 +69,7 @@ export function ForgotPasswordForm(): ReactNode {
     >
       <Field
         id={`${id}-email`}
-        label="Email address"
+        label={t('email')}
         type="email"
         autoComplete="email"
         value={email}
@@ -76,7 +80,7 @@ export function ForgotPasswordForm(): ReactNode {
       />
 
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? 'Sending…' : 'Send reset link'}
+        {submitting ? t('forgot.sending') : t('forgot.send')}
       </Button>
     </form>
   );

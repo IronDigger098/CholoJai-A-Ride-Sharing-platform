@@ -1,14 +1,13 @@
 'use client';
 
 import {
-  PAYMENT_METHOD_LABEL,
   PAYMENT_METHOD_ORDER,
   PaymentMethod,
   type Place,
   type VehicleType,
 } from '@cholojai/shared';
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { type ReactNode, useId, useState } from 'react';
 
 import { bookRide, requestQuote } from '../api';
@@ -19,6 +18,7 @@ import { PlaceSearch } from './place-search';
 
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
+import { useRouter } from '@/i18n/navigation';
 import { toApiError } from '@/lib/api-error';
 
 /**
@@ -54,6 +54,8 @@ const COUPON_FAILURES = new Set([
 export function BookingForm(): ReactNode {
   const router = useRouter();
   const id = useId();
+  const t = useTranslations('booking');
+  const methodLabel = useTranslations('paymentMethod');
 
   const [pickup, setPickup] = useState<Place | null>(null);
   const [dropoff, setDropoff] = useState<Place | null>(null);
@@ -140,8 +142,12 @@ export function BookingForm(): ReactNode {
         </p>
       )}
 
-      <PlaceSearch label="Pickup" value={pickup} onSelect={setPickup} />
-      <PlaceSearch label="Destination" value={dropoff} onSelect={setDropoff} />
+      <PlaceSearch label={t('pickup')} value={pickup} onSelect={setPickup} />
+      <PlaceSearch
+        label={t('destination')}
+        value={dropoff}
+        onSelect={setDropoff}
+      />
 
       {/* Two ways into the same two values. Tapping fills whichever point
           is still empty, so the map and the search boxes stay in step
@@ -160,8 +166,8 @@ export function BookingForm(): ReactNode {
           appearing after the rider has already seen a number. */}
       <Field
         id={`${id}-coupon`}
-        label="Promo code"
-        hint="Optional."
+        label={t('promo')}
+        hint={t('optional')}
         value={couponCode}
         onChange={(event) => {
           setCouponCode(event.target.value);
@@ -174,7 +180,7 @@ export function BookingForm(): ReactNode {
         disabled={pickup === null || dropoff === null || quote.isPending}
         className="w-full"
       >
-        {quote.isPending ? 'Getting prices…' : 'See prices'}
+        {quote.isPending ? t('gettingPrices') : t('seePrices')}
       </Button>
 
       {quote.data !== undefined && (
@@ -189,7 +195,7 @@ export function BookingForm(): ReactNode {
               the moment Confirm is pressed, so this is the last thing the
               rider decides and the thing a decline sends them back to. */}
           <fieldset className="space-y-2">
-            <legend className="mb-2 text-sm font-medium">Pay with</legend>
+            <legend className="mb-2 text-sm font-medium">{t('payWith')}</legend>
 
             <div className="flex gap-2">
               {PAYMENT_METHOD_ORDER.map((method) => (
@@ -211,7 +217,7 @@ export function BookingForm(): ReactNode {
                     }}
                     className="accent-accent"
                   />
-                  {PAYMENT_METHOD_LABEL[method]}
+                  {methodLabel(method)}
                 </label>
               ))}
             </div>
@@ -223,7 +229,7 @@ export function BookingForm(): ReactNode {
             disabled={vehicleType === null || booking.isPending}
             className="w-full"
           >
-            {booking.isPending ? 'Booking…' : 'Confirm booking'}
+            {booking.isPending ? t('booking') : t('confirm')}
           </Button>
         </>
       )}

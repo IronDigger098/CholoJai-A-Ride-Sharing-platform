@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, type RenderResult } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 
-import messages from '../../messages/en.json';
+import bn from '../../messages/bn.json';
+import en from '../../messages/en.json';
 
 import type { ReactElement, ReactNode } from 'react';
 
@@ -43,7 +44,7 @@ export function renderWithProviders(
          in Dhaka and fail in CI. */
       <NextIntlClientProvider
         locale={locale}
-        messages={messages}
+        messages={locale === 'bn' ? bn : en}
         timeZone="Asia/Dhaka"
       >
         <QueryClientProvider client={queryClient}>

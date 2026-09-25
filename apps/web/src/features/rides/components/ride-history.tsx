@@ -7,6 +7,7 @@ import {
   RideStatus,
 } from '@cholojai/shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useFormatter, useTranslations } from 'next-intl';
 
 import { listRides } from '../api';
 
@@ -31,6 +32,10 @@ const EXACT = { withDecimals: true } as const;
  * does not do.
  */
 export function RideHistory(): ReactNode {
+  const t = useTranslations('rides');
+  const status = useTranslations('rideStatus');
+  const vehicle = useTranslations('vehicle');
+  const format = useFormatter();
   const {
     data,
     error,
@@ -55,7 +60,7 @@ export function RideHistory(): ReactNode {
   if (isPending) {
     return (
       <p role="status" className="text-content-muted text-sm">
-        Loading…
+        {t('loading')}
       </p>
     );
   }
@@ -73,7 +78,9 @@ export function RideHistory(): ReactNode {
   if (rides.length === 0) {
     return (
       <p className="text-content-muted text-sm">
-        No rides yet. <Link href="/book">Book your first one</Link>.
+        {t.rich('empty', {
+          link: (chunks) => <Link href="/book">{chunks}</Link>,
+        })}
       </p>
     );
   }
@@ -93,10 +100,13 @@ export function RideHistory(): ReactNode {
                     {ride.dropoffAddress}
                   </span>
                   <span className="text-content-subtle block text-xs">
-                    {new Date(ride.requestedAt).toLocaleDateString()} ·{' '}
+                    {format.dateTime(new Date(ride.requestedAt), {
+                      dateStyle: 'medium',
+                    })}{' '}
+                    ·{' '}
                     {ride.status === RideStatus.COMPLETED
-                      ? ride.vehicleType
-                      : ride.status}
+                      ? vehicle(ride.vehicleType)
+                      : status(ride.status)}
                   </span>
                 </span>
 
@@ -118,7 +128,7 @@ export function RideHistory(): ReactNode {
           disabled={isFetchingNextPage}
           className="w-full"
         >
-          {isFetchingNextPage ? 'Loading…' : 'Show older rides'}
+          {isFetchingNextPage ? t('loading') : t('older')}
         </Button>
       )}
     </div>

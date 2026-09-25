@@ -1,12 +1,15 @@
+import { getTranslations } from 'next-intl/server';
+
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { RideDetail } from '@/features/rides/components/ride-detail';
 
-export const metadata: Metadata = {
-  title: 'Your ride',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('rides');
+
+  return { title: t('rideTitle'), robots: { index: false, follow: false } };
+}
 
 /** Params are a promise in Next 15+; the page awaits them. */
 export default async function RidePage({

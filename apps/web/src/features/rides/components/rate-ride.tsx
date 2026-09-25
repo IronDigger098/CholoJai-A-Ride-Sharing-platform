@@ -2,6 +2,7 @@
 
 import { RATING_MAX, RATING_MIN } from '@cholojai/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { type FormEvent, type ReactNode, useId, useState } from 'react';
 
 import { getMyReview, submitReview } from '../api';
@@ -28,6 +29,7 @@ const RATINGS = Array.from(
 export function RateRide({ rideId }: { rideId: string }): ReactNode {
   const queryClient = useQueryClient();
   const id = useId();
+  const t = useTranslations('rides.rate');
 
   const [rating, setRating] = useState<number | null>(null);
   const [comment, setComment] = useState('');
@@ -53,7 +55,7 @@ export function RateRide({ rideId }: { rideId: string }): ReactNode {
     event.preventDefault();
 
     if (rating === null) {
-      setError('Choose a rating first.');
+      setError(t('chooseFirst'));
       return;
     }
 
@@ -69,13 +71,13 @@ export function RateRide({ rideId }: { rideId: string }): ReactNode {
     return (
       <section aria-labelledby={`${id}-heading`} className="space-y-2">
         <h2 id={`${id}-heading`} className="text-sm font-medium">
-          Your rating
+          {t('yours')}
         </h2>
 
         <p className="text-sm">
           <span aria-hidden="true">{stars(existing.rating)}</span>
           <span className="sr-only">
-            {existing.rating} out of {RATING_MAX}
+            {t('outOf', { rating: existing.rating, max: RATING_MAX })}
           </span>
         </p>
 
@@ -89,7 +91,7 @@ export function RateRide({ rideId }: { rideId: string }): ReactNode {
   return (
     <section aria-labelledby={`${id}-heading`} className="space-y-4">
       <h2 id={`${id}-heading`} className="text-sm font-medium">
-        How was your ride?
+        {t('heading')}
       </h2>
 
       {error !== null && (
@@ -100,7 +102,7 @@ export function RateRide({ rideId }: { rideId: string }): ReactNode {
 
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         <fieldset>
-          <legend className="sr-only">Rating</legend>
+          <legend className="sr-only">{t('legend')}</legend>
 
           <div className="flex gap-1">
             {RATINGS.map((value) => (
@@ -119,7 +121,7 @@ export function RateRide({ rideId }: { rideId: string }): ReactNode {
                   name={`${id}-rating`}
                   value={value}
                   checked={rating === value}
-                  aria-label={value === 1 ? '1 star' : `${String(value)} stars`}
+                  aria-label={t('stars', { count: value })}
                   onChange={() => {
                     setRating(value);
                     setError(null);
@@ -143,8 +145,8 @@ export function RateRide({ rideId }: { rideId: string }): ReactNode {
 
         <Field
           id={`${id}-comment`}
-          label="Anything to add?"
-          hint="Optional."
+          label={t('comment')}
+          hint={t('optional')}
           value={comment}
           onChange={(event) => {
             setComment(event.target.value);
@@ -152,7 +154,7 @@ export function RateRide({ rideId }: { rideId: string }): ReactNode {
         />
 
         <Button type="submit" disabled={submit.isPending}>
-          {submit.isPending ? 'Sending…' : 'Submit rating'}
+          {submit.isPending ? t('sending') : t('submit')}
         </Button>
       </form>
     </section>

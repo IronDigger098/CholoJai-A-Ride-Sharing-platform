@@ -7,6 +7,7 @@ import {
   RideStatus,
 } from '@cholojai/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 
 import { cancelRide, getRide } from '../api';
 
@@ -23,6 +24,9 @@ const EXACT = { withDecimals: true } as const;
 
 export function RideDetail({ rideId }: { rideId: string }): ReactNode {
   const queryClient = useQueryClient();
+  const t = useTranslations('rides');
+  const statusLabel = useTranslations('rideStatus');
+  const vehicle = useTranslations('vehicle');
 
   const {
     data: ride,
@@ -45,7 +49,7 @@ export function RideDetail({ rideId }: { rideId: string }): ReactNode {
   if (isPending) {
     return (
       <p role="status" className="text-content-muted text-sm">
-        Loading…
+        {t('loading')}
       </p>
     );
   }
@@ -67,7 +71,7 @@ export function RideDetail({ rideId }: { rideId: string }): ReactNode {
     <div className="space-y-6">
       <div>
         <p className="text-content-subtle text-xs tracking-widest uppercase">
-          {ride.status}
+          {statusLabel(ride.status)}
         </p>
         <h1 className="mt-1 text-2xl font-semibold">
           {formatTaka(ride.fare.total as Paisa, EXACT)}
@@ -76,23 +80,25 @@ export function RideDetail({ rideId }: { rideId: string }): ReactNode {
 
       <dl className="space-y-3 text-sm">
         <div>
-          <dt className="text-content-subtle text-xs">Pickup</dt>
+          <dt className="text-content-subtle text-xs">{t('pickup')}</dt>
           <dd>{ride.pickupAddress}</dd>
         </div>
         <div>
-          <dt className="text-content-subtle text-xs">Destination</dt>
+          <dt className="text-content-subtle text-xs">{t('destination')}</dt>
           <dd>{ride.dropoffAddress}</dd>
         </div>
         <div>
-          <dt className="text-content-subtle text-xs">Vehicle</dt>
-          <dd>{ride.vehicleType}</dd>
+          <dt className="text-content-subtle text-xs">{t('vehicle')}</dt>
+          <dd>{vehicle(ride.vehicleType)}</dd>
         </div>
 
         {/* Shown only once a position has arrived. "Waiting for the driver's
             location" on a ride nobody has accepted yet would be noise. */}
         {driverPosition !== null && (
           <div>
-            <dt className="text-content-subtle text-xs">Driver position</dt>
+            <dt className="text-content-subtle text-xs">
+              {t('driverPosition')}
+            </dt>
             <dd className="tabular-nums" aria-live="polite">
               {driverPosition.lat.toFixed(5)}, {driverPosition.lng.toFixed(5)}
             </dd>
@@ -114,7 +120,7 @@ export function RideDetail({ rideId }: { rideId: string }): ReactNode {
           }}
           disabled={cancel.isPending}
         >
-          {cancel.isPending ? 'Cancelling…' : 'Cancel ride'}
+          {cancel.isPending ? t('cancelling') : t('cancel')}
         </Button>
       )}
 

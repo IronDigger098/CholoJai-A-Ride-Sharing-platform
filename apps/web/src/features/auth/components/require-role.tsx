@@ -1,6 +1,7 @@
 'use client';
 
 import { hasRole, type UserRole } from '@cholojai/shared';
+import { useTranslations } from 'next-intl';
 import { type ReactNode } from 'react';
 
 import { useSession } from '../session';
@@ -51,6 +52,7 @@ function RoleGate({
   children: ReactNode;
 }): ReactNode {
   const { user } = useSession();
+  const t = useTranslations('auth');
 
   /* A refusal, not a redirect. Someone who follows a link to /admin without
      the role has not lost their session, and sending them to /login asks
@@ -58,7 +60,7 @@ function RoleGate({
   if (user === null || !hasRole(user.roles, role)) {
     return (
       <p role="status" className="text-content-muted py-12 text-sm">
-        This area is for administrators.
+        {t('adminOnly')}
       </p>
     );
   }

@@ -1,12 +1,8 @@
 'use client';
 
-import {
-  formatTaka,
-  type Paisa,
-  PAYMENT_METHOD_LABEL,
-  PaymentStatus,
-} from '@cholojai/shared';
+import { formatTaka, type Paisa, PaymentStatus } from '@cholojai/shared';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 
 import { getRidePayment } from '../api';
 
@@ -26,15 +22,10 @@ import type { ReactNode } from 'react';
 const EXACT = { withDecimals: true } as const;
 
 /** What each status means to the person who paid, not to the gateway. */
-const STATUS_NOTE: Record<PaymentStatus, string> = {
-  [PaymentStatus.PENDING]: 'Held until the ride finishes.',
-  [PaymentStatus.SUCCEEDED]: 'Paid.',
-  [PaymentStatus.FAILED]:
-    'This payment did not go through. We will be in touch.',
-  [PaymentStatus.CANCELLED]: 'Released — the ride was cancelled.',
-};
 
 export function RidePayment({ rideId }: { rideId: string }): ReactNode {
+  const t = useTranslations('rides.payment');
+  const method = useTranslations('paymentMethod');
   /* Errors are swallowed on purpose. A ride booked before payments existed
      has none, and the endpoint answers 404 — which is a fact about history
      rather than something to alarm a rider about on their own receipt. */
@@ -51,9 +42,7 @@ export function RidePayment({ rideId }: { rideId: string }): ReactNode {
   return (
     <div className="border-border-strong mt-6 rounded-md border px-4 py-3">
       <div className="flex items-baseline justify-between gap-4">
-        <span className="text-sm font-medium">
-          {PAYMENT_METHOD_LABEL[payment.method]}
-        </span>
+        <span className="text-sm font-medium">{method(payment.method)}</span>
         <span className="text-sm font-semibold tabular-nums">
           {formatTaka(payment.amountPaisa as Paisa, EXACT)}
         </span>
@@ -63,7 +52,7 @@ export function RidePayment({ rideId }: { rideId: string }): ReactNode {
         className={`mt-1 text-xs ${failed ? 'text-danger' : 'text-content-subtle'}`}
         {...(failed ? { role: 'alert' as const } : {})}
       >
-        {STATUS_NOTE[payment.status]}
+        {t(payment.status)}
       </p>
 
       {/* The only string a rider can quote to support about a charge.
