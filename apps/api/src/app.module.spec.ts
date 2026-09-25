@@ -1,7 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
 import { Test } from '@nestjs/testing';
+import { Redis } from 'ioredis';
 
 import { AppModule } from './app.module';
+import { REDIS_CLIENT } from './common/redis/redis.module';
 import { makeTestEnv } from './testing/env.fixture';
 
 /**
@@ -24,15 +26,36 @@ import { makeTestEnv } from './testing/env.fixture';
  * `onModuleInit`, which is where Prisma and Redis dial out — and this suite
  * has no business needing a database to answer a question about wiring.
  *
+ * Redis is the one provider swapped out, for the same reason `init()` is
+ * avoided: its factory opens a socket on construction, and a leaked socket
+ * keeps Jest alive after the run.
+ *
  * The honest limit: this proves the graph *resolves*, not that the app
  * works. A provider that throws on first use still passes here.
  */
 describe('AppModule', () => {
   it('resolves every provider in the application graph', async () => {
-    const moduleRef = Test.createTestingModule({
-      imports: [AppModule.forRoot(makeTestEnv())],
-    });
+    /* The real Redis factory dials out the moment it runs
+       (`lazyConnect: false`) and retries forever against a server this
+       suite never starts. That reconnect loop holds the event loop open,
+       so Jest never exits — and when compilation *fails*, which is the
+       case this test exists for, there is no module left to close. A lazy
+       client under the same token keeps the graph honest (something must
+       still provide REDIS_CLIENT) without opening a socket. */
+    const redis = new Redis({ lazyConnect: true });
 
-    await expect(moduleRef.compile()).resolves.toBeDefined();
+    try {
+      const moduleRef = await Test.createTestingModule({
+        imports: [AppModule.forRoot(makeTestEnv())],
+      })
+        .overrideProvider(REDIS_CLIENT)
+        .useValue(redis)
+        .compile();
+
+      expect(moduleRef).toBeDefined();
+      await moduleRef.close();
+    } finally {
+      redis.disconnect();
+    }
   }, 30_000);
 });

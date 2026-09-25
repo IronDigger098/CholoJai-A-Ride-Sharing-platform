@@ -81,9 +81,9 @@ import { VERIFICATION_TOKEN_REPOSITORY } from './verification-token-repository.p
      `SettingsService` had taken the dependency since M10b.1 and nothing
      caught it: Nest resolves the graph at startup, and no test ever
      started the whole graph — the settings specs construct the service
-     directly with a fake. A unit test cannot see a missing module import,
-     and this one wants an end-to-end boot to catch it. That test is worth
-     writing; it belongs with M11. */
+     directly with a fake. A unit test cannot see a missing module import;
+     `app.module.spec.ts` now assembles the whole graph so the next one
+     fails in CI instead of on boot. */
   exports: [
     AuthService,
     AccessTokenService,
