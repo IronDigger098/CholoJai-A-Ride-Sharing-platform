@@ -29,8 +29,13 @@ const nextConfig: NextConfig = {
      server actually reaches. Vercel does not need it — it traces the same
      dependencies itself — but it is what makes this app deployable
      anywhere else without a `node_modules` the size of the workspace. A
-     build output that only one host can run is a lock-in nobody chose. */
-  output: 'standalone',
+     build output that only one host can run is a lock-in nobody chose.
+
+     Off on Vercel, which sets `VERCEL=1` during its builds. Its build
+     adapter packages the app itself and failed on the standalone layout
+     (`ENOENT … .next/next-server.js.nft.json` in `onBuildComplete`), so
+     the option there is both unneeded and harmful. */
+  ...(process.env['VERCEL'] === '1' ? {} : { output: 'standalone' as const }),
 
   /* `Promise.resolve`, not an `async` method with nothing to await. Next
      types `headers` as returning a promise, so it has to be one — but
