@@ -18,7 +18,10 @@
     "drive": "Drive",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "language": "Language"
+    "language": "Language",
+    "signUp": "Create account",
+    "admin": "Admin",
+    "account": "Account"
   },
   "site": {
     "tagline": "চলো যাই",
@@ -32,7 +35,8 @@
     "footer": {
       "about": "A portfolio project: a ride-sharing platform for Bangladesh's urban market, built to production engineering standards. Inspired by the publicly observable experience of ride-sharing products; all code, branding, copy, and architecture here are original work.",
       "source": "Source on GitHub",
-      "disclaimer": "© 2026 CholoJai. Not a real transport service."
+      "disclaimer": "© 2026 CholoJai. Not a real transport service.",
+      "contact": "Contact us"
     }
   },
   "hero": {

@@ -1,5 +1,7 @@
 import { useTranslations } from 'next-intl';
 
+import { AppNav } from './app-nav';
+
 import type { ReactNode } from 'react';
 
 import { Link } from '@/components/ui/link';
@@ -39,7 +41,7 @@ export function AppHeader(): ReactNode {
         {common('skipToContent')}
       </a>
 
-      <div className="mx-auto flex max-w-3xl items-center gap-4 px-6 py-3">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
         <Link
           href="/"
           className="rounded-xs text-base font-semibold tracking-tight no-underline"
@@ -51,7 +53,8 @@ export function AppHeader(): ReactNode {
           {t('brand')}
         </Link>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <AppNav />
           <Link
             href="/search"
             className="text-content-muted hover:text-content rounded-xs text-sm no-underline"

@@ -1,9 +1,10 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect } from 'react';
 
 import { useSession } from '../session';
+
+import { usePathname, useRouter } from '@/i18n/navigation';
 
 /**
  * Gate a subtree behind a signed-in session.
@@ -26,10 +27,17 @@ export function RequireSession({
 }): ReactNode {
   const { status } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
 
+  /* The page they were trying to reach travels with them, so signing in
+     finishes the journey instead of dropping them on the home page to
+     start it again. The locale-aware router keeps a Bangla reader in
+     Bangla; `next/navigation`'s would send them to the English /login. */
   useEffect(() => {
-    if (status === 'anonymous') router.replace('/login');
-  }, [status, router]);
+    if (status === 'anonymous') {
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    }
+  }, [status, router, pathname]);
 
   if (status !== 'authenticated') {
     return (
